@@ -1,11 +1,17 @@
-const dotenv = require('dotenv')
-dotenv.config()
-require("@nomiclabs/hardhat-waffle");
-require("@nomiclabs/hardhat-etherscan");
-require('@nomiclabs/hardhat-ethers');
-require('@openzeppelin/hardhat-upgrades');
+const dotenv = require("dotenv");
+dotenv.config();
 
-const { PRIVATE_KEY } = process.env;
+import { HardhatUserConfig, task } from "hardhat/config";
+require("@openzeppelin/hardhat-upgrades");
+import "@nomicfoundation/hardhat-toolbox";
+
+const {
+  PRIVATE_KEY,
+  API_KEY_BSC_TESTNET,
+  API_KEY_GOERLI,
+  API_KEY_ETH,
+  API_KEY_BSC_MAINNET,
+} = process.env;
 // This is a sample Hardhat task. To learn how to create your own go to
 // https://hardhat.org/guides/create-task.html
 task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
@@ -19,27 +25,22 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
 // You need to export an object to set up your config
 // Go to https://hardhat.org/config/ to learn more
 
-/**
- * @type import('hardhat/config').HardhatUserConfig
- */
-module.exports = {
-  defaultNetwork: "goerli",
+const config: HardhatUserConfig = {
   etherscan: {
     apiKey: {
       bscTestnet: `${API_KEY_BSC_TESTNET}`,
       goerli: `${API_KEY_GOERLI}`,
       mainnet: `${API_KEY_ETH}`, //eth
-      bsc: `${API_KEY_BSC_MAINNET}` //bsc
-    }
+      bsc: `${API_KEY_BSC_MAINNET}`, //bsc
+    },
   },
   networks: {
     localhost: {
-      url: "http://127.0.0.1:8545"
+      url: "http://127.0.0.1:8545",
     },
-    hardhat: {
-    },
+    hardhat: {},
     goerli: {
-      url: "https://goerli.infura.io/v3/43885af4abc848f0a04f9fdabd95ea43",
+      url: `https://goerli.infura.io/v3/${API_KEY_GOERLI}`,
       chainId: 5,
       accounts: [`0x${PRIVATE_KEY}`],
     },
@@ -54,11 +55,11 @@ module.exports = {
       accounts: [`0x${PRIVATE_KEY}`],
     },
     rinkeby: {
-      url: "https://rinkeby.infura.io/v3/78e016a8a20d4c1e99944ebadf6e732e",
+      url: `https://rinkeby.infura.io/v3/${API_KEY_ETH}`,
       accounts: [`0x${PRIVATE_KEY}`],
     },
     eth: {
-      url: "https://eth-mainnet.gateway.pokt.network/v1/5f3453978e354ab992c4da79",
+      url: `https://eth-mainnet.gateway.pokt.network/v1/${API_KEY_ETH}`,
       chainId: 1,
       accounts: [`0x${PRIVATE_KEY}`],
     },
@@ -75,31 +76,34 @@ module.exports = {
     matic: {
       url: "https://matic-mumbai.chainstacklabs.com/",
       accounts: [`0x${PRIVATE_KEY}`],
-    }
+    },
   },
   solidity: {
-    compilers: [
-      {
-        version: "0.8.16",
-      },
-      {
-        version: "0.8.5",
-      },
-      {
-        version: "0.8.0",
-      },
-      {
-        version: "0.8.17",
-        settings: {},
-      },
-    ],
+    version: "0.8.15",
     settings: {
-      optimizer: {
-        enabled: true
-      }
-    }
+      optimizer: process.env["OPTIMIZER_DISABLED"]
+        ? { enabled: false }
+        : {
+            enabled: true,
+            runs: 1,
+            details: {
+              yulDetails: {
+                optimizerSteps:
+                  "dhfoDgvulfnTUtnIf [xa[r]scLM cCTUtTOntnfDIul Lcul Vcul [j] Tpeul xa[rul] xa[r]cL gvif CTUca[r]LsTOtfDnca[r]Iulc] jmul[jul] VcTOcul jmul",
+              },
+            },
+          },
+      outputSelection: {
+        "*": {
+          "*": ["evm.deployedBytecode.sourceMap"],
+        },
+      },
+      viaIR: process.env["OPTIMIZER_DISABLED"] ? false : true,
+    },
   },
   mocha: {
-    timeout: 20000
-  }
+    timeout: 20000,
+  },
 };
+
+export default config;
