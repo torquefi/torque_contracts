@@ -5,8 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "prettier": "prettier --write 'contracts/**/*.sol'",
-    "lint": "prettier --list-different 'contracts/**/*.sol'"
+    "prettier": "prettier --write 'contracts/TorqueProtocol/**/*.sol'",
+    "lint": "prettier --list-different 'contracts/TorqueProtocol/**/*.sol'"
   },
   "author": "",
   "license": "ISC",
