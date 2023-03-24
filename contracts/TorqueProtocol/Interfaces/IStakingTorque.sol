@@ -1,10 +1,6 @@
 // SPDX-License: MIT
 pragma solidity ^0.8.15;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contract/access/";
-
 /**
 
 ********\                                                
@@ -21,10 +17,10 @@ import "@openzeppelin/contract/access/";
 
  */
 
-contract Torque is ERC20, Ownable {
-    uint256 public constant TOTAL_SUPPLY = 1000000 ether;
+interface IStakingTorque {
+    function mint(address _to, uint256 _amount) external;
 
-    constructor(string memory _name, string memory _symbol) ERC20(_name, _symbol) {
-        _mint(_msgSender(), TOTAL_SUPPLY);
-    }
+    function burn(address _from, uint256 _amount) external;
+
+    function transferFrom(address from, address to, uint256 amount) external;
 }
