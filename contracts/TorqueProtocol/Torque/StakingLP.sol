@@ -4,8 +4,8 @@ pragma solidity ^0.8.13;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "./../Interfaces/IPancakePair.sol";
-import "./../Interfaces/IPancakeRouter.sol";
+import "./../Interfaces/IPair.sol";
+import "./../Interfaces/IRouter.sol";
 import "./../Interfaces/IStakingTorque.sol";
 
 contract StakingLP is Ownable {
@@ -21,21 +21,13 @@ contract StakingLP is Ownable {
     uint256 constant PERIOD_PRECISION = 10000;
     IERC20 public token;
     IStakingTorque public sTorque;
-    IPancakeRouter public router;
-    IPancakePair public pair;
+    IRouter public router;
+    IPair public pair;
 
     bool public enabled;
 
     event Deposit(address indexed user, uint256 amount);
     event Redeem(address indexed user, uint256 amount);
-
-    constructor(address _pair, address _router, address _token, address _sTorqueToken) {
-        pair = IPancakePair(_pair);
-        router = IPancakeRouter(_router);
-        token = IERC20(_token);
-        enabled = false;
-        sTorque = IStakingTorque(_sTorqueToken);
-    }
 
     struct StakeDetail {
         uint256 principal;
@@ -45,6 +37,19 @@ contract StakingLP is Ownable {
     }
 
     mapping(address => StakeDetail) public stakers;
+
+    constructor(address _pair, address _router, address _token, address _sTorqueToken) {
+        pair = IPair(_pair);
+        router = IRouter(_router);
+        token = IERC20(_token);
+        enabled = false;
+        sTorque = IStakingTorque(_sTorqueToken);
+    }
+
+    function updateRouter(address _pair, address _router) public onlyOwner {
+        pair = IPair(_pair);
+        router = IRouter(_router);
+    }
 
     function setEnabled(bool _enabled) external onlyOwner {
         enabled = _enabled;

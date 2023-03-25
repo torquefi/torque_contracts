@@ -11,6 +11,8 @@ const {
   API_KEY_GOERLI,
   API_KEY_ETH,
   API_KEY_BSC_MAINNET,
+  PROJECT_ID_GOERLI,
+  PROJECT_ID_ETH,
 } = process.env;
 // This is a sample Hardhat task. To learn how to create your own go to
 // https://hardhat.org/guides/create-task.html
@@ -40,7 +42,7 @@ const config: HardhatUserConfig = {
     },
     hardhat: {},
     goerli: {
-      url: `https://goerli.infura.io/v3/${API_KEY_GOERLI}`,
+      url: `https://goerli.infura.io/v3/${PROJECT_ID_GOERLI}`,
       chainId: 5,
       accounts: [`0x${PRIVATE_KEY}`],
     },
@@ -59,7 +61,7 @@ const config: HardhatUserConfig = {
       accounts: [`0x${PRIVATE_KEY}`],
     },
     eth: {
-      url: `https://eth-mainnet.gateway.pokt.network/v1/${API_KEY_ETH}`,
+      url: `https://eth-mainnet.gateway.pokt.network/v1/${PROJECT_ID_ETH}`,
       chainId: 1,
       accounts: [`0x${PRIVATE_KEY}`],
     },

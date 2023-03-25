@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
-interface IPancakeRouter {
+interface IRouter {
     function getAmountsOut(
         uint256 amountIn,
         address[] memory path
