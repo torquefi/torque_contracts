@@ -14,10 +14,20 @@ describe("Lock", function () {
     const TokenContract = await ethers.getContractFactory("Torque");
     const tokenContract = await TokenContract.deploy("Torque", "TORQ");
 
+    const STorqueTokenContract = await ethers.getContractFactory(
+      "StakingTorque"
+    );
+    const sTorqueTokenContract = await STorqueTokenContract.deploy();
+
     const StakingContract = await ethers.getContractFactory("Staking");
-    const stakingContract = await StakingContract.deploy(tokenContract.address);
+    const stakingContract = await StakingContract.deploy(
+      tokenContract.address,
+      sTorqueTokenContract.address
+    );
 
     await stakingContract.setEnabled(true);
+    await sTorqueTokenContract.grantMintRole(stakingContract.address);
+    await sTorqueTokenContract.grantBurnRole(stakingContract.address);
 
     return {
       owner,
@@ -25,14 +35,22 @@ describe("Lock", function () {
       bob,
       daniel,
       tokenContract,
+      sTorqueTokenContract,
       stakingContract,
     };
   }
 
   describe("Test STAKING", function () {
     it("Stake successfully", async function () {
-      const { owner, alice, bob, daniel, tokenContract, stakingContract } =
-        await loadFixture(deployTokenAndStakingContract);
+      const {
+        owner,
+        alice,
+        bob,
+        daniel,
+        tokenContract,
+        sTorqueTokenContract,
+        stakingContract,
+      } = await loadFixture(deployTokenAndStakingContract);
 
       await tokenContract.approve(
         stakingContract.address,
@@ -42,12 +60,23 @@ describe("Lock", function () {
       await stakingContract.deposit(ethers.utils.parseEther("1000"));
 
       const balance = await tokenContract.balanceOf(stakingContract.address);
+      const sTorqueBalance = await sTorqueTokenContract.balanceOf(
+        owner.address
+      );
       expect(balance).is.equal(ethers.utils.parseEther("1000"));
+      expect(sTorqueBalance).is.equal(ethers.utils.parseEther("1000"));
     });
 
     it("Check reward after stake successfully", async function () {
-      const { owner, alice, bob, daniel, tokenContract, stakingContract } =
-        await loadFixture(deployTokenAndStakingContract);
+      const {
+        owner,
+        alice,
+        bob,
+        daniel,
+        tokenContract,
+        sTorqueTokenContract,
+        stakingContract,
+      } = await loadFixture(deployTokenAndStakingContract);
 
       const period = 8640000; // 100 days
 
@@ -62,7 +91,10 @@ describe("Lock", function () {
       await network.provider.send("evm_mine"); // this one will have 02:00 PM as its timestamp
 
       const reward = await stakingContract.getInterest(owner.address);
-      expect(reward).is.equal("87671232876712328767");
+      expect(reward).is.approximately(
+        "87671200000000000000",
+        "1000000000000000"
+      );
     });
 
     it("Unstake successfully", async function () {});

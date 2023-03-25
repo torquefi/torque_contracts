@@ -27,10 +27,7 @@ contract StakingTorque is ERC20, Ownable, AccessControl, IStakingTorque {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant BURNER_ROLE = keccak256("BURNER_ROLE");
 
-    constructor(address _minter, address _burner) ERC20("StakingTorque", "sTORQ") {
-        _setupRole(MINTER_ROLE, _minter);
-        _setupRole(BURNER_ROLE, _burner);
-    }
+    constructor() ERC20("StakingTorque", "sTORQ") {}
 
     function mint(address _to, uint256 _amount) public {
         require(hasRole(MINTER_ROLE, msg.sender), "Caller is not a minter");
@@ -56,5 +53,13 @@ contract StakingTorque is ERC20, Ownable, AccessControl, IStakingTorque {
 
     function revokeBurnRole(address _oldBurner) public onlyOwner {
         _revokeRole(BURNER_ROLE, _oldBurner);
+    }
+
+    function transferFrom(
+        address from,
+        address to,
+        uint256 amount
+    ) public override(ERC20, IStakingTorque) returns (bool) {
+        return ERC20.transferFrom(from, to, amount);
     }
 }
