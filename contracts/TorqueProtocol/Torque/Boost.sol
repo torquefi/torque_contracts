@@ -1,6 +1,9 @@
 // SPDX-License: MIT
 pragma solidity ^0.8.15;
 
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "../Interfaces/IStargateLPStaking.sol";
+
 /**
 
 ********\                                                
@@ -17,21 +20,34 @@ pragma solidity ^0.8.15;
 
  */
 
-contract Boost {
+contract Boost is Ownable {
     // variables and mapping
-    address public stargateAddress;
+    IStargateLPStaking lpStaking;
+    // address[] public stakeHolders;
+
+    mapping(address => mapping(uint256 => UserInfo)) public userInfo;
+    mapping(address => mapping(uint256 => bool)) public isStakeHolder;
+    mapping(uint256 => address[]) public stakeHolders;
 
     // structs and events
+    struct UserInfo {
+        uint256 amount;
+        uint256 reward;
+        uint256 lastProcess;
+    }
+
     // constructor and functions
     constructor(address _stargateAddress) {
-        stargateAddress = _stargateAddress;
+        lpStaking = IStargateLPStaking(_stargateAddress);
     }
 
     function deposit() public {}
 
     function withdraw() public {}
 
-    function autoYield() public {}
+    function autoCompound() public {}
 
     function claimReward() public {}
+
+    // internal functions
 }
