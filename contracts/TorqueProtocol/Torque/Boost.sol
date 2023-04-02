@@ -50,4 +50,5 @@ contract Boost is Ownable {
     function claimReward() public {}
 
     // internal functions
+    function calculate(uint256 _pid) public view returns (uint256) {}
 }
