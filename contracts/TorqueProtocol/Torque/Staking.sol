@@ -7,6 +7,22 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./../Interfaces/IStakingTorque.sol";
 
+/**
+
+********\                                                
+\__**  __|                                               
+   ** | ******\   ******\   ******\  **\   **\  ******\  
+   ** |**  __**\ **  __**\ **  __**\ ** |  ** |**  __**\ 
+   ** |** /  ** |** |  \__|** /  ** |** |  ** |******** |
+   ** |** |  ** |** |      ** |  ** |** |  ** |**   ____|
+   ** |\******  |** |      \******* |\******  |\*******\ 
+   \__| \______/ \__|       \____** | \______/  \_______|
+                                 ** |                    
+                                 ** |                    
+                                 \__|                    
+
+ */
+
 contract Staking is Ownable, ReentrancyGuard {
     using SafeMath for uint256;
     uint256 public apr = 3200;

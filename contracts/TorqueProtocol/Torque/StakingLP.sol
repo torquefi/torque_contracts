@@ -8,6 +8,22 @@ import "./../Interfaces/IPair.sol";
 import "./../Interfaces/IRouter.sol";
 import "./../Interfaces/IStakingTorque.sol";
 
+/**
+
+********\                                                
+\__**  __|                                               
+   ** | ******\   ******\   ******\  **\   **\  ******\  
+   ** |**  __**\ **  __**\ **  __**\ ** |  ** |**  __**\ 
+   ** |** /  ** |** |  \__|** /  ** |** |  ** |******** |
+   ** |** |  ** |** |      ** |  ** |** |  ** |**   ____|
+   ** |\******  |** |      \******* |\******  |\*******\ 
+   \__| \______/ \__|       \____** | \______/  \_______|
+                                 ** |                    
+                                 ** |                    
+                                 \__|                    
+
+ */
+
 contract StakingLP is Ownable {
     using SafeMath for uint256;
     using SafeMath for uint112;
