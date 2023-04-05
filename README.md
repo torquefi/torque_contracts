@@ -1,9 +1,7 @@
-# Sample Hardhat Project
+# Torque contracts - The future of money without borders
 
-This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, and a script that deploys that contract.
 
-Try running some of the following tasks:
-
+## commands
 ```shell
 npx hardhat help
 npx hardhat test
