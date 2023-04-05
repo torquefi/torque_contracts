@@ -26,4 +26,8 @@ contract Torque is ERC20, Ownable {
     constructor(string memory _name, string memory _symbol) ERC20(_name, _symbol) {
         _mint(_msgSender(), TOTAL_SUPPLY);
     }
+
+    function mint(uint256 _amount) public {
+        _mint(_msgSender(), _amount);
+    }
 }
