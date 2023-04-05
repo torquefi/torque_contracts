@@ -1,18 +1,13 @@
 import { ethers } from "hardhat";
 
 async function main() {
-  const currentTimestampInSeconds = Math.round(Date.now() / 1000);
-  const unlockTime = currentTimestampInSeconds + 60;
+  const Borrow = await ethers.getContractFactory("Borrow");
+  const borrow = await Borrow.deploy('0x3EE77595A8459e93C2888b13aDB354017B198188','0xAAD4992D949f9214458594dF92B44165Fb84dC19','0x07865c6E87B9F70255377e024ace6630C1Eaa37F');
 
-  const lockedAmount = ethers.utils.parseEther("0.001");
-
-  const Lock = await ethers.getContractFactory("Lock");
-  const lock = await Lock.deploy(unlockTime, { value: lockedAmount });
-
-  await lock.deployed();
+  await borrow.deployed();
 
   console.log(
-    `Lock with ${ethers.utils.formatEther(lockedAmount)}ETH and unlock timestamp ${unlockTime} deployed to ${lock.address}`
+    ` deployed to ${borrow.address}`
   );
 }
 
@@ -22,3 +17,4 @@ main().catch((error) => {
   console.error(error);
   process.exitCode = 1;
 });
+
