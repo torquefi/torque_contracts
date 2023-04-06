@@ -16,4 +16,6 @@ interface IComet {
 function getAssetInfo(uint8 i) external view returns (AssetInfo memory);
 function getPrice(address priceFeed) external view returns (uint256) ;
 function allow(address manager, bool isAllowed_) external ;
+function getBorrowRate(uint utilization) external view returns (uint64);
+function getUtilization() external view returns (uint);
 }
