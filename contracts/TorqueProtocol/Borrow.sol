@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 import "../CompoundBase/IWETH9.sol";
-import "../CompoundBase/bulkers/IBucker.sol";
+import "../CompoundBase/bulkers/IBulker.sol";
 import "../CompoundBase/IComet.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
@@ -149,7 +149,7 @@ contract Borrow is ReentrancyGuard{
         bytes memory withdrawAssetCalldata = abi.encode(comet, msg.sender, usdc, amountBorrow);
         callData[1] = withdrawAssetCalldata;
 
-        IBucker(bucker).invoke(actions, callData);
+        IBulker(bucker).invoke(actions, callData);
     }
 
 
@@ -204,6 +204,6 @@ contract Borrow is ReentrancyGuard{
         bytes memory withdrawAssetCalldata = abi.encode(comet, msg.sender, usdc, amountClaim);
         callData[1] = withdrawAssetCalldata;
 
-        IBucker(bucker).invoke(actions, callData);
+        IBulker(bucker).invoke(actions, callData);
     }
 }

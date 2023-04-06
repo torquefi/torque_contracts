@@ -80,6 +80,7 @@ const config: HardhatUserConfig = {
       accounts: [`0x${PRIVATE_KEY}`],
     },
   },
+  defaultNetwork: "goerli",
   solidity: {
     version: "0.8.15",
     settings: {
