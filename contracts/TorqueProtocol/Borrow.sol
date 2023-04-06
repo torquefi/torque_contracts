@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 import "../CompoundBase/IWETH9.sol";
-import "../CompoundBase/bulkers/IBucker.sol";
+import "../CompoundBase/bulkers/IBulker.sol";
 import "../CompoundBase/IComet.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
@@ -54,8 +54,8 @@ function _authorizeUpgrade(address) internal override onlyOwner {}
 
 
 // Test only
-    function setBucker(address _bulker) public {
-        bucker = _bulker;
+    function setBulker(address _bulker) public {
+        bulker = _bulker;
     }
     function setasset(address _asset) public {
         asset = payable(_asset);
@@ -111,7 +111,7 @@ function _authorizeUpgrade(address) internal override onlyOwner {}
         bytes memory withdrawAssetCalldata = abi.encode(comet, address(this), usdc, amountBorrow);
         callData[1] = withdrawAssetCalldata;
 
-        IBucker(bucker).invoke(actions, callData);
+        IBulker(bulker).invoke(actions, callData);
         ERC20(usdc).transfer(msg.sender, amountBorrow);
     }
 
@@ -138,6 +138,6 @@ function _authorizeUpgrade(address) internal override onlyOwner {}
         bytes memory withdrawAssetCalldata = abi.encode(comet, address(this), usdc, amountClaim);
         callData[1] = withdrawAssetCalldata;
 
-        IBucker(bucker).invoke(actions, callData);
+        IBulker(bulker).invoke(actions, callData);
     }
 }
