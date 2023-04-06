@@ -10,7 +10,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 contract Borrow is ReentrancyGuard{
     using SafeMath for uint256;
 
-    address public bucker =0xf82AAB8ae0E7F6a2ecBfe2375841d83AeA4cb9cE;
+    address public bulker = 0xf82AAB8ae0E7F6a2ecBfe2375841d83AeA4cb9cE;
     address public asset = 0xAAD4992D949f9214458594dF92B44165Fb84dC19;
     address usdc = 0x07865c6E87B9F70255377e024ace6630C1Eaa37F;
     address comet = 0x3EE77595A8459e93C2888b13aDB354017B198188;
@@ -41,8 +41,8 @@ contract Borrow is ReentrancyGuard{
 
 
 // Test only
-    function setBucker(address _bulker) public {
-        bucker = _bulker;
+    function setBulker(address _bulker) public {
+        bulker = _bulker;
     }
     function setasset(address _asset) public {
         asset = payable(_asset);
@@ -149,7 +149,7 @@ contract Borrow is ReentrancyGuard{
         bytes memory withdrawAssetCalldata = abi.encode(comet, msg.sender, usdc, amountBorrow);
         callData[1] = withdrawAssetCalldata;
 
-        IBulker(bucker).invoke(actions, callData);
+        IBulker(bulker).invoke(actions, callData);
     }
 
 
@@ -204,6 +204,6 @@ contract Borrow is ReentrancyGuard{
         bytes memory withdrawAssetCalldata = abi.encode(comet, msg.sender, usdc, amountClaim);
         callData[1] = withdrawAssetCalldata;
 
-        IBulker(bucker).invoke(actions, callData);
+        IBulker(bulker).invoke(actions, callData);
     }
 }
