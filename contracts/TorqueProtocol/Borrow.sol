@@ -3,7 +3,6 @@ pragma solidity ^0.8.6;
 import "../CompoundBase/IWETH9.sol";
 import "../CompoundBase/bulkers/IBulker.sol";
 import "../CompoundBase/IComet.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
@@ -42,16 +41,12 @@ contract Borrow  is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgradea
     }
 
     mapping(address => BorrowInfo) public borrowInfoMap;
+    event UserBorrow(address user, address collateralAddress, uint amount);
+    event UserRepay(address user, address collateralAddress, uint repayAmount, uint claimAmount);
     
-    // constructor(address _comet, address _asset, address _baseAsset) {
-    //     comet = _comet;
-    //     asset = _asset;
-    //     baseAsset = _baseAsset;
-    // }
-function _authorizeUpgrade(address) internal override onlyOwner {}
+    function _authorizeUpgrade(address) internal override onlyOwner {}
 
-    function initialize(address _comet, address _asset, address _baseAsset, address _bulker
-    ) public initializer {
+    function initialize(address _comet, address _asset, address _baseAsset, address _bulker) public initializer {
         comet = _comet;
         asset = _asset;
         baseAsset = _baseAsset;
@@ -99,17 +94,15 @@ function _authorizeUpgrade(address) internal override onlyOwner {}
         BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
         uint borrowable = maxBorrow.sub(userBorrowInfo.borrowed);
         require(borrowable >= supplyAmount, "borrow cap exceed");
-        ERC20(asset).approve(comet, supplyAmount);
-        // ERC20(asset).approve(bulker, supplyAmount);
-        require(ERC20(asset).transferFrom(msg.sender,address(this), supplyAmount), "transfer asset fail");
+        require(ERC20(asset).transferFrom(msg.sender, address(this), supplyAmount), "transfer asset fail");
 
         if(userBorrowInfo.borrowed > 0) {
             uint accruedInterest = calculateInterest(userBorrowInfo.borrowed, userBorrowInfo.borrowTime);
             userBorrowInfo.accruedInterest += accruedInterest;
         }
 
-        userBorrowInfo.borrowed += supplyAmount;
-        userBorrowInfo.supplied += supplyAmount;
+        userBorrowInfo.borrowed = userBorrowInfo.borrowed.add(borrowAmount);
+        userBorrowInfo.supplied = userBorrowInfo.supplied.add(supplyAmount);
         userBorrowInfo.borrowTime = block.timestamp;
         
 
@@ -126,6 +119,7 @@ function _authorizeUpgrade(address) internal override onlyOwner {}
         bytes memory withdrawAssetCalldata = abi.encode(comet, address(this), baseAsset, borrowAmount);
         callData[1] = withdrawAssetCalldata;
 
+        ERC20(asset).approve(comet, supplyAmount);
         IBulker(bulker).invoke(actions, callData);
         ERC20(baseAsset).transfer(msg.sender, borrowAmount);
     }
@@ -140,7 +134,8 @@ function _authorizeUpgrade(address) internal override onlyOwner {}
 
         uint interest = calculateInterest(borrowAmount, userBorrowInfo.borrowTime) + extraInterest;
 
-        require(ERC20(baseAsset).transferFrom(msg.sender,address(this), borrowAmount + interest), "transfer asset fail");
+        uint repayAmount = borrowAmount + interest;
+        require(ERC20(baseAsset).transferFrom(msg.sender,address(this), repayAmount), "transfer asset fail");
 
         uint[] memory actions = new uint[](2);
 
@@ -149,17 +144,46 @@ function _authorizeUpgrade(address) internal override onlyOwner {}
 
         bytes[] memory callData = new bytes[](2);
 
-        bytes memory supplyAssetCalldata = abi.encode(comet, address(this), baseAsset, borrowAmount);
+        bytes memory supplyAssetCalldata = abi.encode(comet, address(this), baseAsset, repayAmount);
         callData[0] = supplyAssetCalldata;
 
         bytes memory withdrawAssetCalldata = abi.encode(comet, address(this), asset, supplyAmount);
         callData[1] = withdrawAssetCalldata;
 
+        ERC20(baseAsset).approve(comet, repayAmount);
         IBulker(bulker).invoke(actions, callData);
 
         userBorrowInfo.borrowed = userBorrowInfo.borrowed.sub(borrowAmount);
         userBorrowInfo.supplied = userBorrowInfo.supplied.sub(supplyAmount);
         userBorrowInfo.accruedInterest = userBorrowInfo.accruedInterest.sub(extraInterest);
+    }
+    function borrowBalanceOf(address user) public view returns (uint) {
+        
+        BorrowInfo storage userBorrowInfo = borrowInfoMap[user];
+        if(userBorrowInfo.borrowed == 0) {
+            return 0;
+        }
+
+        uint borrowAmount = userBorrowInfo.borrowed;
+        uint extraInterest = userBorrowInfo.accruedInterest.mul(borrowAmount).div(userBorrowInfo.borrowed);
+
+        uint interest = calculateInterest(borrowAmount, userBorrowInfo.borrowTime) + extraInterest;
+
+        return borrowAmount + interest;
+    }
+
+    function partialBorrowBalanceOf(address user, uint borrowAmount) public view returns (uint) {
+        
+        BorrowInfo storage userBorrowInfo = borrowInfoMap[user];
+        if(userBorrowInfo.borrowed == 0) {
+            return 0;
+        }
+
+        uint extraInterest = userBorrowInfo.accruedInterest.mul(borrowAmount).div(userBorrowInfo.borrowed);
+
+        uint interest = calculateInterest(borrowAmount, userBorrowInfo.borrowTime) + extraInterest;
+
+        return borrowAmount + interest;
     }
 
     function calculateInterest(uint borrowAmount, uint borrowTime) public view returns (uint) {
