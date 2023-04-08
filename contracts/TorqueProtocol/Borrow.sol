@@ -121,13 +121,14 @@ contract Borrow  is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgradea
 
         ERC20(asset).approve(comet, supplyAmount);
         IBulker(bulker).invoke(actions, callData);
+        
         ERC20(baseAsset).transfer(msg.sender, borrowAmount);
     }
 
 
     function repay(uint borrowAmount) public nonReentrant(){
         BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
-        require(userBorrowInfo.borrowed <= borrowAmount, "exceed current borrowed amount");
+        require(userBorrowInfo.borrowed >= borrowAmount, "exceed current borrowed amount");
 
         uint supplyAmount = userBorrowInfo.supplied.mul(borrowAmount).div(userBorrowInfo.borrowed);
         uint extraInterest = userBorrowInfo.accruedInterest.mul(borrowAmount).div(userBorrowInfo.borrowed);
@@ -156,6 +157,8 @@ contract Borrow  is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgradea
         userBorrowInfo.borrowed = userBorrowInfo.borrowed.sub(borrowAmount);
         userBorrowInfo.supplied = userBorrowInfo.supplied.sub(supplyAmount);
         userBorrowInfo.accruedInterest = userBorrowInfo.accruedInterest.sub(extraInterest);
+
+        ERC20(asset).transfer(msg.sender, supplyAmount);
     }
     function borrowBalanceOf(address user) public view returns (uint) {
         
