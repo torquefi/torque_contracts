@@ -42,7 +42,7 @@ const config: HardhatUserConfig = {
     },
     hardhat: {},
     goerli: {
-      url: `https://goerli.infura.io/v3/${PROJECT_ID_GOERLI}`,
+      url: `https://goerli.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161`,
       chainId: 5,
       accounts: [`0x${PRIVATE_KEY}`],
     },
@@ -80,6 +80,7 @@ const config: HardhatUserConfig = {
       accounts: [`0x${PRIVATE_KEY}`],
     },
   },
+  defaultNetwork: "goerli",
   solidity: {
     version: "0.8.15",
     settings: {
