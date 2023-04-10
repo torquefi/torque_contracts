@@ -17,10 +17,10 @@ pragma solidity ^0.8.15;
 
  */
 
-interface IStakingTorque {
-    function mint(address _to, uint256 _amount) external;
+interface IStargateLPStaking {
+    function deposit(uint256 _pid, uint256 _amount) external;
 
-    function burn(address _from, uint256 _amount) external;
+    function withdraw(uint256 _pid, uint256 _amount) external;
 
-    function transferFrom(address from, address to, uint256 amount) external returns (bool);
+    function emergencyWithdraw(uint256 _pid) external;
 }
