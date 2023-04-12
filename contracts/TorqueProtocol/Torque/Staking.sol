@@ -29,7 +29,7 @@ contract Staking is Ownable, ReentrancyGuard {
     uint256 constant RATE_PRECISION = 10000;
     uint256 constant ONE_YEAR_IN_SECONDS = 365 days;
     uint256 constant ONE_DAY_IN_SECONDS = 1 days;
-    uint256 constant COOLDOWN_TIME = 7 days;
+    uint256 cooldownTime = 7 days;
 
     uint256 constant PERIOD_PRECISION = 10000;
     IERC20 public token;
@@ -69,6 +69,10 @@ contract Staking is Ownable, ReentrancyGuard {
 
     function emergencyWithdraw(uint256 _amount) external onlyOwner {
         token.transfer(msg.sender, _amount);
+    }
+
+    function setCooldownTime(uint256 _cooldownTime) public onlyOwner {
+        cooldownTime = _cooldownTime;
     }
 
     function getStakeDetail(
@@ -133,7 +137,7 @@ contract Staking is Ownable, ReentrancyGuard {
         StakeDetail storage stakeDetail = stakers[msg.sender];
         require(stakeDetail.firstStakeAt > 0, "StakingTorque: no stake");
         require(
-            stakeDetail.lastProcessAt + COOLDOWN_TIME <= block.timestamp,
+            stakeDetail.lastProcessAt + cooldownTime <= block.timestamp,
             "Not reach cool down time"
         );
 

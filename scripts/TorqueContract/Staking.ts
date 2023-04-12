@@ -3,8 +3,8 @@ import { ethers } from "hardhat";
 async function main() {
   const StakingContract = await ethers.getContractFactory("Staking");
   const stakingContract = await StakingContract.deploy(
-    "0x4Aa7aed6BDa411534801D1d64227Bc1CFA79A1Dd", // torque token
-    "0x6f780722d64fE2d3b3FeB15c4F2E0D92f64299a1" //s torque token
+    "0xB98EfE47A7Ed24CBAF02318BCe8e6413A2d11a49", // torque token
+    "0xD373522e549a29A7E46988ad5dD151Ea702C82E5" //s torque token
   );
 
   await stakingContract.deployed();
