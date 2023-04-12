@@ -2,6 +2,7 @@ import { time, loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import { expect } from "chai";
 import { ethers, network } from "hardhat";
+import { BigNumber } from "ethers";
 
 describe("Staking Contracts", function () {
   // We define a fixture to reuse the same setup in every test.
@@ -97,9 +98,87 @@ describe("Staking Contracts", function () {
       );
     });
 
-    it("Unstake successfully", async function () {});
+    it("Unstake successfully", async function () {
+      const {
+        owner,
+        alice,
+        bob,
+        daniel,
+        tokenContract,
+        sTorqueTokenContract,
+        stakingContract,
+      } = await loadFixture(deployTokenAndStakingContract);
 
-    it("Stake multi time successfully", async function () {});
+      const period = 8640000; // 100 days
+      const stakeAmount = ethers.utils.parseEther("1000");
+      const initialTokenBalance = ethers.utils.parseEther("1000000");
+      const contractRewardTreasury = ethers.utils.parseEther("500000");
+
+      await tokenContract.approve(stakingContract.address, stakeAmount);
+
+      await stakingContract.deposit(ethers.utils.parseEther("1000"));
+
+      await network.provider.send("evm_increaseTime", [period]);
+      await network.provider.send("evm_mine"); // this one will have 02:00 PM as its timestamp
+      // transfer treasury token
+      await tokenContract.transfer(
+        stakingContract.address,
+        contractRewardTreasury
+      );
+      // approve sTorque
+      await sTorqueTokenContract.approve(stakingContract.address, stakeAmount);
+
+      // redeem
+      await stakingContract.redeem(stakeAmount);
+      const tokenAfterRedeem = await tokenContract.balanceOf(owner.address);
+      const interestFee = BigNumber.from("87671200000000000000");
+
+      expect(tokenAfterRedeem).is.approximately(
+        initialTokenBalance.sub(contractRewardTreasury).add(interestFee),
+        "1000000000000000"
+      );
+    });
+
+    it("Stake multi time successfully", async function () {
+      const {
+        owner,
+        alice,
+        bob,
+        daniel,
+        tokenContract,
+        sTorqueTokenContract,
+        stakingContract,
+      } = await loadFixture(deployTokenAndStakingContract);
+
+      const period = 8640000; // 100 days
+      const stakeAmount = ethers.utils.parseEther("1000");
+      const initialTokenBalance = ethers.utils.parseEther("1000000");
+      const contractRewardTreasury = ethers.utils.parseEther("500000");
+
+      await tokenContract.approve(stakingContract.address, stakeAmount);
+
+      await stakingContract.deposit(ethers.utils.parseEther("1000"));
+
+      await network.provider.send("evm_increaseTime", [period]);
+      await network.provider.send("evm_mine"); // this one will have 02:00 PM as its timestamp
+      // transfer treasury token
+      await tokenContract.transfer(
+        stakingContract.address,
+        contractRewardTreasury
+      );
+      // approve sTorque
+      await sTorqueTokenContract.approve(stakingContract.address, stakeAmount);
+
+      // redeem
+      await stakingContract.redeem(stakeAmount);
+      const tokenAfterRedeem = await tokenContract.balanceOf(owner.address);
+      const interestFee = BigNumber.from("87671200000000000000");
+
+      expect(tokenAfterRedeem).is.approximately(
+        initialTokenBalance.sub(contractRewardTreasury).add(interestFee),
+        "1000000000000000"
+      );
+    });
 
     it("Stake multi time with exact reward successfully", async function () {});
 

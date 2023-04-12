@@ -133,7 +133,7 @@ contract Staking is Ownable, ReentrancyGuard {
         StakeDetail storage stakeDetail = stakers[msg.sender];
         require(stakeDetail.firstStakeAt > 0, "StakingTorque: no stake");
         require(
-            stakeDetail.lastProcessAt + COOLDOWN_TIME >= block.timestamp,
+            stakeDetail.lastProcessAt + COOLDOWN_TIME <= block.timestamp,
             "Not reach cool down time"
         );
 
