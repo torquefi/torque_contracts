@@ -43,6 +43,8 @@ describe("Staking Contracts", function () {
 
   describe("Test STAKING", function () {
     it("Stake successfully", async function () {
+      const stakeAmount = ethers.utils.parseEther("1000");
+
       const {
         owner,
         alice,
@@ -53,12 +55,8 @@ describe("Staking Contracts", function () {
         stakingContract,
       } = await loadFixture(deployTokenAndStakingContract);
 
-      await tokenContract.approve(
-        stakingContract.address,
-        ethers.utils.parseEther("1000")
-      );
-
-      await stakingContract.deposit(ethers.utils.parseEther("1000"));
+      await tokenContract.approve(stakingContract.address, stakeAmount);
+      await stakingContract.deposit(stakeAmount);
 
       const balance = await tokenContract.balanceOf(stakingContract.address);
       const sTorqueBalance = await sTorqueTokenContract.balanceOf(
@@ -115,8 +113,7 @@ describe("Staking Contracts", function () {
       const contractRewardTreasury = ethers.utils.parseEther("500000");
 
       await tokenContract.approve(stakingContract.address, stakeAmount);
-
-      await stakingContract.deposit(ethers.utils.parseEther("1000"));
+      await stakingContract.deposit(stakeAmount);
 
       await network.provider.send("evm_increaseTime", [period]);
       await network.provider.send("evm_mine"); // this one will have 02:00 PM as its timestamp
@@ -155,9 +152,14 @@ describe("Staking Contracts", function () {
       const initialTokenBalance = ethers.utils.parseEther("1000000");
       const contractRewardTreasury = ethers.utils.parseEther("500000");
 
-      await tokenContract.approve(stakingContract.address, stakeAmount);
+      await tokenContract.approve(stakingContract.address, stakeAmount.div(2));
+      await stakingContract.deposit(stakeAmount.div(2));
 
-      await stakingContract.deposit(ethers.utils.parseEther("1000"));
+      await network.provider.send("evm_increaseTime", [period]);
+      await network.provider.send("evm_mine"); // this one will have 02:00 PM as its timestamp
+
+      await tokenContract.approve(stakingContract.address, stakeAmount.div(2));
+      await stakingContract.deposit(stakeAmount.div(2));
 
       await network.provider.send("evm_increaseTime", [period]);
       await network.provider.send("evm_mine"); // this one will have 02:00 PM as its timestamp
@@ -180,7 +182,51 @@ describe("Staking Contracts", function () {
       );
     });
 
-    it("Stake multi time with exact reward successfully", async function () {});
+    it("Stake multi time with exact reward successfully", async function () {
+      const {
+        owner,
+        alice,
+        bob,
+        daniel,
+        tokenContract,
+        sTorqueTokenContract,
+        stakingContract,
+      } = await loadFixture(deployTokenAndStakingContract);
+
+      const period = 8640000; // 100 days
+      const stakeAmount = ethers.utils.parseEther("1000");
+      const initialTokenBalance = ethers.utils.parseEther("1000000");
+      const contractRewardTreasury = ethers.utils.parseEther("500000");
+
+      await tokenContract.approve(stakingContract.address, stakeAmount.div(2));
+      await stakingContract.deposit(stakeAmount.div(2));
+
+      await network.provider.send("evm_increaseTime", [period]);
+      await network.provider.send("evm_mine"); // this one will have 02:00 PM as its timestamp
+
+      await tokenContract.approve(stakingContract.address, stakeAmount.div(2));
+      await stakingContract.deposit(stakeAmount.div(2));
+
+      await network.provider.send("evm_increaseTime", [period]);
+      await network.provider.send("evm_mine"); // this one will have 02:00 PM as its timestamp
+      // transfer treasury token
+      await tokenContract.transfer(
+        stakingContract.address,
+        contractRewardTreasury
+      );
+      // approve sTorque
+      await sTorqueTokenContract.approve(stakingContract.address, stakeAmount);
+
+      // redeem
+      await stakingContract.redeem(stakeAmount);
+      const tokenAfterRedeem = await tokenContract.balanceOf(owner.address);
+      const interestFee = BigNumber.from("87671200000000000000");
+
+      expect(tokenAfterRedeem).is.approximately(
+        initialTokenBalance.sub(contractRewardTreasury).add(interestFee),
+        "1000000000000000"
+      );
+    });
 
     it("Stake multi time and update timestamp successfully", async function () {});
 
@@ -188,7 +234,53 @@ describe("Staking Contracts", function () {
 
     it("Redeem reward and token successfully", async function () {});
 
-    it("Change APR successfully", async function () {});
+    it("Change APR successfully", async function () {
+      const {
+        owner,
+        alice,
+        bob,
+        daniel,
+        tokenContract,
+        sTorqueTokenContract,
+        stakingContract,
+      } = await loadFixture(deployTokenAndStakingContract);
+
+      await stakingContract.updateAPR(1600);
+
+      const period = 8640000; // 100 days
+      const stakeAmount = ethers.utils.parseEther("1000");
+      const initialTokenBalance = ethers.utils.parseEther("1000000");
+      const contractRewardTreasury = ethers.utils.parseEther("500000");
+
+      await tokenContract.approve(stakingContract.address, stakeAmount.div(2));
+      await stakingContract.deposit(stakeAmount.div(2));
+
+      await network.provider.send("evm_increaseTime", [period]);
+      await network.provider.send("evm_mine"); // this one will have 02:00 PM as its timestamp
+
+      await tokenContract.approve(stakingContract.address, stakeAmount.div(2));
+      await stakingContract.deposit(stakeAmount.div(2));
+
+      await network.provider.send("evm_increaseTime", [period]);
+      await network.provider.send("evm_mine"); // this one will have 02:00 PM as its timestamp
+      // transfer treasury token
+      await tokenContract.transfer(
+        stakingContract.address,
+        contractRewardTreasury
+      );
+      // approve sTorque
+      await sTorqueTokenContract.approve(stakingContract.address, stakeAmount);
+
+      // redeem
+      await stakingContract.redeem(stakeAmount);
+      const tokenAfterRedeem = await tokenContract.balanceOf(owner.address);
+      const interestFee = BigNumber.from("47671200000000000000");
+
+      expect(tokenAfterRedeem).is.approximately(
+        initialTokenBalance.sub(contractRewardTreasury).add(interestFee),
+        "100000000000000000000"
+      );
+    });
 
     it("Change APR and check reward again successfully", async function () {});
 
