@@ -32,7 +32,10 @@ contract StakingLP is Ownable {
     uint256 constant RATE_PRECISION = 10000;
     uint256 constant ONE_YEAR_IN_SECONDS = 365 days;
     uint256 constant ONE_DAY_IN_SECONDS = 1 days;
-    uint256 constant COOLDOWN_TIME = 7 days;
+    uint256 cooldownTime = 7 days;
+    address public USDT;
+    uint256 public lpTorqStake;
+    uint256 public torqDistribute;
 
     uint256 constant PERIOD_PRECISION = 10000;
     IERC20 public token;
@@ -67,6 +70,10 @@ contract StakingLP is Ownable {
         router = IRouter(_router);
     }
 
+    function updateUSDT(address _usdt) public onlyOwner {
+        USDT = _usdt;
+    }
+
     function setEnabled(bool _enabled) external onlyOwner {
         enabled = _enabled;
     }
@@ -77,6 +84,10 @@ contract StakingLP is Ownable {
 
     function emergencyWithdraw(uint256 _amount) external onlyOwner {
         token.transfer(msg.sender, _amount);
+    }
+
+    function setCooldownTime(uint256 _cooldownTime) public onlyOwner {
+        cooldownTime = _cooldownTime;
     }
 
     function getStakeDetail(
@@ -138,6 +149,7 @@ contract StakingLP is Ownable {
         stakeDetail.lastProcessAt = block.timestamp;
         emit Deposit(msg.sender, _stakeAmount);
         sTorque.mint(_msgSender(), _stakeAmount.mul(2));
+        lpTorqStake = lpTorqStake.add(_stakeAmount);
     }
 
     function getPairPrice() public view returns (uint256) {
@@ -160,7 +172,7 @@ contract StakingLP is Ownable {
         StakeDetail storage stakeDetail = stakers[msg.sender];
         require(stakeDetail.firstStakeAt > 0, "StakingDynaLP: no stake");
         require(
-            stakeDetail.lastProcessAt + COOLDOWN_TIME >= block.timestamp,
+            stakeDetail.lastProcessAt + cooldownTime <= block.timestamp,
             "Not reach cool down time"
         );
         uint256 interest = getInterest(msg.sender);
@@ -186,5 +198,24 @@ contract StakingLP is Ownable {
 
         sTorque.transferFrom(_msgSender(), address(this), _redeemAmount.mul(2));
         sTorque.burn(address(this), _redeemAmount.mul(2));
+        lpTorqStake = lpTorqStake.sub(_redeemAmount);
+        torqDistribute = torqDistribute.add(claimAmountInToken);
+    }
+
+    function getUSDPrice(address _token, uint256 _amount) public view returns (uint256) {
+        if (_token == router.WETH()) {
+            address[] memory path = new address[](2);
+            path[0] = router.WETH();
+            path[1] = USDT;
+            uint256[] memory amounts = router.getAmountsOut(_amount, path);
+            return amounts[1];
+        } else {
+            address[] memory path = new address[](3);
+            path[0] = _token;
+            path[1] = router.WETH();
+            path[2] = USDT;
+            uint256[] memory amounts = router.getAmountsOut(_amount, path);
+            return amounts[2];
+        }
     }
 }
