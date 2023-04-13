@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./../Interfaces/IStakingTorque.sol";
+import "./../Interfaces/IRouter.sol";
 
 /**
 
@@ -29,7 +30,11 @@ contract Staking is Ownable, ReentrancyGuard {
     uint256 constant RATE_PRECISION = 10000;
     uint256 constant ONE_YEAR_IN_SECONDS = 365 days;
     uint256 constant ONE_DAY_IN_SECONDS = 1 days;
-    uint256 constant COOLDOWN_TIME = 7 days;
+    uint256 cooldownTime = 7 days;
+    address public USDT;
+    IRouter public router;
+    uint256 public torqStake;
+    uint256 public torqDistribute;
 
     uint256 constant PERIOD_PRECISION = 10000;
     IERC20 public token;
@@ -63,12 +68,24 @@ contract Staking is Ownable, ReentrancyGuard {
         enabled = _enabled;
     }
 
+    function updateRouter(address _router) public onlyOwner {
+        router = IRouter(_router);
+    }
+
+    function updateUSDT(address _usdt) public onlyOwner {
+        USDT = _usdt;
+    }
+
     function updateAPR(uint256 _apr) external onlyOwner {
         apr = _apr;
     }
 
     function emergencyWithdraw(uint256 _amount) external onlyOwner {
         token.transfer(msg.sender, _amount);
+    }
+
+    function setCooldownTime(uint256 _cooldownTime) public onlyOwner {
+        cooldownTime = _cooldownTime;
     }
 
     function getStakeDetail(
@@ -126,6 +143,7 @@ contract Staking is Ownable, ReentrancyGuard {
         stakeDetail.lastProcessAt = block.timestamp;
         emit Deposit(msg.sender, _stakeAmount);
         sTorque.mint(_msgSender(), _stakeAmount);
+        torqStake = torqStake.add(_stakeAmount);
     }
 
     function redeem(uint256 _redeemAmount) external nonReentrant noContract {
@@ -133,7 +151,7 @@ contract Staking is Ownable, ReentrancyGuard {
         StakeDetail storage stakeDetail = stakers[msg.sender];
         require(stakeDetail.firstStakeAt > 0, "StakingTorque: no stake");
         require(
-            stakeDetail.lastProcessAt + COOLDOWN_TIME >= block.timestamp,
+            stakeDetail.lastProcessAt + cooldownTime <= block.timestamp,
             "Not reach cool down time"
         );
 
@@ -158,5 +176,24 @@ contract Staking is Ownable, ReentrancyGuard {
 
         sTorque.transferFrom(_msgSender(), address(this), _redeemAmount);
         sTorque.burn(address(this), _redeemAmount);
+        torqStake = torqStake.sub(_redeemAmount);
+        torqDistribute = torqDistribute.add(claimAmount);
+    }
+
+    function getUSDPrice(address _token, uint256 _amount) public view returns (uint256) {
+        if (_token == router.WETH()) {
+            address[] memory path = new address[](2);
+            path[0] = router.WETH();
+            path[1] = USDT;
+            uint256[] memory amounts = router.getAmountsOut(_amount, path);
+            return amounts[1];
+        } else {
+            address[] memory path = new address[](3);
+            path[0] = _token;
+            path[1] = router.WETH();
+            path[2] = USDT;
+            uint256[] memory amounts = router.getAmountsOut(_amount, path);
+            return amounts[2];
+        }
     }
 }
