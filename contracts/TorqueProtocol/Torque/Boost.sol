@@ -52,6 +52,10 @@ contract Boost is Ownable {
         swapRouter = ISwapRouter(_swapRouter);
     }
 
+    function setPid(address _token, uint256 _pid) public onlyOwner {
+        addressToPid[_token] = _pid;
+    }
+
     function deposit(address _token, uint256 _amount) public payable {
         uint256 pid = addressToPid[_token];
         IERC20 tokenInterface = IERC20(_token);
@@ -82,6 +86,7 @@ contract Boost is Ownable {
     }
 
     function autoCompound(address _token) public {
+        IERC20 tokenInterface = IERC20(_token);
         uint256 pid = addressToPid[_token];
         uint256 totalProduction = calculateTotalProduct(pid);
         lpStaking.withdraw(pid, totalStack[_token]);
@@ -96,6 +101,8 @@ contract Boost is Ownable {
             _userInfo.amount = _userInfo.amount.add(reward);
         }
         totalStack[_token] = totalStack[_token].add(tokenReward);
+        tokenInterface.approve(address(lpStaking), totalStack[_token]);
+        lpStaking.deposit(pid, totalStack[_token]);
     }
 
     // internal functions
@@ -116,19 +123,35 @@ contract Boost is Ownable {
     }
 
     function swapRewardSTGToToken(address _token, uint256 _stgAmount) internal returns (uint256) {
+        uint256[] memory amounts;
+        stargateInterface.approve(address(swapRouter), _stgAmount);
+
         if (_token == WETH) {
             address[] memory path = new address[](2);
             path[0] = address(stargateInterface);
             path[1] = address(WETH);
             uint256 _deadline = block.timestamp + 3000;
-            swapRouter.swapExactTokensForTokens(_stgAmount, 0, path, address(this), _deadline);
+            amounts = swapRouter.swapExactTokensForTokens(
+                _stgAmount,
+                _stgAmount, // amount out min for test
+                path,
+                address(this),
+                _deadline
+            );
         } else {
             address[] memory path = new address[](3);
             path[0] = address(stargateInterface);
             path[1] = address(WETH);
             path[2] = _token;
             uint256 _deadline = block.timestamp + 3000;
-            swapRouter.swapExactTokensForTokens(_stgAmount, 0, path, address(this), _deadline);
+            amounts = swapRouter.swapExactTokensForTokens(
+                _stgAmount,
+                _stgAmount, // amount out min for test
+                path,
+                address(this),
+                _deadline
+            );
         }
+        return amounts[amounts.length - 1]; // the last one
     }
 }
