@@ -90,33 +90,50 @@ describe("Boost Smart Contract", () => {
 
     it("Deposit successfully", async () => {
       await lpStaking.add(allocPoint, mockToken.address);
-      await mockToken.approve(
-        boostContract.address,
-        "100000000000000000000000"
-      );
+      await mockToken.approve(boostContract.address, "10000000000000000000");
 
-      await boostContract.deposit(
-        mockToken.address,
-        "100000000000000000000000"
-      );
+      await boostContract.deposit(mockToken.address, "10000000000000000000");
     });
 
     it("Withdraw boost successfully", async () => {
       await lpStaking.add(allocPoint, mockToken.address);
-      await mockToken.approve(
-        boostContract.address,
-        "100000000000000000000000"
-      );
+      await mockToken.approve(boostContract.address, "10000000000000000000");
 
-      await boostContract.deposit(
-        mockToken.address,
-        "100000000000000000000000"
-      );
+      await boostContract.deposit(mockToken.address, "10000000000000000000");
 
-      await boostContract.withdraw(
-        mockToken.address,
-        "100000000000000000000000"
-      );
+      await boostContract.withdraw(mockToken.address, "10000000000000000000");
+    });
+
+    it("Compound and check reward success", async () => {
+      await lpStaking.add(allocPoint, mockToken.address);
+      await mockToken.approve(boostContract.address, "10000000000000000000");
+      await boostContract.deposit(mockToken.address, "10000000000000000000");
+      await stargateToken.transfer(lpStaking.address, "100000000000000000000");
+      await mockToken.transfer(router.address, "100000000000000000000");
+
+      // await mockToken.approve(lpStaking.address, "10000000000000000000");
+
+      // await lpStaking.deposit(0, "10000000000000000000");
+
+      const period = 864000; // 10 days
+      await network.provider.send("evm_increaseTime", [period]);
+      await network.provider.send("evm_mine"); // this one will have 02:00 PM as its timestamp
+
+      // await lpStaking.updatePool(0); // pid: 0
+      const poolInfo = await lpStaking.poolInfo(0);
+      console.log(`poolInfo: ${poolInfo}`);
+      await boostContract.autoCompound(mockToken.address);
+      let userInfo = await lpStaking.userInfo(0, boostContract.address);
+      console.log(`userInfo: ${userInfo}`);
+      const lpBalance = await lpStaking.lpBalances(0);
+      console.log(`lp balance: ${lpBalance}`);
+
+      // const stgAmount = await stargateToken.balanceOf(boostContract.address);
+      // console.log(`stgAmount: ${stgAmount}`);
+      userInfo = await boostContract.userInfo(owner.address, 0);
+      const currentDeposit = userInfo.amount;
+      console.log(`currentDeposit: ${currentDeposit}`);
+      expect(currentDeposit).to.equal("10003996003990000000");
     });
   });
 });
