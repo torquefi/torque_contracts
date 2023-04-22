@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "../Interfaces/IStargateLPStaking.sol";
 import "../Interfaces/ISwapRouter.sol";
+import "../Interfaces/IWETH.sol";
 
 /**
 
@@ -29,7 +30,7 @@ contract Boost is Ownable {
     IStargateLPStaking lpStaking;
     IERC20 public stargateInterface;
     ISwapRouter public swapRouter;
-    address constant WETH = 0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6;
+    address public WETH = 0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6;
     address public Stargate;
     mapping(address => uint256) public totalStack;
     // address[] public stakeHolders;
@@ -46,10 +47,16 @@ contract Boost is Ownable {
     }
 
     // constructor and functions
-    constructor(address _stargateStakingAddress, address _stargateAddress, address _swapRouter) {
+    constructor(
+        address _stargateStakingAddress,
+        address _stargateAddress,
+        address _swapRouter,
+        address _WETH
+    ) {
         lpStaking = IStargateLPStaking(_stargateStakingAddress);
         stargateInterface = IERC20(_stargateAddress);
         swapRouter = ISwapRouter(_swapRouter);
+        WETH = _WETH;
     }
 
     function setPid(address _token, uint256 _pid) public onlyOwner {
@@ -59,7 +66,13 @@ contract Boost is Ownable {
     function deposit(address _token, uint256 _amount) public payable {
         uint256 pid = addressToPid[_token];
         IERC20 tokenInterface = IERC20(_token);
-        tokenInterface.transferFrom(_msgSender(), address(this), _amount);
+        if (_token == WETH) {
+            require(msg.value >= _amount, "Not enough ETH");
+            IWETH weth = IWETH(_token);
+            weth.deposit{ value: msg.value }();
+        } else {
+            tokenInterface.transferFrom(_msgSender(), address(this), _amount);
+        }
         tokenInterface.approve(address(lpStaking), _amount);
         lpStaking.deposit(pid, _amount);
 
