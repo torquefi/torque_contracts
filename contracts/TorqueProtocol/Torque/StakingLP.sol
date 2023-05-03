@@ -209,6 +209,15 @@ contract StakingLP is Ownable {
             path[1] = USDT;
             uint256[] memory amounts = router.getAmountsOut(_amount, path);
             return amounts[1];
+        } else if (_token == address(pair)) {
+            uint256 pairTokenToToken = getPairPrice();
+            uint256 tokenEquivalent = _amount.mul(pairTokenToToken).div(1e18);
+            address[] memory path = new address[](3);
+            path[0] = address(token);
+            path[1] = router.WETH();
+            path[2] = USDT;
+            uint256[] memory amounts = router.getAmountsOut(tokenEquivalent, path);
+            return amounts[2];
         } else {
             address[] memory path = new address[](3);
             path[0] = _token;

@@ -43,6 +43,7 @@ contract Boost is Ownable {
     // structs and events
     struct UserInfo {
         uint256 amount;
+        uint256 reward;
         uint256 lastProcess;
     }
 
@@ -89,11 +90,22 @@ contract Boost is Ownable {
     function withdraw(address _token, uint256 _amount) public payable {
         uint256 pid = addressToPid[_token];
         IERC20 tokenInterface = IERC20(_token);
-        lpStaking.withdraw(pid, _amount);
-        tokenInterface.transfer(_msgSender(), _amount);
-
         UserInfo storage _userInfo = userInfo[_msgSender()][pid];
+        uint256 percentage = _amount.mul(1e18) / (_userInfo.amount);
+        uint256 reward = _userInfo.reward.mul(percentage).div(1e18);
+        uint256 totalAmount = _amount.add(reward);
+        lpStaking.withdraw(pid, _amount);
+        if (_token == WETH) {
+            IWETH weth = IWETH(_token);
+            weth.withdraw(totalAmount);
+            (bool success, ) = msg.sender.call{ value: totalAmount }("");
+            require(success, "Failed to transferETH");
+        } else {
+            tokenInterface.transfer(_msgSender(), totalAmount);
+        }
+
         _userInfo.amount = _userInfo.amount.sub(_amount);
+        _userInfo.reward = _userInfo.reward.sub(reward);
         _userInfo.lastProcess = block.timestamp;
         totalStack[_token] = totalStack[_token].sub(_amount);
     }
@@ -111,7 +123,7 @@ contract Boost is Ownable {
             UserInfo storage _userInfo = userInfo[stakes[i]][pid];
             uint256 userProduct = calculateUserProduct(pid, stakes[i]);
             uint256 reward = tokenReward.mul(userProduct).div(totalProduction);
-            _userInfo.amount = _userInfo.amount.add(reward);
+            _userInfo.reward = _userInfo.reward.add(reward);
         }
         totalStack[_token] = totalStack[_token].add(tokenReward);
         tokenInterface.approve(address(lpStaking), totalStack[_token]);
@@ -132,7 +144,8 @@ contract Boost is Ownable {
     function calculateUserProduct(uint256 _pid, address _staker) internal view returns (uint256) {
         UserInfo memory _userInfo = userInfo[_staker][_pid];
         uint256 interval = block.timestamp.sub(_userInfo.lastProcess);
-        return interval.mul(_userInfo.amount);
+        uint256 amount = _userInfo.amount.add(_userInfo.reward);
+        return interval.mul(amount);
     }
 
     function swapRewardSTGToToken(address _token, uint256 _stgAmount) internal returns (uint256) {
@@ -144,9 +157,10 @@ contract Boost is Ownable {
             path[0] = address(stargateInterface);
             path[1] = address(WETH);
             uint256 _deadline = block.timestamp + 3000;
-            amounts = swapRouter.swapExactTokensForTokens(
+            amounts = swapRouter.getAmountsOut(_stgAmount, path);
+            swapRouter.swapExactTokensForTokens(
                 _stgAmount,
-                _stgAmount, // amount out min for test
+                amounts[1], // amount out min for test
                 path,
                 address(this),
                 _deadline
@@ -157,9 +171,10 @@ contract Boost is Ownable {
             path[1] = address(WETH);
             path[2] = _token;
             uint256 _deadline = block.timestamp + 3000;
-            amounts = swapRouter.swapExactTokensForTokens(
+            amounts = swapRouter.getAmountsOut(_stgAmount, path);
+            swapRouter.swapExactTokensForTokens(
                 _stgAmount,
-                _stgAmount, // amount out min for test
+                amounts[2], // amount out min for test
                 path,
                 address(this),
                 _deadline
