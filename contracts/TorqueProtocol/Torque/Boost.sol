@@ -149,7 +149,6 @@ contract Boost is Ownable {
     }
 
     function swapRewardSTGToToken(address _token, uint256 _stgAmount) internal returns (uint256) {
-        uint256[] memory amounts;
         stargateInterface.approve(address(swapRouter), _stgAmount);
 
         if (_token == WETH) {
@@ -157,29 +156,32 @@ contract Boost is Ownable {
             path[0] = address(stargateInterface);
             path[1] = address(WETH);
             uint256 _deadline = block.timestamp + 3000;
-            amounts = swapRouter.getAmountsOut(_stgAmount, path);
-            swapRouter.swapExactTokensForTokens(
+            uint256[] memory amounts = swapRouter.getAmountsOut(_stgAmount, path);
+            uint256[] memory realAmounts = swapRouter.swapExactTokensForTokens(
                 _stgAmount,
                 amounts[1], // amount out min for test
                 path,
                 address(this),
                 _deadline
             );
+            return realAmounts[1];
         } else {
             address[] memory path = new address[](3);
             path[0] = address(stargateInterface);
             path[1] = address(WETH);
             path[2] = _token;
             uint256 _deadline = block.timestamp + 3000;
-            amounts = swapRouter.getAmountsOut(_stgAmount, path);
-            swapRouter.swapExactTokensForTokens(
+            uint256[] memory amounts = swapRouter.getAmountsOut(_stgAmount, path);
+            uint256[] memory realAmounts = swapRouter.swapExactTokensForTokens(
                 _stgAmount,
                 amounts[2], // amount out min for test
                 path,
                 address(this),
                 _deadline
             );
+            return realAmounts[2];
         }
-        return amounts[amounts.length - 1]; // the last one
     }
+
+    receive() external payable {}
 }
