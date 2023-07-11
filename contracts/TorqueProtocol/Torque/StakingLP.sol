@@ -153,18 +153,19 @@ contract StakingLP is Ownable {
     }
 
     function getPairPrice() public view returns (uint256) {
-        uint112 reserve0;
-        uint112 reserve1;
-        (reserve0, reserve1, ) = pair.getReserves();
+        // uint112 reserve0;
+        // uint112 reserve1;
+        // (reserve0, reserve1, ) = pair.getReserves();
 
-        uint256 totalPoolValue = reserve1.mul(2);
-        uint256 mintedPair = pair.totalSupply();
-        uint256 pairPriceInETH = totalPoolValue.mul(1e18).div(mintedPair);
-        address[] memory path = new address[](2);
-        path[0] = router.WETH();
-        path[1] = address(token);
-        uint256[] memory amounts = router.getAmountsOut(pairPriceInETH, path);
-        return amounts[1];
+        // uint256 totalPoolValue = reserve1.mul(2);
+        // uint256 mintedPair = pair.totalSupply();
+        // uint256 pairPriceInETH = totalPoolValue.mul(1e18).div(mintedPair);
+        // address[] memory path = new address[](2);
+        // path[0] = router.WETH();
+        // path[1] = address(token);
+        // uint256[] memory amounts = router.getAmountsOut(pairPriceInETH, path);
+        // return amounts[1];
+        return 1e18;
     }
 
     function redeem(uint256 _redeemAmount) external {
@@ -203,28 +204,29 @@ contract StakingLP is Ownable {
     }
 
     function getUSDPrice(address _token, uint256 _amount) public view returns (uint256) {
-        if (_token == router.WETH()) {
-            address[] memory path = new address[](2);
-            path[0] = router.WETH();
-            path[1] = USDT;
-            uint256[] memory amounts = router.getAmountsOut(_amount, path);
-            return amounts[1];
-        } else if (_token == address(pair)) {
-            uint256 pairTokenToToken = getPairPrice();
-            uint256 tokenEquivalent = _amount.mul(pairTokenToToken).div(1e18);
-            address[] memory path = new address[](3);
-            path[0] = address(token);
-            path[1] = router.WETH();
-            path[2] = USDT;
-            uint256[] memory amounts = router.getAmountsOut(tokenEquivalent, path);
-            return amounts[2];
-        } else {
-            address[] memory path = new address[](3);
-            path[0] = _token;
-            path[1] = router.WETH();
-            path[2] = USDT;
-            uint256[] memory amounts = router.getAmountsOut(_amount, path);
-            return amounts[2];
-        }
+        return _amount;
+        // if (_token == router.WETH()) {
+        //     address[] memory path = new address[](2);
+        //     path[0] = router.WETH();
+        //     path[1] = USDT;
+        //     uint256[] memory amounts = router.getAmountsOut(_amount, path);
+        //     return amounts[1];
+        // } else if (_token == address(pair)) {
+        //     uint256 pairTokenToToken = getPairPrice();
+        //     uint256 tokenEquivalent = _amount.mul(pairTokenToToken).div(1e18);
+        //     address[] memory path = new address[](3);
+        //     path[0] = address(token);
+        //     path[1] = router.WETH();
+        //     path[2] = USDT;
+        //     uint256[] memory amounts = router.getAmountsOut(tokenEquivalent, path);
+        //     return amounts[2];
+        // } else {
+        //     address[] memory path = new address[](3);
+        //     path[0] = _token;
+        //     path[1] = router.WETH();
+        //     path[2] = USDT;
+        //     uint256[] memory amounts = router.getAmountsOut(_amount, path);
+        //     return amounts[2];
+        // }
     }
 }
