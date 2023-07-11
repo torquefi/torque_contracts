@@ -64,6 +64,10 @@ contract Boost is Ownable {
         addressToPid[_token] = _pid;
     }
 
+    function setRouter(address _router) public onlyOwner {
+        swapRouter = ISwapRouter(_router);
+    }
+
     function deposit(address _token, uint256 _amount) public payable {
         uint256 pid = addressToPid[_token];
         IERC20 tokenInterface = IERC20(_token);
