@@ -11,6 +11,7 @@ const {
   API_KEY_GOERLI,
   API_KEY_ETH,
   API_KEY_BSC_MAINNET,
+  API_KEY_ARBI_GOERLI,
   PROJECT_ID_GOERLI,
   PROJECT_ID_ETH,
 } = process.env;
@@ -34,6 +35,7 @@ const config: HardhatUserConfig = {
       goerli: `${API_KEY_GOERLI}`,
       mainnet: `${API_KEY_ETH}`, //eth
       bsc: `${API_KEY_BSC_MAINNET}`, //bsc
+      arbitrumGoerli: `${API_KEY_ARBI_GOERLI}`,
     },
   },
   networks: {

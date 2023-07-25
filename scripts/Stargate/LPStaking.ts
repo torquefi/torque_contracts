@@ -3,9 +3,9 @@ import { ethers } from "hardhat";
 async function main() {
   const LPStakingContract = await ethers.getContractFactory("LPStaking");
   const lpStakingContract = await LPStakingContract.deploy(
-    "0xd22b80AbE59661e5aCdBEa247D08A24123df45dF", // STG Token
+    "0x1a26479d3A4bb6b3B5d8014dDC0F069174B2A7A9", // STG Token
     "1000000000000000000", // emission per block
-    8859289, // start block
+    25311234, // start block
     "1000000000" // bonus end block
   );
 
