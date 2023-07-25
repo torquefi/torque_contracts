@@ -229,4 +229,6 @@ contract StakingLP is Ownable {
         //     return amounts[2];
         // }
     }
+
+    // Todo: Update from transfer function to transferFrom a vault that contain Torque token
 }

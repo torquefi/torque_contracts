@@ -21,17 +21,11 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
  */
 
 contract MockPair is ERC20 {
-    constructor() ERC20("Torque Pair", "TorqETH") {}
-
-    function mint(address _tokenIn, uint256 _amount) public {
-        IERC20 tokenIn = IERC20(_tokenIn);
-        tokenIn.transferFrom(msg.sender, address(this), _amount);
-        _mint(msg.sender, _amount);
+    constructor() ERC20("Torque Pair", "TorqETH") {
+        _mint(msg.sender, 100000000 ether);
     }
 
-    function burn(address _tokenOut, uint256 _amount) public {
-        IERC20 tokenOut = IERC20(_tokenOut);
-        _burn(msg.sender, _amount);
-        tokenOut.transfer(msg.sender, _amount);
+    function mint(address _receiver, uint256 _amount) public {
+        _mint(_receiver, _amount);
     }
 }
