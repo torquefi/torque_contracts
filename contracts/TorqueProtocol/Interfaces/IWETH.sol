@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License: MIT
 pragma solidity ^0.8.15;
 
 /**
@@ -17,11 +17,8 @@ pragma solidity ^0.8.15;
 
  */
 
-interface IRouter {
-    function getAmountsOut(
-        uint256 amountIn,
-        address[] memory path
-    ) external view returns (uint256[] memory amounts);
+interface IWETH {
+    function deposit() external payable;
 
-    function WETH() external pure returns (address);
+    function withdraw(uint wad) external;
 }

@@ -46,7 +46,7 @@ describe("Boost Smart Contract", () => {
   }
 
   describe("Check normal Deposit and Withdraw in Boost", () => {
-    let owner, alice, badUser1, fakeContract, mockToken, lpStaking;
+    let owner, alice, badUser1, fakeContract, mockToken, lpStaking, weth;
     let chainId,
       startBlock,
       bonusEndBlock,
@@ -81,10 +81,12 @@ describe("Boost Smart Contract", () => {
 
       await mockToken.transfer(lpStaking.address, "10000000000000000000000");
       router = await deployNew("MockSwap", []);
+      weth = await deployNew("WETH", []);
       boostContract = await deployNew("Boost", [
         lpStaking.address,
         stargateToken.address,
         router.address,
+        weth.address,
       ]);
     });
 
@@ -132,8 +134,98 @@ describe("Boost Smart Contract", () => {
       // console.log(`stgAmount: ${stgAmount}`);
       userInfo = await boostContract.userInfo(owner.address, 0);
       const currentDeposit = userInfo.amount;
+      const reward = userInfo.reward;
+      console.log(`user reward: ${reward}`);
       console.log(`currentDeposit: ${currentDeposit}`);
-      expect(currentDeposit).to.equal("10003996003990000000");
+      expect(currentDeposit).to.equal("10000000000000000000");
+      expect(reward).to.equal("3996003990000000");
+    });
+
+    it("Compound and check reward with native token", async () => {
+      await lpStaking.add(allocPoint, weth.address);
+      // await mockToken.approve(boostContract.address, "10000000000000000000");
+      await boostContract.deposit(weth.address, "10000000000000000000", {
+        value: "10000000000000000000",
+      });
+      await stargateToken.transfer(lpStaking.address, "100000000000000000000");
+      await mockToken.transfer(router.address, "100000000000000000000");
+
+      // await mockToken.approve(lpStaking.address, "10000000000000000000");
+
+      // await lpStaking.deposit(0, "10000000000000000000");
+
+      const period = 864000; // 10 days
+      await network.provider.send("evm_increaseTime", [period]);
+      await network.provider.send("evm_mine"); // this one will have 02:00 PM as its timestamp
+
+      const poolInfo = await lpStaking.poolInfo(0);
+      console.log(`poolInfo: ${poolInfo}`);
+      await boostContract.autoCompound(weth.address);
+    });
+
+    it("Add USDC and WETH successfully", async () => {
+      await lpStaking.add(allocPoint, mockToken.address);
+      await mockToken.approve(boostContract.address, "10000000000000000000");
+      // await boostContract.deposit(mockToken.address, "10000000000000000000");
+      await stargateToken.transfer(lpStaking.address, "100000000000000000000");
+      await mockToken.transfer(router.address, "100000000000000000000");
+
+      await lpStaking.add(allocPoint, weth.address);
+      await boostContract.setPid(weth.address, 1);
+
+      const usdPid = await boostContract.addressToPid(mockToken.address);
+      const wethPid = await boostContract.addressToPid(weth.address);
+
+      expect(usdPid).to.equal("0");
+      expect(wethPid).to.equal("1");
+    });
+
+    it("Deposit ETH successfully", async () => {
+      await lpStaking.add(allocPoint, mockToken.address);
+      await mockToken.approve(boostContract.address, "10000000000000000000");
+      // await boostContract.deposit(mockToken.address, "10000000000000000000");
+      await stargateToken.transfer(lpStaking.address, "100000000000000000000");
+      await mockToken.transfer(router.address, "100000000000000000000");
+
+      await lpStaking.add(allocPoint, weth.address);
+      await boostContract.setPid(weth.address, 1);
+
+      const usdPid = await boostContract.addressToPid(mockToken.address);
+      const wethPid = await boostContract.addressToPid(weth.address);
+
+      await boostContract.deposit(weth.address, "10000000000000000000", {
+        value: "10000000000000000000",
+      });
+      const userInfo = await boostContract.userInfo(owner.address, "1");
+      const ethDepositAmount = userInfo.amount.toString();
+      expect(ethDepositAmount).to.equal("10000000000000000000");
+    });
+
+    it("Withdraw ETH successfully", async () => {
+      const standardAmount = "10000000000000000000";
+      const ETHAmount = "20000000000000000000";
+      const smallAmount = "10000000000000000";
+      await lpStaking.add(allocPoint, mockToken.address);
+      await mockToken.approve(boostContract.address, standardAmount);
+      // await boostContract.deposit(mockToken.address, "10000000000000000000");
+      await stargateToken.transfer(lpStaking.address, standardAmount);
+      await mockToken.transfer(router.address, standardAmount);
+
+      await lpStaking.add(allocPoint, weth.address);
+      await boostContract.setPid(weth.address, 1);
+
+      const usdPid = await boostContract.addressToPid(mockToken.address);
+      const wethPid = await boostContract.addressToPid(weth.address);
+
+      await boostContract.deposit(weth.address, standardAmount, {
+        value: ETHAmount,
+      });
+
+      await boostContract.withdraw(weth.address, smallAmount);
+
+      // const userInfo = await boostContract.userInfo(owner.address, "1");
+      // const ethDepositAmount = userInfo.amount.toString();
+      // expect(ethDepositAmount).to.equal("0");
     });
   });
 });

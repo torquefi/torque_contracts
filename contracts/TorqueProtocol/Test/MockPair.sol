@@ -1,5 +1,8 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License: MIT
+
 pragma solidity ^0.8.15;
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /**
 
@@ -17,11 +20,12 @@ pragma solidity ^0.8.15;
 
  */
 
-interface IRouter {
-    function getAmountsOut(
-        uint256 amountIn,
-        address[] memory path
-    ) external view returns (uint256[] memory amounts);
+contract MockPair is ERC20 {
+    constructor() ERC20("Torque Pair", "TorqETH") {
+        _mint(msg.sender, 100000000 ether);
+    }
 
-    function WETH() external pure returns (address);
+    function mint(address _receiver, uint256 _amount) public {
+        _mint(_receiver, _amount);
+    }
 }

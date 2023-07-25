@@ -37,9 +37,10 @@ contract MockSwap is ISwapRouter {
         require(block.timestamp <= deadline);
         tokenInInterface.transferFrom(msg.sender, address(this), amountIn);
         tokenOutInterface.transfer(to, amountOutMin);
-        amounts = new uint256[](2);
+        uint256 length = path.length;
+        amounts = new uint256[](length);
         amounts[0] = amountIn;
-        amounts[1] = amountOutMin;
+        amounts[length - 1] = amountOutMin;
     }
 
     function swapTokensForExactTokens(
@@ -56,9 +57,10 @@ contract MockSwap is ISwapRouter {
         require(block.timestamp <= deadline);
         tokenInInterface.transferFrom(msg.sender, address(this), amountInMax);
         tokenOutInterface.transfer(to, amountOut);
-        amounts = new uint256[](2);
+        uint256 length = path.length;
+        amounts = new uint256[](length);
         amounts[0] = amountInMax;
-        amounts[1] = amountOut;
+        amounts[length - 1] = amountOut;
     }
 
     function swapExactETHForTokens(
@@ -72,9 +74,10 @@ contract MockSwap is ISwapRouter {
         require(block.timestamp <= deadline);
         IERC20 tokenOutInterface = IERC20(tokenOut);
         tokenOutInterface.transfer(to, amountOutMin);
-        amounts = new uint256[](2);
+        uint256 length = path.length;
+        amounts = new uint256[](length);
         amounts[0] = msg.value;
-        amounts[1] = amountOutMin;
+        amounts[length - 1] = amountOutMin;
     }
 
     function swapTokensForExactETH(
@@ -90,9 +93,10 @@ contract MockSwap is ISwapRouter {
         tokenInInterface.transferFrom(msg.sender, address(this), amountInMax);
         (bool success, ) = to.call{ value: amountOut }("");
         require(success, "transfer eth failed");
-        amounts = new uint256[](2);
+        uint256 length = path.length;
+        amounts = new uint256[](length);
         amounts[0] = amountInMax;
-        amounts[1] = amountOut;
+        amounts[length - 1] = amountOut;
     }
 
     function swapExactTokensForETH(
@@ -108,9 +112,10 @@ contract MockSwap is ISwapRouter {
         tokenInInterface.transferFrom(msg.sender, address(this), amountIn);
         (bool success, ) = to.call{ value: amountOutMin }("");
         require(success, "transfer eth failed");
-        amounts = new uint256[](2);
+        uint256 length = path.length;
+        amounts = new uint256[](length);
         amounts[0] = amountIn;
-        amounts[1] = amountOutMin;
+        amounts[length - 1] = amountOutMin;
     }
 
     function swapETHForExactTokens(
@@ -124,9 +129,10 @@ contract MockSwap is ISwapRouter {
         require(block.timestamp <= deadline);
         IERC20 tokenOutInterface = IERC20(tokenOut);
         tokenOutInterface.transfer(to, amountOut);
-        amounts = new uint256[](2);
+        uint256 length = path.length;
+        amounts = new uint256[](length);
         amounts[0] = msg.value;
-        amounts[1] = amountOut;
+        amounts[length - 1] = amountOut;
     }
 
     function getAmountsOut(
@@ -134,7 +140,7 @@ contract MockSwap is ISwapRouter {
         address[] calldata path
     ) external view returns (uint256[] memory amounts) {
         uint256 length = path.length;
-        amounts = new uint256[](length - 1);
+        amounts = new uint256[](length);
         for (uint256 i = 0; i < length; i++) {
             amounts[i] = amountIn;
         }
