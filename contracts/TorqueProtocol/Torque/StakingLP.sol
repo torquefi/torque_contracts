@@ -135,7 +135,7 @@ contract StakingLP is Ownable {
 
     function deposit(uint256 _stakeAmount) external {
         require(enabled, "Staking is not enabled");
-        require(_stakeAmount > 0, "StakingDynaLP: stake amount must be greater than 0");
+        require(_stakeAmount > 0, "StakingTorqueLP: stake amount must be greater than 0");
         pair.transferFrom(msg.sender, address(this), _stakeAmount);
         StakeDetail storage stakeDetail = stakers[msg.sender];
         if (stakeDetail.firstStakeAt == 0) {
@@ -170,7 +170,7 @@ contract StakingLP is Ownable {
     function redeem(uint256 _redeemAmount) external {
         require(enabled, "Staking is not enabled");
         StakeDetail storage stakeDetail = stakers[msg.sender];
-        require(stakeDetail.firstStakeAt > 0, "StakingDynaLP: no stake");
+        require(stakeDetail.firstStakeAt > 0, "StakingTorqueLP: no stake");
         require(
             stakeDetail.lastProcessAt + cooldownTime <= block.timestamp,
             "Not reach cool down time"
@@ -185,14 +185,14 @@ contract StakingLP is Ownable {
         stakeDetail.lastProcessAt = block.timestamp;
         require(
             stakeDetail.principal >= _redeemAmount,
-            "StakingDynaLP: redeem amount must be less than principal"
+            "StakingTorqueLP: redeem amount must be less than principal"
         );
         stakeDetail.pendingReward = remainAmountInToken;
         stakeDetail.principal = stakeDetail.principal.sub(_redeemAmount);
-        require(pair.transfer(msg.sender, _redeemAmount), "StakingDynaLP: transfer failed");
+        require(pair.transfer(msg.sender, _redeemAmount), "StakingTorqueLP: transfer failed");
         require(
             token.transfer(msg.sender, claimAmountInToken),
-            "StakingDynaLP: reward transfer failed"
+            "StakingTorqueLP: reward transfer failed"
         );
         emit Redeem(msg.sender, _redeemAmount);
 
