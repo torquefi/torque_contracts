@@ -14,6 +14,7 @@ pragma solidity ^0.8.6;
 interface IComet {
 
 function getAssetInfo(uint8 i) external view returns (AssetInfo memory);
+function getAssetInfoByAddress(address asset) external view returns (AssetInfo memory);
 function getPrice(address priceFeed) external view returns (uint256) ;
 function allow(address manager, bool isAllowed_) external ;
 function getBorrowRate(uint utilization) external view returns (uint64);

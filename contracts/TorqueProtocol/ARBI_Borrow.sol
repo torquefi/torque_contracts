@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 import "../CompoundBase/IWETH9.sol";
-import "../CompoundBase/bulkers/IBulker.sol";
+import "../CompoundBase/bulkers/IARBBulker.sol";
 import "../CompoundBase/IComet.sol";
 import "./Torque/IUsgEngine.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
@@ -11,27 +11,42 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
-contract Borrow  is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgradeable{
+contract ARBI_Borrow  is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgradeable{
     using SafeMath for uint256;
 
     address public bulker;
     address public asset;
     address public baseAsset;
     address public comet;
-    uint public constant ACTION_SUPPLY_ASSET = 1;
-    uint public constant ACTION_SUPPLY_ETH = 2;
-    uint public constant ACTION_TRANSFER_ASSET = 3;
-    uint public constant ACTION_WITHDRAW_ASSET = 4;
-    uint public constant ACTION_WITHDRAW_ETH = 5;
-    uint public constant ACTION_CLAIM_REWARD = 6;
+    address public engine;
+    address public usg;
+        /// @notice The action for supplying an asset to Comet
+    bytes32 public constant ACTION_SUPPLY_ASSET = "ACTION_SUPPLY_ASSET";
+
+    /// @notice The action for supplying a native asset (e.g. ETH on Ethereum mainnet) to Comet
+    bytes32 public constant ACTION_SUPPLY_ETH = "ACTION_SUPPLY_NATIVE_TOKEN";
+
+    /// @notice The action for transferring an asset within Comet
+    bytes32 public constant ACTION_TRANSFER_ASSET = "ACTION_TRANSFER_ASSET";
+
+    /// @notice The action for withdrawing an asset from Comet
+    bytes32 public constant ACTION_WITHDRAW_ASSET = "ACTION_WITHDRAW_ASSET";
+
+    /// @notice The action for withdrawing a native asset from Comet
+    bytes32 public constant ACTION_WITHDRAW_ETH = "ACTION_WITHDRAW_NATIVE_TOKEN";
+
+    /// @notice The action for claiming rewards from the Comet rewards contract
+    bytes32 public constant ACTION_CLAIM_REWARD = "ACTION_CLAIM_REWARD";
     uint constant BASE_ASSET_MANTISA = 1e6;
     uint constant PRICE_MANTISA = 1e2;
     uint constant SCALE = 1e18;
     uint constant WITHDRAW_OFFSET = 1e2;
+    uint constant USG_DECIMAL_OFFSET = 1e12;
 
     struct BorrowInfo {
         address user;
         uint borrowed;
+        uint underlyBorrowed;
         uint supplied;
 
         uint accruedInterest;
@@ -48,11 +63,13 @@ contract Borrow  is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgradea
     
     function _authorizeUpgrade(address) internal override onlyOwner {}
 
-    function initialize(address _comet, address _asset, address _baseAsset, address _bulker) public initializer {
+    function initialize(address _comet, address _asset, address _baseAsset, address _bulker, address _engine, address _usg) public initializer {
         comet = _comet;
         asset = _asset;
         baseAsset = _baseAsset;
         bulker = _bulker;
+        engine = _engine;
+        usg = _usg;
         IComet(comet).allow(_bulker, true);
         __Ownable_init();
         __ReentrancyGuard_init();
@@ -104,6 +121,54 @@ contract Borrow  is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgradea
         return withdrawableAmount;
     }
 
+    function borrow(uint supplyAmount, uint borrowAmount, uint usgBorrowAmount) public nonReentrant(){
+         (uint mintable, bool canMint) = IUsgEngine(engine).getMintableUSG(baseAsset, address(this), borrowAmount);
+        require(canMint, 'user cant mint more usg');
+        IComet icomet = IComet(comet);
+
+        AssetInfo memory info = icomet.getAssetInfoByAddress(asset);
+        uint price = icomet.getPrice(info.priceFeed);
+        
+        BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
+        uint maxBorrow = (supplyAmount.add(userBorrowInfo.supplied)).mul(info.borrowCollateralFactor).mul(price).div(PRICE_MANTISA).div(SCALE);
+
+        uint borrowable = maxBorrow.sub(userBorrowInfo.borrowed);
+        require(borrowable >= borrowAmount, "borrow cap exceed");
+        require(ERC20(asset).transferFrom(msg.sender, address(this), supplyAmount), "transfer asset fail");
+
+        if(userBorrowInfo.borrowed > 0) {
+            uint accruedInterest = calculateInterest(userBorrowInfo.borrowed, userBorrowInfo.borrowTime);
+            userBorrowInfo.accruedInterest += accruedInterest;
+        }
+
+        require(mintable > usgBorrowAmount, "exceed borrow amount");
+
+        userBorrowInfo.borrowed = userBorrowInfo.borrowed.add(borrowAmount);
+        userBorrowInfo.supplied = userBorrowInfo.supplied.add(supplyAmount);
+        userBorrowInfo.borrowTime = block.timestamp;
+        userBorrowInfo.underlyBorrowed += usgBorrowAmount;
+        
+
+        bytes32[] memory actions = new bytes32[](2);
+
+        actions[0] = ACTION_SUPPLY_ASSET;
+        actions[1] = ACTION_WITHDRAW_ASSET;
+
+        bytes[] memory callData = new bytes[](2);
+
+        bytes memory supplyAssetCalldata = abi.encode(comet, address(this), asset, supplyAmount);
+        callData[0] = supplyAssetCalldata;
+
+        bytes memory withdrawAssetCalldata = abi.encode(comet, address(this), baseAsset, borrowAmount);
+        callData[1] = withdrawAssetCalldata;
+
+        ERC20(asset).approve(comet, supplyAmount);
+        IARBBulker(bulker).invoke(actions, callData);
+        IUsgEngine(engine).depositCollateralAndMintUsg(baseAsset, borrowAmount, usgBorrowAmount);
+        require(ERC20(usg).transfer(msg.sender, usgBorrowAmount), "transfer token fail");
+    }
+    
+
     function withdraw(uint withdrawAmount) public nonReentrant(){
         BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
         require(userBorrowInfo.supplied > 0, "User does not have asseet");
@@ -126,8 +191,7 @@ contract Borrow  is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgradea
         userBorrowInfo.supplied = userBorrowInfo.supplied.sub(withdrawAmount);
         userBorrowInfo.borrowTime = block.timestamp;
         
-
-        uint[] memory actions = new uint[](1);
+        bytes32[] memory actions = new bytes32[](1);
 
         actions[0] = ACTION_WITHDRAW_ASSET;
 
@@ -136,54 +200,14 @@ contract Borrow  is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgradea
         bytes memory withdrawAssetCalldata = abi.encode(comet, address(this), asset, withdrawAmount);
         callData[0] = withdrawAssetCalldata;
 
-        IBulker(bulker).invoke(actions, callData);
+        IARBBulker(bulker).invoke(actions, callData);
 
         ERC20(asset).transfer(msg.sender, withdrawAmount);
     } 
 
-    function borrow(uint supplyAmount, uint borrowAmount) public nonReentrant(){
-        IComet icomet = IComet(comet);
-
-        AssetInfo memory info = icomet.getAssetInfoByAddress(asset);
-        uint price = icomet.getPrice(info.priceFeed);
-        uint maxBorrow = supplyAmount.mul(info.borrowCollateralFactor).mul(price).div(PRICE_MANTISA).div(SCALE);
-
-        BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
-        uint borrowable = maxBorrow.sub(userBorrowInfo.borrowed);
-        require(borrowable >= supplyAmount, "borrow cap exceed");
-        require(ERC20(asset).transferFrom(msg.sender, address(this), supplyAmount), "transfer asset fail");
-
-        if(userBorrowInfo.borrowed > 0) {
-            uint accruedInterest = calculateInterest(userBorrowInfo.borrowed, userBorrowInfo.borrowTime);
-            userBorrowInfo.accruedInterest += accruedInterest;
-        }
-
-        userBorrowInfo.borrowed = userBorrowInfo.borrowed.add(borrowAmount);
-        userBorrowInfo.supplied = userBorrowInfo.supplied.add(supplyAmount);
-        userBorrowInfo.borrowTime = block.timestamp;
-        
-
-        uint[] memory actions = new uint[](2);
-
-        actions[0] = ACTION_SUPPLY_ASSET;
-        actions[1] = ACTION_WITHDRAW_ASSET;
-
-        bytes[] memory callData = new bytes[](2);
-
-        bytes memory supplyAssetCalldata = abi.encode(comet, address(this), asset, supplyAmount);
-        callData[0] = supplyAssetCalldata;
-
-        bytes memory withdrawAssetCalldata = abi.encode(comet, address(this), baseAsset, borrowAmount);
-        callData[1] = withdrawAssetCalldata;
-
-        ERC20(asset).approve(comet, supplyAmount);
-        IBulker(bulker).invoke(actions, callData);
-
-        ERC20(baseAsset).transfer(msg.sender, borrowAmount);
-    }
-
-
     function repay(uint borrowAmount) public nonReentrant(){
+        uint burnable = IUsgEngine(engine).getBurnableUSG(baseAsset, msg.sender, borrowAmount.mul(USG_DECIMAL_OFFSET));
+
         BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
         require(userBorrowInfo.borrowed >= borrowAmount, "exceed current borrowed amount");
 
@@ -195,7 +219,7 @@ contract Borrow  is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgradea
         uint repayAmount = borrowAmount + interest;
         require(ERC20(baseAsset).transferFrom(msg.sender,address(this), repayAmount), "transfer asset fail");
 
-        uint[] memory actions = new uint[](2);
+        bytes32[] memory actions = new bytes32[](2);
 
         actions[0] = ACTION_SUPPLY_ASSET;
         actions[1] = ACTION_WITHDRAW_ASSET;
@@ -209,7 +233,7 @@ contract Borrow  is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgradea
         callData[1] = withdrawAssetCalldata;
 
         ERC20(baseAsset).approve(comet, repayAmount);
-        IBulker(bulker).invoke(actions, callData);
+        IARBBulker(bulker).invoke(actions, callData);
 
         userBorrowInfo.borrowed = userBorrowInfo.borrowed.sub(borrowAmount);
         userBorrowInfo.supplied = userBorrowInfo.supplied.sub(supplyAmount);
