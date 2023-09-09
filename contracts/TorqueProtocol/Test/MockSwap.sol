@@ -1,4 +1,5 @@
-// SPDX-License: MIT
+// SPDX-License-Identifier: MIT
+
 pragma solidity ^0.8.15;
 
 import "./../Interfaces/ISwapRouter.sol";
@@ -138,7 +139,7 @@ contract MockSwap is ISwapRouter {
     function getAmountsOut(
         uint256 amountIn,
         address[] calldata path
-    ) external view returns (uint256[] memory amounts) {
+    ) external pure returns (uint256[] memory amounts) {
         uint256 length = path.length;
         amounts = new uint256[](length);
         for (uint256 i = 0; i < length; i++) {

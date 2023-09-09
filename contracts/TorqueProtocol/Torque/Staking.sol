@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+
 pragma solidity ^0.8.13;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -30,7 +31,7 @@ contract Staking is Ownable, ReentrancyGuard {
     uint256 constant RATE_PRECISION = 10000;
     uint256 constant ONE_YEAR_IN_SECONDS = 365 days;
     uint256 constant ONE_DAY_IN_SECONDS = 1 days;
-    uint256 cooldownTime = 7 days;
+    uint256 public cooldownTime = 7 days;
     address public USDT;
     IRouter public router;
     uint256 public torqStake;
