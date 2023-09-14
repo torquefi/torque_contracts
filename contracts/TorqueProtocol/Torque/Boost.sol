@@ -1,6 +1,13 @@
 // SPDX-License-Identifier: MIT
-
 pragma solidity ^0.8.15;
+
+//  _________  ________  ________  ________  ___  ___  _______      
+// |\___   ___\\   __  \|\   __  \|\   __  \|\  \|\  \|\  ___ \     
+// \|___ \  \_\ \  \|\  \ \  \|\  \ \  \|\  \ \  \\\  \ \   __/|    
+//     \ \  \ \ \  \\\  \ \   _  _\ \  \\\  \ \  \\\  \ \  \_|/__  
+//      \ \  \ \ \  \\\  \ \  \\  \\ \  \\\  \ \  \\\  \ \  \_|\ \ 
+//       \ \__\ \ \_______\ \__\\ _\\ \_____  \ \_______\ \_______\
+//        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -8,22 +15,6 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "../Interfaces/IStargateLPStaking.sol";
 import "../Interfaces/ISwapRouter.sol";
 import "../Interfaces/IWETH.sol";
-
-/**
-
-********\                                                
-\__**  __|                                               
-   ** | ******\   ******\   ******\  **\   **\  ******\  
-   ** |**  __**\ **  __**\ **  __**\ ** |  ** |**  __**\ 
-   ** |** /  ** |** |  \__|** /  ** |** |  ** |******** |
-   ** |** |  ** |** |      ** |  ** |** |  ** |**   ____|
-   ** |\******  |** |      \******* |\******  |\*******\ 
-   \__| \______/ \__|       \____** | \______/  \_______|
-                                 ** |                    
-                                 ** |                    
-                                 \__|                    
-
- */
 
 contract Boost is Ownable {
     using SafeMath for uint256;
