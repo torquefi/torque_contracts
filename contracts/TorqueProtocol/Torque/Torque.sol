@@ -14,8 +14,8 @@ import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract TORQ is ERC20, ERC20Permit, ERC20Votes, Ownable {
-    constructor() ERC20("TORQ", "TORQ") ERC20Permit("TORQ") {
+contract Torque is ERC20, ERC20Permit, ERC20Votes, Ownable {
+    constructor() ERC20("Torque", "TORQ") ERC20Permit("TORQ") {
         _mint(msg.sender, 1000000000 * 10 ** decimals());
     }
 
