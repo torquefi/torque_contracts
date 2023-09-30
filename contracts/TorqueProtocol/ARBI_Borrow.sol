@@ -46,14 +46,8 @@ contract ARBI_Borrow  is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpg
     struct BorrowInfo {
         address user;
         uint borrowed;
-        uint underlyBorrowed;
         uint supplied;
 
-        uint accruedInterest;
-        uint borrowTime;
-    }
-    struct BorrowSnapshoot {
-        uint amount;
         uint borrowTime;
     }
 
@@ -103,28 +97,12 @@ contract ARBI_Borrow  is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         return amount.mul(info.borrowCollateralFactor).mul(price).div(PRICE_MANTISA).div(SCALE);
     }
 
-    function getWithdrawableAmount() public view returns (uint) {
-        BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
-        
-        IComet icomet = IComet(comet);
-
-        AssetInfo memory info = icomet.getAssetInfoByAddress(asset);
-        uint price = icomet.getPrice(info.priceFeed);
-
-        uint accruedInterest = 0;
-        if(userBorrowInfo.borrowed > 0) {
-            accruedInterest = calculateInterest(userBorrowInfo.borrowed, userBorrowInfo.borrowTime);
-            accruedInterest += accruedInterest;
-        }
-        uint minRequireSupplyAmount = userBorrowInfo.borrowed.add(accruedInterest).mul(SCALE).mul(PRICE_MANTISA).div(price).div(uint(info.borrowCollateralFactor).sub(WITHDRAW_OFFSET));
-        uint withdrawableAmount = userBorrowInfo.supplied - minRequireSupplyAmount;
-        return withdrawableAmount;
-    }
-
     function borrow(uint supplyAmount, uint borrowAmount, uint usgBorrowAmount) public nonReentrant(){
          (uint mintable, bool canMint) = IUsgEngine(engine).getMintableUSG(baseAsset, address(this), borrowAmount);
         require(canMint, 'user cant mint more usg');
+        require(mintable > usgBorrowAmount, "exceed borrow amount");
         IComet icomet = IComet(comet);
+
 
         AssetInfo memory info = icomet.getAssetInfoByAddress(asset);
         uint price = icomet.getPrice(info.priceFeed);
@@ -136,18 +114,14 @@ contract ARBI_Borrow  is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         require(borrowable >= borrowAmount, "borrow cap exceed");
         require(ERC20(asset).transferFrom(msg.sender, address(this), supplyAmount), "transfer asset fail");
 
+         uint accruedInterest = 0;
         if(userBorrowInfo.borrowed > 0) {
-            uint accruedInterest = calculateInterest(userBorrowInfo.borrowed, userBorrowInfo.borrowTime);
-            userBorrowInfo.accruedInterest += accruedInterest;
+            accruedInterest = calculateInterest(userBorrowInfo.borrowed, userBorrowInfo.borrowTime);
         }
 
-        require(mintable > usgBorrowAmount, "exceed borrow amount");
-
-        userBorrowInfo.borrowed = userBorrowInfo.borrowed.add(borrowAmount);
+        userBorrowInfo.borrowed = userBorrowInfo.borrowed.add(borrowAmount).add(accruedInterest);
         userBorrowInfo.supplied = userBorrowInfo.supplied.add(supplyAmount);
         userBorrowInfo.borrowTime = block.timestamp;
-        userBorrowInfo.underlyBorrowed += usgBorrowAmount;
-        
 
         bytes32[] memory actions = new bytes32[](2);
 
@@ -164,9 +138,18 @@ contract ARBI_Borrow  is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpg
 
         ERC20(asset).approve(comet, supplyAmount);
         IARBBulker(bulker).invoke(actions, callData);
+	    ERC20(baseAsset).approve(address(engine), borrowAmount);
+
+        uint usgBefore = ERC20(usg).balanceOf(address(this));
+
         IUsgEngine(engine).depositCollateralAndMintUsg(baseAsset, borrowAmount, usgBorrowAmount);
+
+        uint exepectedUsg = usgBefore.add(usgBorrowAmount);
+        require(exepectedUsg == ERC20(usg).balanceOf(address(this)), "invalid claim borrow usg amount");
+
         require(ERC20(usg).transfer(msg.sender, usgBorrowAmount), "transfer token fail");
     }
+
     
 
     function withdraw(uint withdrawAmount) public nonReentrant(){
@@ -175,7 +158,8 @@ contract ARBI_Borrow  is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         
         if(userBorrowInfo.borrowed > 0) {
             uint accruedInterest = calculateInterest(userBorrowInfo.borrowed, userBorrowInfo.borrowTime);
-            userBorrowInfo.accruedInterest += accruedInterest;
+            userBorrowInfo.borrowed = userBorrowInfo.borrowed.add(accruedInterest);
+            userBorrowInfo.borrowTime = block.timestamp;
         }
 
         IComet icomet = IComet(comet);
@@ -183,13 +167,12 @@ contract ARBI_Borrow  is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         AssetInfo memory info = icomet.getAssetInfoByAddress(asset);
         uint price = icomet.getPrice(info.priceFeed);
 
-        uint minRequireSupplyAmount = userBorrowInfo.borrowed.add(userBorrowInfo.accruedInterest).mul(SCALE).mul(PRICE_MANTISA).div(price).div(uint(info.borrowCollateralFactor).sub(WITHDRAW_OFFSET));
+        uint minRequireSupplyAmount = userBorrowInfo.borrowed.mul(SCALE).mul(PRICE_MANTISA).div(price).div(uint(info.borrowCollateralFactor).sub(WITHDRAW_OFFSET));
         uint withdrawableAmount = userBorrowInfo.supplied - minRequireSupplyAmount;
 
         require(withdrawAmount < withdrawableAmount, "Exceed asset supply");
 
         userBorrowInfo.supplied = userBorrowInfo.supplied.sub(withdrawAmount);
-        userBorrowInfo.borrowTime = block.timestamp;
         
         bytes32[] memory actions = new bytes32[](1);
 
@@ -205,19 +188,30 @@ contract ARBI_Borrow  is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         ERC20(asset).transfer(msg.sender, withdrawAmount);
     } 
 
-    function repay(uint borrowAmount) public nonReentrant(){
-        uint burnable = IUsgEngine(engine).getBurnableUSG(baseAsset, msg.sender, borrowAmount.mul(USG_DECIMAL_OFFSET));
-
+    function repay(uint usgRepayAmount) public nonReentrant(){
         BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
-        require(userBorrowInfo.borrowed >= borrowAmount, "exceed current borrowed amount");
 
-        uint supplyAmount = userBorrowInfo.supplied.mul(borrowAmount).div(userBorrowInfo.borrowed);
-        uint extraInterest = userBorrowInfo.accruedInterest.mul(borrowAmount).div(userBorrowInfo.borrowed);
+        uint withdrawUsdcAmountFromEngine = IUsgEngine(engine).getBurnableUSG(baseAsset, address(this), usgRepayAmount);
+        require(userBorrowInfo.borrowed >= withdrawUsdcAmountFromEngine, "exceed current borrowed amount");
+        require(ERC20(usg).transferFrom(msg.sender,address(this), usgRepayAmount), "transfer asset fail");
 
-        uint interest = calculateInterest(borrowAmount, userBorrowInfo.borrowTime) + extraInterest;
 
-        uint repayAmount = borrowAmount + interest;
-        require(ERC20(baseAsset).transferFrom(msg.sender,address(this), repayAmount), "transfer asset fail");
+        uint baseAssetBalanceBefore = ERC20(baseAsset).balanceOf(address(this));
+
+        ERC20(usg).approve(address(engine), usgRepayAmount);
+        IUsgEngine(engine).redeemCollateralForUsg(baseAsset, withdrawUsdcAmountFromEngine, usgRepayAmount);
+
+        uint baseAssetBalanceExpected = baseAssetBalanceBefore.add(withdrawUsdcAmountFromEngine);
+        require(baseAssetBalanceExpected == ERC20(baseAsset).balanceOf(address(this)), "invalid usdc claim from engine");
+
+
+
+        uint accruedInterest = calculateInterest(userBorrowInfo.borrowed, userBorrowInfo.borrowTime);
+        userBorrowInfo.borrowed = userBorrowInfo.borrowed.add(accruedInterest);
+
+        uint withdrawAssetAmount = userBorrowInfo.supplied.mul(withdrawUsdcAmountFromEngine).div(userBorrowInfo.borrowed);
+
+        uint repayUsdcAmount = withdrawUsdcAmountFromEngine;
 
         bytes32[] memory actions = new bytes32[](2);
 
@@ -226,20 +220,20 @@ contract ARBI_Borrow  is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpg
 
         bytes[] memory callData = new bytes[](2);
 
-        bytes memory supplyAssetCalldata = abi.encode(comet, address(this), baseAsset, repayAmount);
+        bytes memory supplyAssetCalldata = abi.encode(comet, address(this), baseAsset, repayUsdcAmount);
         callData[0] = supplyAssetCalldata;
 
-        bytes memory withdrawAssetCalldata = abi.encode(comet, address(this), asset, supplyAmount);
+        bytes memory withdrawAssetCalldata = abi.encode(comet, address(this), asset, withdrawAssetAmount);
         callData[1] = withdrawAssetCalldata;
 
-        ERC20(baseAsset).approve(comet, repayAmount);
+        ERC20(baseAsset).approve(comet, repayUsdcAmount);
         IARBBulker(bulker).invoke(actions, callData);
 
-        userBorrowInfo.borrowed = userBorrowInfo.borrowed.sub(borrowAmount);
-        userBorrowInfo.supplied = userBorrowInfo.supplied.sub(supplyAmount);
-        userBorrowInfo.accruedInterest = userBorrowInfo.accruedInterest.sub(extraInterest);
+        userBorrowInfo.borrowed = userBorrowInfo.borrowed.sub(withdrawUsdcAmountFromEngine);
+        userBorrowInfo.supplied = userBorrowInfo.supplied.sub(withdrawAssetAmount);
+        userBorrowInfo.borrowTime = block.timestamp;
 
-        ERC20(asset).transfer(msg.sender, supplyAmount);
+        require(ERC20(asset).transfer(msg.sender, withdrawAssetAmount), "transfer asset claim from compound fail");
     }
     function borrowBalanceOf(address user) public view returns (uint) {
         
@@ -249,23 +243,7 @@ contract ARBI_Borrow  is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         }
 
         uint borrowAmount = userBorrowInfo.borrowed;
-        uint extraInterest = userBorrowInfo.accruedInterest.mul(borrowAmount).div(userBorrowInfo.borrowed);
-
-        uint interest = calculateInterest(borrowAmount, userBorrowInfo.borrowTime) + extraInterest;
-
-        return borrowAmount + interest;
-    }
-
-    function partialBorrowBalanceOf(address user, uint borrowAmount) public view returns (uint) {
-        
-        BorrowInfo storage userBorrowInfo = borrowInfoMap[user];
-        if(userBorrowInfo.borrowed == 0) {
-            return 0;
-        }
-
-        uint extraInterest = userBorrowInfo.accruedInterest.mul(borrowAmount).div(userBorrowInfo.borrowed);
-
-        uint interest = calculateInterest(borrowAmount, userBorrowInfo.borrowTime) + extraInterest;
+        uint interest = calculateInterest(borrowAmount, userBorrowInfo.borrowTime);
 
         return borrowAmount + interest;
     }
