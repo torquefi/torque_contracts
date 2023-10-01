@@ -87,6 +87,14 @@ contract ARBI_Borrow  is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpg
     function setAllowTo(address manager, bool _allow) public onlyOwner{
         IComet(comet).allow(manager, _allow);
     }
+
+    function setUsgEngine(address _newEngine) public onlyOwner{
+        engine = _newEngine;
+    }
+
+    function setUsg(address _usg) public onlyOwner{
+        usg = _usg;
+    }
 // End test
 
     function getBorrowable(uint amount) public view returns (uint){
@@ -191,7 +199,8 @@ contract ARBI_Borrow  is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpg
     function repay(uint usgRepayAmount) public nonReentrant(){
         BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
 
-        uint withdrawUsdcAmountFromEngine = IUsgEngine(engine).getBurnableUSG(baseAsset, address(this), usgRepayAmount);
+        (uint withdrawUsdcAmountFromEngine, bool burnable) = IUsgEngine(engine).getBurnableUSG(baseAsset, address(this), usgRepayAmount);
+        require(burnable, "not burnable");
         require(userBorrowInfo.borrowed >= withdrawUsdcAmountFromEngine, "exceed current borrowed amount");
         require(ERC20(usg).transferFrom(msg.sender,address(this), usgRepayAmount), "transfer asset fail");
 
