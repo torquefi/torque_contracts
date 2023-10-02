@@ -211,7 +211,8 @@ contract ARBI_EBorrow  is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUp
 
         BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
 
-        uint withdrawUsdcAmountFromEngine = IUsgEngine(engine).getBurnableUSG(baseAsset, address(this), usgRepayAmount);
+        (uint withdrawUsdcAmountFromEngine, bool burnable) = IUsgEngine(engine).getBurnableUSG(baseAsset, address(this), usgRepayAmount);
+        require(burnable, "not burnable");
         require(userBorrowInfo.borrowed >= withdrawUsdcAmountFromEngine, "exceed current borrowed amount");
         require(ERC20(usg).transferFrom(msg.sender,address(this), usgRepayAmount), "transfer asset fail");
 
