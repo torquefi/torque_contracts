@@ -27,7 +27,7 @@ function getBurnableUSG(
         address tokenCollateralAddress,
         address user,
         uint256 amountUSG
-    ) external view returns (uint256) ;
+    ) external view returns (uint256, bool) ;
 
     function redeemCollateralForUsg(
         address tokenCollateralAddress,
