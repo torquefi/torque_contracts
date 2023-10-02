@@ -1,11 +1,12 @@
-// SPDX-License: MIT
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "../Interfaces/IStargateLPStaking.sol";
-import "../Interfaces/ISwapRouter.sol";
+// import "../Interfaces/ISwapRouter.sol"; // upgrade to Uniswap V3
+import "../Interfaces/ISwapRouterV3.sol";
 
 /**
 
@@ -28,7 +29,7 @@ contract Boost is Ownable {
     // variables and mapping
     IStargateLPStaking lpStaking;
     IERC20 public stargateInterface;
-    ISwapRouter public swapRouter;
+    ISwapRouterV3 public swapRouter;
     address constant WETH = 0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6;
     address public Stargate;
     mapping(address => uint256) public totalStack;
@@ -49,7 +50,7 @@ contract Boost is Ownable {
     constructor(address _stargateStakingAddress, address _stargateAddress, address _swapRouter) {
         lpStaking = IStargateLPStaking(_stargateStakingAddress);
         stargateInterface = IERC20(_stargateAddress);
-        swapRouter = ISwapRouter(_swapRouter);
+        swapRouter = ISwapRouterV3(_swapRouter);
     }
 
     function setPid(address _token, uint256 _pid) public onlyOwner {
@@ -122,36 +123,30 @@ contract Boost is Ownable {
         return interval.mul(_userInfo.amount);
     }
 
-    function swapRewardSTGToToken(address _token, uint256 _stgAmount) internal returns (uint256) {
-        uint256[] memory amounts;
+    function swapRewardSTGToToken(
+        address _token,
+        uint256 _stgAmount
+    ) internal returns (uint256 amountOut) {
         stargateInterface.approve(address(swapRouter), _stgAmount);
-
+        bytes memory path;
         if (_token == WETH) {
-            address[] memory path = new address[](2);
-            path[0] = address(stargateInterface);
-            path[1] = address(WETH);
-            uint256 _deadline = block.timestamp + 3000;
-            amounts = swapRouter.swapExactTokensForTokens(
-                _stgAmount,
-                _stgAmount, // amount out min for test
-                path,
-                address(this),
-                _deadline
-            );
+            path = abi.encodePacked(address(stargateInterface), uint24(3000), WETH);
         } else {
-            address[] memory path = new address[](3);
-            path[0] = address(stargateInterface);
-            path[1] = address(WETH);
-            path[2] = _token;
-            uint256 _deadline = block.timestamp + 3000;
-            amounts = swapRouter.swapExactTokensForTokens(
-                _stgAmount,
-                _stgAmount, // amount out min for test
-                path,
-                address(this),
-                _deadline
+            path = abi.encodePacked(
+                address(stargateInterface),
+                uint24(3000),
+                WETH,
+                uint24(3000),
+                _token
             );
         }
-        return amounts[amounts.length - 1]; // the last one
+        ISwapRouterV3.ExactInputParams memory params = ISwapRouterV3.ExactInputParams({
+            path: path,
+            recipient: msg.sender,
+            deadline: block.timestamp,
+            amountIn: _stgAmount,
+            amountOutMinimum: 0
+        });
+        amountOut = swapRouter.exactInput(params);
     }
 }
