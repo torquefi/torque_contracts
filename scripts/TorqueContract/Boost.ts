@@ -3,9 +3,9 @@ import { ethers } from "hardhat";
 async function main() {
   const BoostContract = await ethers.getContractFactory("Boost");
   const boostContract = await BoostContract.deploy(
-    "0xA81D21c0A87F2A6A7618B75e45ad9A7731164207", // LP Staking
-    "0xd22b80AbE59661e5aCdBEa247D08A24123df45dF", // Stargaate Token
-    "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D" // Router
+    "0x5168f92eD68Bd7e1b4e7a43aa5747Ffd5011a89e", // LP Staking
+    "0xfE8EBe40dC9E399F4D6FaEfCC36e5749411BC58C", // Stargaate Token
+    "0xE592427A0AEce92De3Edee1F18E0157C05861564" // Router
   );
 
   await boostContract.deployed();

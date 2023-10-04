@@ -53,6 +53,16 @@ contract Boost is Ownable {
         swapRouter = ISwapRouterV3(_swapRouter);
     }
 
+    function changeConfigAddress(
+        address _stargateStakingAddress,
+        address _stargateAddress,
+        address _swapRouter
+    ) public onlyOwner {
+        lpStaking = IStargateLPStaking(_stargateStakingAddress);
+        stargateInterface = IERC20(_stargateAddress);
+        swapRouter = ISwapRouterV3(_swapRouter);
+    }
+
     function setPid(address _token, uint256 _pid) public onlyOwner {
         addressToPid[_token] = _pid;
     }
