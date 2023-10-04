@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "../Interfaces/IStargateLPStaking.sol";
 // import "../Interfaces/ISwapRouter.sol"; // upgrade to Uniswap V3
 import "../Interfaces/ISwapRouterV3.sol";
+import "../Interfaces/IWETH.sol";
 
 /**
 
@@ -70,7 +71,13 @@ contract Boost is Ownable {
     function deposit(address _token, uint256 _amount) public payable {
         uint256 pid = addressToPid[_token];
         IERC20 tokenInterface = IERC20(_token);
-        tokenInterface.transferFrom(_msgSender(), address(this), _amount);
+        if (_token == WETH) {
+            require(msg.value >= _amount, "Not enough ETH");
+            IWETH weth = IWETH(WETH);
+            weth.deposit{ value: _amount }();
+        } else {
+            tokenInterface.transferFrom(_msgSender(), address(this), _amount);
+        }
         tokenInterface.approve(address(lpStaking), _amount);
         lpStaking.deposit(pid, _amount);
 
@@ -86,14 +93,21 @@ contract Boost is Ownable {
 
     function withdraw(address _token, uint256 _amount) public payable {
         uint256 pid = addressToPid[_token];
-        IERC20 tokenInterface = IERC20(_token);
-        lpStaking.withdraw(pid, _amount);
-        tokenInterface.transfer(_msgSender(), _amount);
-
         UserInfo storage _userInfo = userInfo[_msgSender()][pid];
         _userInfo.amount = _userInfo.amount.sub(_amount);
         _userInfo.lastProcess = block.timestamp;
         totalStack[_token] = totalStack[_token].sub(_amount);
+
+        IERC20 tokenInterface = IERC20(_token);
+        lpStaking.withdraw(pid, _amount);
+        if (_token == WETH) {
+            IWETH weth = IWETH(WETH);
+            weth.withdraw(_amount);
+            (bool success, ) = msg.sender.call{ value: _amount }("");
+            require(success, "Transfer ETH failed");
+        } else {
+            tokenInterface.transfer(_msgSender(), _amount);
+        }
     }
 
     function autoCompound(address _token) public {
