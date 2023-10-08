@@ -1,8 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.15;
-
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+pragma solidity ^0.8.19;
 
 //  _________  ________  ________  ________  ___  ___  _______      
 // |\___   ___\\   __  \|\   __  \|\   __  \|\  \|\  \|\  ___ \     
@@ -12,12 +9,8 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 //       \ \__\ \ \_______\ \__\\ _\\ \_____  \ \_______\ \_______\
 //        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
 
-contract MockPair is ERC20 {
-    constructor() ERC20("Torque Pair", "TorqETH") {
-        _mint(msg.sender, 100000000 ether);
-    }
+interface IToken {
+    function mint(address _minter) external;
 
-    function mint(address _receiver, uint256 _amount) public {
-        _mint(_receiver, _amount);
-    }
+    function burn(address _burner, uint256 _amount) external;
 }
