@@ -12,7 +12,7 @@ pragma solidity ^0.8.6;
 import "../CompoundBase/IWETH9.sol";
 import "../CompoundBase/bulkers/IARBBulker.sol";
 import "../CompoundBase/IComet.sol";
-import "./Torque/IUsgEngine.sol";
+import "./Torque/IUsdEngine.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
@@ -28,7 +28,7 @@ contract ARBI_Borrow  is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpg
     address public baseAsset;
     address public comet;
     address public engine;
-    address public usg;
+    address public usd;
         /// @notice The action for supplying an asset to Comet
     bytes32 public constant ACTION_SUPPLY_ASSET = "ACTION_SUPPLY_ASSET";
 
@@ -50,7 +50,7 @@ contract ARBI_Borrow  is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpg
     uint constant PRICE_MANTISA = 1e2;
     uint constant SCALE = 1e18;
     uint constant WITHDRAW_OFFSET = 1e2;
-    uint constant USG_DECIMAL_OFFSET = 1e12;
+    uint constant USD_DECIMAL_OFFSET = 1e12;
 
     struct BorrowInfo {
         address user;
@@ -66,13 +66,13 @@ contract ARBI_Borrow  is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpg
     
     function _authorizeUpgrade(address) internal override onlyOwner {}
 
-    function initialize(address _comet, address _asset, address _baseAsset, address _bulker, address _engine, address _usg) public initializer {
+    function initialize(address _comet, address _asset, address _baseAsset, address _bulker, address _engine, address _usd) public initializer {
         comet = _comet;
         asset = _asset;
         baseAsset = _baseAsset;
         bulker = _bulker;
         engine = _engine;
-        usg = _usg;
+        usd = _usd;
         IComet(comet).allow(_bulker, true);
         __Ownable_init();
         __ReentrancyGuard_init();
@@ -97,12 +97,12 @@ contract ARBI_Borrow  is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         IComet(comet).allow(manager, _allow);
     }
 
-    function setUsgEngine(address _newEngine) public onlyOwner{
+    function setUsdEngine(address _newEngine) public onlyOwner{
         engine = _newEngine;
     }
 
-    function setUsg(address _usg) public onlyOwner{
-        usg = _usg;
+    function setUsd(address _usd) public onlyOwner{
+        usd = _usd;
     }
 // End test
 
@@ -114,10 +114,10 @@ contract ARBI_Borrow  is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         return amount.mul(info.borrowCollateralFactor).mul(price).div(PRICE_MANTISA).div(SCALE);
     }
 
-    function borrow(uint supplyAmount, uint borrowAmount, uint usgBorrowAmount) public nonReentrant(){
-         (uint mintable, bool canMint) = IUsgEngine(engine).getMintableUSG(baseAsset, address(this), borrowAmount);
-        require(canMint, 'user cant mint more usg');
-        require(mintable > usgBorrowAmount, "exceed borrow amount");
+    function borrow(uint supplyAmount, uint borrowAmount, uint usdBorrowAmount) public nonReentrant(){
+         (uint mintable, bool canMint) = IUsdEngine(engine).getMintableUSD(baseAsset, address(this), borrowAmount);
+        require(canMint, 'user cant mint more usd');
+        require(mintable > usdBorrowAmount, "exceed borrow amount");
         IComet icomet = IComet(comet);
 
 
@@ -157,14 +157,14 @@ contract ARBI_Borrow  is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         IARBBulker(bulker).invoke(actions, callData);
 	    ERC20(baseAsset).approve(address(engine), borrowAmount);
 
-        uint usgBefore = ERC20(usg).balanceOf(address(this));
+        uint usdBefore = ERC20(usd).balanceOf(address(this));
 
-        IUsgEngine(engine).depositCollateralAndMintUsg(baseAsset, borrowAmount, usgBorrowAmount);
+        IUsdEngine(engine).depositCollateralAndMintUsd(baseAsset, borrowAmount, usdBorrowAmount);
 
-        uint exepectedUsg = usgBefore.add(usgBorrowAmount);
-        require(exepectedUsg == ERC20(usg).balanceOf(address(this)), "invalid claim borrow usg amount");
+        uint exepectedUsd = usdBefore.add(usdBorrowAmount);
+        require(exepectedUsd == ERC20(usd).balanceOf(address(this)), "invalid claim borrow usd amount");
 
-        require(ERC20(usg).transfer(msg.sender, usgBorrowAmount), "transfer token fail");
+        require(ERC20(usd).transfer(msg.sender, usdBorrowAmount), "transfer token fail");
     }
 
     
@@ -205,19 +205,19 @@ contract ARBI_Borrow  is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         ERC20(asset).transfer(msg.sender, withdrawAmount);
     } 
 
-    function repay(uint usgRepayAmount) public nonReentrant(){
+    function repay(uint usdRepayAmount) public nonReentrant(){
         BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
 
-        (uint withdrawUsdcAmountFromEngine, bool burnable) = IUsgEngine(engine).getBurnableUSG(baseAsset, address(this), usgRepayAmount);
+        (uint withdrawUsdcAmountFromEngine, bool burnable) = IUsdEngine(engine).getBurnableUSD(baseAsset, address(this), usdRepayAmount);
         require(burnable, "not burnable");
         require(userBorrowInfo.borrowed >= withdrawUsdcAmountFromEngine, "exceed current borrowed amount");
-        require(ERC20(usg).transferFrom(msg.sender,address(this), usgRepayAmount), "transfer asset fail");
+        require(ERC20(usd).transferFrom(msg.sender,address(this), usdRepayAmount), "transfer asset fail");
 
 
         uint baseAssetBalanceBefore = ERC20(baseAsset).balanceOf(address(this));
 
-        ERC20(usg).approve(address(engine), usgRepayAmount);
-        IUsgEngine(engine).redeemCollateralForUsg(baseAsset, withdrawUsdcAmountFromEngine, usgRepayAmount);
+        ERC20(usd).approve(address(engine), usdRepayAmount);
+        IUsdEngine(engine).redeemCollateralForUsd(baseAsset, withdrawUsdcAmountFromEngine, usdRepayAmount);
 
         uint baseAssetBalanceExpected = baseAssetBalanceBefore.add(withdrawUsdcAmountFromEngine);
         require(baseAssetBalanceExpected == ERC20(baseAsset).balanceOf(address(this)), "invalid usdc claim from engine");
