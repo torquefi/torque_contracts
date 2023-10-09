@@ -1,13 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "./interfaces/IPair.sol";
-import "./interfaces/IRouter.sol";
-import "./interfaces/IStakingTorque.sol";
-
 //  _________  ________  ________  ________  ___  ___  _______      
 // |\___   ___\\   __  \|\   __  \|\   __  \|\  \|\  \|\  ___ \     
 // \|___ \  \_\ \  \|\  \ \  \|\  \ \  \|\  \ \  \\\  \ \   __/|    
@@ -15,6 +8,13 @@ import "./interfaces/IStakingTorque.sol";
 //      \ \  \ \ \  \\\  \ \  \\  \\ \  \\\  \ \  \\\  \ \  \_|\ \ 
 //       \ \__\ \ \_______\ \__\\ _\\ \_____  \ \_______\ \_______\
 //        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
+
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "./interfaces/IPair.sol";
+import "./interfaces/IRouter.sol";
+import "./interfaces/IStakingTorque.sol";
 
 contract USDFarming is Ownable {
     using SafeMath for uint256;

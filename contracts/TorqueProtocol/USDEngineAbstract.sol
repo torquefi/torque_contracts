@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+pragma solidity 0.8.19;
 
 //  _________  ________  ________  ________  ___  ___  _______
 // |\___   ___\\   __  \|\   __  \|\   __  \|\  \|\  \|\  ___ \
@@ -8,8 +9,6 @@
 //       \ \__\ \ \_______\ \__\\ _\\ \_____  \ \_______\ \_______\
 //        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
 //
-
-pragma solidity 0.8.19;
 
 import { AggregatorV3Interface } from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
