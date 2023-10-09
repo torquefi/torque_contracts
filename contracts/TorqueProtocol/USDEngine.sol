@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+pragma solidity 0.8.19;
 
 //  _________  ________  ________  ________  ___  ___  _______
 // |\___   ___\\   __  \|\   __  \|\   __  \|\  \|\  \|\  ___ \
@@ -9,24 +10,9 @@
 //         \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
 //
 
-pragma solidity 0.8.19;
 import "./USDEngineAbstract.sol";
 
-/*
- * Title: USDEngine
- * Author: Torque Inc.
- * Collateral: Exogenous
- * Minting: Algorithmic
- * Stability: USD Peg
- * Collateral: Crypto
- *
- * This contract is the core of usd.farm. It handles the USD 'mint
- * and redeem' logic and is based on the MakerDAO DSS system.
- */
 contract USDEngine is USDEngineAbstract {
-    ///////////////////
-    // Functions
-    ///////////////////
 
     constructor(
         address[] memory tokenAddresses,
@@ -34,10 +20,7 @@ contract USDEngine is USDEngineAbstract {
         uint256[] memory liquidationThresholds,
         address usdAddress
     ) USDEngineAbstract(tokenAddresses, priceFeedAddresses, liquidationThresholds, usdAddress) {}
-
-    ///////////////////
-    // External Functions
-    ///////////////////
+    
     /*
      * @param tokenCollateralAddress: The ERC20 token address of the collateral you're depositing
      * @param amountCollateral: The amount of collateral you're depositing
