@@ -1,12 +1,12 @@
 import { ethers } from "hardhat";
 
 async function main() {
-  const USG = await ethers.getContractFactory("MockUSG");
-  const usg = await USG.deploy();
+  const USD = await ethers.getContractFactory("MockUSD");
+  const usd = await USD.deploy();
 
-  await usg.deployed();
+  await usd.deployed();
 
-  console.log(`usg deployed at ${usg.address}`);
+  console.log(`usd deployed at ${usd.address}`);
 }
 
 // We recommend this pattern to be able to use async/await everywhere
