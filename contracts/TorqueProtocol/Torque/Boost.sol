@@ -116,18 +116,19 @@ contract Boost is Ownable {
         uint256 totalProduction = calculateTotalProduct(pid);
         lpStaking.withdraw(pid, totalStack[_token]);
         uint256 rewardSTG = stargateInterface.balanceOf(address(this));
-        // TO-DO: swap STG reward to address
-        uint256 tokenReward = swapRewardSTGToToken(_token, rewardSTG);
-        address[] memory stakes = stakeHolders[pid];
-        for (uint256 i = 0; i < stakes.length; i++) {
-            UserInfo storage _userInfo = userInfo[stakes[i]][pid];
-            uint256 userProduct = calculateUserProduct(pid, stakes[i]);
-            uint256 reward = tokenReward.mul(userProduct).div(totalProduction);
-            _userInfo.amount = _userInfo.amount.add(reward);
+        if (rewardSTG > 0) {
+            uint256 tokenReward = swapRewardSTGToToken(_token, rewardSTG);
+            address[] memory stakes = stakeHolders[pid];
+            for (uint256 i = 0; i < stakes.length; i++) {
+                UserInfo storage _userInfo = userInfo[stakes[i]][pid];
+                uint256 userProduct = calculateUserProduct(pid, stakes[i]);
+                uint256 reward = tokenReward.mul(userProduct).div(totalProduction);
+                _userInfo.amount = _userInfo.amount.add(reward);
+            }
+            totalStack[_token] = totalStack[_token].add(tokenReward);
+            tokenInterface.approve(address(lpStaking), totalStack[_token]);
+            lpStaking.deposit(pid, totalStack[_token]);
         }
-        totalStack[_token] = totalStack[_token].add(tokenReward);
-        tokenInterface.approve(address(lpStaking), totalStack[_token]);
-        lpStaking.deposit(pid, totalStack[_token]);
     }
 
     // internal functions
@@ -152,25 +153,36 @@ contract Boost is Ownable {
         uint256 _stgAmount
     ) internal returns (uint256 amountOut) {
         stargateInterface.approve(address(swapRouter), _stgAmount);
-        bytes memory path;
-        if (_token == WETH) {
-            path = abi.encodePacked(address(stargateInterface), uint24(3000), WETH);
-        } else {
-            path = abi.encodePacked(
-                address(stargateInterface),
-                uint24(3000),
-                WETH,
-                uint24(3000),
-                _token
-            );
-        }
-        ISwapRouterV3.ExactInputParams memory params = ISwapRouterV3.ExactInputParams({
-            path: path,
-            recipient: msg.sender,
-            deadline: block.timestamp,
+        ISwapRouterV3.ExactInputSingleParams memory params = ISwapRouterV3.ExactInputSingleParams({
+            tokenIn: address(stargateInterface),
+            tokenOut: _token,
+            fee: 10000,
+            recipient: address(this),
+            deadline: block.timestamp + 1000000,
             amountIn: _stgAmount,
-            amountOutMinimum: 0
+            amountOutMinimum: 0,
+            sqrtPriceLimitX96: 0
         });
-        amountOut = swapRouter.exactInput(params);
+        amountOut = swapRouter.exactInputSingle(params);
+    }
+
+    // For test
+    function swapETHToSTG() public payable {
+        IWETH weth = IWETH(WETH);
+        uint256 _amount = msg.value;
+        weth.deposit{ value: _amount }();
+        IERC20 tokenInterface = IERC20(WETH);
+        tokenInterface.approve(address(swapRouter), _amount);
+        ISwapRouterV3.ExactInputSingleParams memory params = ISwapRouterV3.ExactInputSingleParams({
+            tokenIn: WETH,
+            tokenOut: address(stargateInterface),
+            fee: 10000,
+            recipient: msg.sender,
+            deadline: block.timestamp + 1000000,
+            amountIn: _amount,
+            amountOutMinimum: 0,
+            sqrtPriceLimitX96: 0
+        });
+        swapRouter.exactInputSingle(params);
     }
 }
