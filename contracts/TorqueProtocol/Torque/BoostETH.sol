@@ -25,7 +25,7 @@ import "../Interfaces/IWETH.sol";
 
  */
 
-contract Boost is Ownable {
+contract BoostETH is Ownable {
     using SafeMath for uint256;
     // variables and mapping
     IStargateLPStaking lpStaking;
