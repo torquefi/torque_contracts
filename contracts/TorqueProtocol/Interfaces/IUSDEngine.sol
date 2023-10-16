@@ -2,27 +2,27 @@
 pragma solidity ^0.8.6;
 interface IUSDEngine {
 
-   function getMintableUSG(
+   function getMintableUSD(
         address tokenCollateralAddress,
         address user,
         uint256 amountCollateral
     ) external view returns (uint256, bool);
 
-    function depositCollateralAndMintUsg(
+    function depositCollateralAndMintUsd(
         address tokenCollateralAddress,
         uint256 amountCollateral,
-        uint256 amountUsgToMint
+        uint256 amountUsdToMint
     ) external payable ;
 
-function getBurnableUSG(
+function getBurnableUSD(
         address tokenCollateralAddress,
         address user,
-        uint256 amountUSG
+        uint256 amountUSD
     ) external view returns (uint256, bool) ;
 
-    function redeemCollateralForUsg(
+    function redeemCollateralForUsd(
         address tokenCollateralAddress,
         uint256 amountCollateral,
-        uint256 amountUsgToBurn
+        uint256 amountUsdToBurn
     ) external payable;
 }
