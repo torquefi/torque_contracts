@@ -28,7 +28,7 @@ describe("LPStaking:", function () {
     allocPoint = 3;
     bonusEndBlock = 1000000000;
     emissionsPerBlock = "1000000000000000000";
-    depositAmt = BigNumber.from("1000000000000000000");
+    depositAmt = BigNumber.from("10000000 00000000000");
   });
 
   beforeEach(async function () {

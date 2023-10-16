@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+
 pragma solidity ^0.8.15;
 
 //  _________  ________  ________  ________  ___  ___  _______      
@@ -9,11 +10,10 @@ pragma solidity ^0.8.15;
 //       \ \__\ \ \_______\ \__\\ _\\ \_____  \ \_______\ \_______\
 //        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
 
-interface IRouter {
-    function getAmountsOut(
-        uint256 amountIn,
-        address[] memory path
-    ) external view returns (uint256[] memory amounts);
+interface IStargateLPStaking {
+    function deposit(uint256 _pid, uint256 _amount) external;
 
-    function WETH() external pure returns (address);
+    function withdraw(uint256 _pid, uint256 _amount) external;
+
+    function emergencyWithdraw(uint256 _pid) external;
 }

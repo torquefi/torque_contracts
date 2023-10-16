@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.15;
+pragma solidity ^0.8.19;
 
 //  _________  ________  ________  ________  ___  ___  _______      
 // |\___   ___\\   __  \|\   __  \|\   __  \|\  \|\  \|\  ___ \     
@@ -9,11 +9,10 @@ pragma solidity ^0.8.15;
 //       \ \__\ \ \_______\ \__\\ _\\ \_____  \ \_______\ \_______\
 //        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
 
-interface IRouter {
-    function getAmountsOut(
-        uint256 amountIn,
-        address[] memory path
-    ) external view returns (uint256[] memory amounts);
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-    function WETH() external pure returns (address);
+contract USDCTest is ERC20 {
+    constructor() ERC20("USDC TEST", "USDC") {
+        _mint(msg.sender, 1000000 ether);
+    }
 }
