@@ -11,7 +11,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
-contract ARBI_EBorrow  is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgradeable{
+contract EBorrow  is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgradeable{
     using SafeMath for uint256;
 
     address public bulker;
@@ -20,23 +20,12 @@ contract ARBI_EBorrow  is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUp
     address public comet;
     address public engine;
     address public usd;
-        /// @notice The action for supplying an asset to Comet
-    bytes32 public constant ACTION_SUPPLY_ASSET = "ACTION_SUPPLY_ASSET";
-
-    /// @notice The action for supplying a native asset (e.g. ETH on Ethereum mainnet) to Comet
-    bytes32 public constant ACTION_SUPPLY_ETH = "ACTION_SUPPLY_NATIVE_TOKEN";
-
-    /// @notice The action for transferring an asset within Comet
-    bytes32 public constant ACTION_TRANSFER_ASSET = "ACTION_TRANSFER_ASSET";
-
-    /// @notice The action for withdrawing an asset from Comet
-    bytes32 public constant ACTION_WITHDRAW_ASSET = "ACTION_WITHDRAW_ASSET";
-
-    /// @notice The action for withdrawing a native asset from Comet
-    bytes32 public constant ACTION_WITHDRAW_ETH = "ACTION_WITHDRAW_NATIVE_TOKEN";
-
-    /// @notice The action for claiming rewards from the Comet rewards contract
-    bytes32 public constant ACTION_CLAIM_REWARD = "ACTION_CLAIM_REWARD";
+    uint public constant ACTION_SUPPLY_ASSET = 1;
+    uint public constant ACTION_SUPPLY_ETH = 2;
+    uint public constant ACTION_TRANSFER_ASSET = 3;
+    uint public constant ACTION_WITHDRAW_ASSET = 4;
+    uint public constant ACTION_WITHDRAW_ETH = 5;
+    uint public constant ACTION_CLAIM_REWARD = 6;
     uint constant BASE_ASSET_MANTISA = 1e6;
     uint constant PRICE_MANTISA = 1e2;
     uint constant SCALE = 1e18;
@@ -134,7 +123,7 @@ contract ARBI_EBorrow  is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUp
         userBorrowInfo.supplied = userBorrowInfo.supplied.add(supplyAmount);
         userBorrowInfo.borrowTime = block.timestamp;
 
-        bytes32[] memory actions = new bytes32[](2);
+        uint[] memory actions = new uint[](2);
 
         actions[0] = ACTION_SUPPLY_ETH;
         actions[1] = ACTION_WITHDRAW_ASSET;
@@ -182,8 +171,8 @@ contract ARBI_EBorrow  is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUp
         require(withdrawAmount < withdrawableAmount, "Exceed asset supply");
 
         userBorrowInfo.supplied = userBorrowInfo.supplied.sub(withdrawAmount);
-        
-        bytes32[] memory actions = new bytes32[](1);
+
+        uint[] memory actions = new uint[](1);
 
         actions[0] = ACTION_WITHDRAW_ASSET;
 
