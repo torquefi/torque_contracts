@@ -16,7 +16,7 @@ import "./interfaces/IPair.sol";
 import "./interfaces/IRouter.sol";
 import "./interfaces/IStakingTorque.sol";
 
-contract USDFarming is Ownable {
+contract USDFarm is Ownable {
     using SafeMath for uint256;
     using SafeMath for uint112;
 
@@ -132,7 +132,7 @@ contract USDFarming is Ownable {
 
     function deposit(address _lptoken, uint256 _stakeAmount) external {
         require(enabled[_lptoken], "Staking is not enabled");
-        require(_stakeAmount > 0, "USDFarming: stake amount must be greater than 0");
+        require(_stakeAmount > 0, "USDFarm: Stake amount must be greater than 0");
         IPair pair = IPair(_lptoken);
         pair.transferFrom(msg.sender, address(this), _stakeAmount);
         StakeDetail storage stakeDetail = stakers[msg.sender][_lptoken];
@@ -169,7 +169,7 @@ contract USDFarming is Ownable {
     function redeem(address _lptoken, uint256 _redeemAmount) external {
         require(enabled[_lptoken], "Staking is not enabled");
         StakeDetail storage stakeDetail = stakers[msg.sender][_lptoken];
-        require(stakeDetail.firstStakeAt > 0, "USDFarming: no stake");
+        require(stakeDetail.firstStakeAt > 0, "USDFarm: No stake");
         require(
             stakeDetail.lastProcessAt + cooldownTime <= block.timestamp,
             "Not reach cool down time"
@@ -185,14 +185,14 @@ contract USDFarming is Ownable {
         stakeDetail.lastProcessAt = block.timestamp;
         require(
             stakeDetail.principal >= _redeemAmount,
-            "USDFarming: redeem amount must be less than principal"
+            "USDFarm: Redeem amount must be less than principal"
         );
         stakeDetail.pendingReward = remainAmountInToken;
         stakeDetail.principal = stakeDetail.principal.sub(_redeemAmount);
-        require(pair.transfer(msg.sender, _redeemAmount), "USDFarming: transfer failed");
+        require(pair.transfer(msg.sender, _redeemAmount), "USDFarm: Transfer failed");
         require(
             token.transfer(msg.sender, claimAmountInToken),
-            "USDFarming: reward transfer failed"
+            "USDFarm: Reward transfer failed"
         );
         emit Redeem(msg.sender, _redeemAmount);
 
