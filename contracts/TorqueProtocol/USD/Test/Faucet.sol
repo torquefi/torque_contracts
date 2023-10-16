@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.15;
+pragma solidity ^0.8.19;
 
 //  _________  ________  ________  ________  ___  ___  _______      
 // |\___   ___\\   __  \|\   __  \|\   __  \|\  \|\  \|\  ___ \     
@@ -9,11 +9,16 @@ pragma solidity ^0.8.15;
 //       \ \__\ \ \_______\ \__\\ _\\ \_____  \ \_______\ \_______\
 //        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
 
-interface IRouter {
-    function getAmountsOut(
-        uint256 amountIn,
-        address[] memory path
-    ) external view returns (uint256[] memory amounts);
+import "../interfaces/IToken.sol";
 
-    function WETH() external pure returns (address);
+contract Faucet {
+    function mintToken(address _token) public {
+        IToken token = IToken(_token);
+        token.mint(msg.sender);
+    }
+
+    function burnToken(address _token, uint256 _amount) public {
+        IToken token = IToken(_token);
+        token.burn(msg.sender, _amount);
+    }
 }

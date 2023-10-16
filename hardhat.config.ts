@@ -11,6 +11,7 @@ const {
   API_KEY_GOERLI,
   API_KEY_ETH,
   API_KEY_BSC_MAINNET,
+  API_KEY_ARBI_GOERLI,
   PROJECT_ID_GOERLI,
   PROJECT_ID_ETH,
 } = process.env;
@@ -34,6 +35,7 @@ const config: HardhatUserConfig = {
       goerli: `${API_KEY_GOERLI}`,
       mainnet: `${API_KEY_ETH}`, //eth
       bsc: `${API_KEY_BSC_MAINNET}`, //bsc
+      arbitrumGoerli: `${API_KEY_ARBI_GOERLI}`,
     },
   },
   networks: {
@@ -42,7 +44,7 @@ const config: HardhatUserConfig = {
     },
     hardhat: {},
     goerli: {
-      url: `https://goerli.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161`,
+      url: `https://goerli.infura.io/v3/${PROJECT_ID_GOERLI}`,
       chainId: 5,
       accounts: [`0x${PRIVATE_KEY}`],
     },
@@ -80,7 +82,6 @@ const config: HardhatUserConfig = {
       accounts: [`0x${PRIVATE_KEY}`],
     },
   },
-  defaultNetwork: "goerli",
   solidity: {
     version: "0.8.15",
     settings: {
