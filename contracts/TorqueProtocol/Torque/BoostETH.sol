@@ -9,6 +9,8 @@ import "../Interfaces/IStargateLPStaking.sol";
 import "../Interfaces/ISwapRouterV3.sol";
 import "../Interfaces/IWETH.sol";
 
+import "../Interfaces/IGMX.sol";
+
 /**
 
 ********\                                                
@@ -31,9 +33,13 @@ contract BoostETH is Ownable {
     IStargateLPStaking lpStaking;
     IERC20 public stargateInterface;
     ISwapRouterV3 public swapRouter;
+    IGMX public gmxInterface;
     address constant WETH = 0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6;
     address public Stargate;
     mapping(address => uint256) public totalStack;
+    address treasuryWallet;
+    uint256 treasuryProportion;
+    uint256 constant DENOMINATOR = 10000;
     // address[] public stakeHolders;
 
     mapping(address => mapping(uint256 => UserInfo)) public userInfo;
@@ -44,14 +50,26 @@ contract BoostETH is Ownable {
     // structs and events
     struct UserInfo {
         uint256 amount;
+        uint256 amountToSTG;
+        uint256 amountFromGMX;
         uint256 lastProcess;
     }
 
     // constructor and functions
-    constructor(address _stargateStakingAddress, address _stargateAddress, address _swapRouter) {
+    constructor(
+        address _stargateStakingAddress,
+        address _stargateAddress,
+        address _swapRouter,
+        address _gmxAddress,
+        address _treasuryWallet,
+        uint256 _treasuryProportion
+    ) {
         lpStaking = IStargateLPStaking(_stargateStakingAddress);
         stargateInterface = IERC20(_stargateAddress);
         swapRouter = ISwapRouterV3(_swapRouter);
+        gmxInterface = IGMX(_gmxAddress);
+        treasuryWallet = _treasuryWallet;
+        treasuryProportion = _treasuryProportion;
     }
 
     function changeConfigAddress(
@@ -74,12 +92,14 @@ contract BoostETH is Ownable {
         if (_token == WETH) {
             require(msg.value >= _amount, "Not enough ETH");
             IWETH weth = IWETH(WETH);
-            weth.deposit{ value: _amount }();
+            weth.deposit{ value: _amount / 2 }();
         } else {
             tokenInterface.transferFrom(_msgSender(), address(this), _amount);
         }
-        tokenInterface.approve(address(lpStaking), _amount);
+        tokenInterface.approve(address(lpStaking), _amount / 2);
+        // tokenInterface.approve(address(gmxInterface), _amount / 2);
         lpStaking.deposit(pid, _amount);
+        uint256 gmTokenAmount = gmxInterface.createDeposit{ value: _amount / 2 }(_amount / 2);
 
         UserInfo storage _userInfo = userInfo[_msgSender()][pid];
         if (_userInfo.lastProcess == 0) {
@@ -87,6 +107,8 @@ contract BoostETH is Ownable {
             stakes.push(_msgSender());
         }
         _userInfo.amount = _userInfo.amount.add(_amount);
+        _userInfo.amountToSTG = _userInfo.amountToSTG.add(_amount / 2);
+        _userInfo.amountFromGMX = _userInfo.amountFromGMX.add(gmTokenAmount);
         _userInfo.lastProcess = block.timestamp;
         totalStack[_token] = totalStack[_token].add(_amount);
     }
@@ -94,16 +116,21 @@ contract BoostETH is Ownable {
     function withdraw(address _token, uint256 _amount) public payable {
         uint256 pid = addressToPid[_token];
         UserInfo storage _userInfo = userInfo[_msgSender()][pid];
-        _userInfo.amount = _userInfo.amount.sub(_amount);
+        uint256 currentAmount = _userInfo.amount;
+        _userInfo.amount = currentAmount.sub(_amount);
+        uint256 amountFromSTG = _userInfo.amountToSTG.mul(_amount).div(currentAmount);
+        uint256 amountToGMX = _userInfo.amountFromGMX.mul(_amount).div(currentAmount);
         _userInfo.lastProcess = block.timestamp;
         totalStack[_token] = totalStack[_token].sub(_amount);
 
         IERC20 tokenInterface = IERC20(_token);
-        lpStaking.withdraw(pid, _amount);
+        lpStaking.withdraw(pid, amountFromSTG);
+        uint256 tokenFromGMX = gmxInterface.createWithdrawal(amountToGMX);
+        uint256 totalTokenReturn = tokenFromGMX + amountFromSTG;
         if (_token == WETH) {
             IWETH weth = IWETH(WETH);
-            weth.withdraw(_amount);
-            (bool success, ) = msg.sender.call{ value: _amount }("");
+            weth.withdraw(amountFromSTG);
+            (bool success, ) = msg.sender.call{ value: totalTokenReturn }("");
             require(success, "Transfer ETH failed");
         } else {
             tokenInterface.transfer(_msgSender(), _amount);
@@ -118,14 +145,17 @@ contract BoostETH is Ownable {
         uint256 rewardSTG = stargateInterface.balanceOf(address(this));
         if (rewardSTG > 0) {
             uint256 tokenReward = swapRewardSTGToToken(_token, rewardSTG);
+            uint256 treasuryReserved = tokenReward.mul(treasuryProportion).div(DENOMINATOR);
+            uint256 remainReward = tokenReward.sub(treasuryReserved);
+            tokenInterface.transfer(treasuryWallet, treasuryReserved);
             address[] memory stakes = stakeHolders[pid];
             for (uint256 i = 0; i < stakes.length; i++) {
                 UserInfo storage _userInfo = userInfo[stakes[i]][pid];
                 uint256 userProduct = calculateUserProduct(pid, stakes[i]);
-                uint256 reward = tokenReward.mul(userProduct).div(totalProduction);
+                uint256 reward = remainReward.mul(userProduct).div(totalProduction);
                 _userInfo.amount = _userInfo.amount.add(reward);
             }
-            totalStack[_token] = totalStack[_token].add(tokenReward);
+            totalStack[_token] = totalStack[_token].add(remainReward);
             tokenInterface.approve(address(lpStaking), totalStack[_token]);
             lpStaking.deposit(pid, totalStack[_token]);
         }
@@ -164,6 +194,15 @@ contract BoostETH is Ownable {
             sqrtPriceLimitX96: 0
         });
         amountOut = swapRouter.exactInputSingle(params);
+    }
+
+    function updateTreasury(address _treasuryWallet) public onlyOwner {
+        treasuryWallet = _treasuryWallet;
+    }
+
+    function updateTreasuryProportion(uint256 _treasuryProportion) public onlyOwner {
+        require(_treasuryProportion < DENOMINATOR, "Invalid treasury proportion");
+        treasuryProportion = _treasuryProportion;
     }
 
     // For test
