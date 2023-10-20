@@ -18,7 +18,7 @@ contract USD is ERC20Burnable, Ownable {
     error USD__BurnAmountExceedsBalance();
     error USD__NotZeroAddress();
 
-    constructor() ERC20("Tokenized USD", "USD") {}
+    constructor() ERC20("Torque USD", "USD") {}
 
     function burn(uint256 _amount) public override onlyOwner {
         uint256 balance = balanceOf(msg.sender);
