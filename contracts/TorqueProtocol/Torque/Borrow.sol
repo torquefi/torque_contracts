@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
-import "../CompoundBase/IWETH9.sol";
-import "../CompoundBase/bulkers/IBulker.sol";
-import "../CompoundBase/IComet.sol";
+import "../../CompoundBase/IWETH9.sol";
+import "../../CompoundBase/bulkers/IBulker.sol";
+import "../../CompoundBase/IComet.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
