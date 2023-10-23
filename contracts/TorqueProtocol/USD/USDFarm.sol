@@ -1,5 +1,6 @@
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.15;
+// SPDX-License-Identifier: GPL-2.0-or-later
+pragma solidity =0.7.6;
+pragma abicoder v2;
 
 //  _________  ________  ________  ________  ___  ___  _______      
 // |\___   ___\\   __  \|\   __  \|\   __  \|\  \|\  \|\  ___ \     
@@ -9,229 +10,350 @@ pragma solidity ^0.8.15;
 //       \ \__\ \ \_______\ \__\\ _\\ \_____  \ \_______\ \_______\
 //        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "./interfaces/IPair.sol";
-import "./interfaces/IRouter.sol";
-import "./interfaces/IStakingTorque.sol";
+import './interfaces/IUniswapV3Staker.sol';
 
-contract USDFarm is Ownable {
-    using SafeMath for uint256;
-    using SafeMath for uint112;
+import './libraries/IncentiveId.sol';
+import './libraries/RewardMath.sol';
+import './libraries/NFTPositionInfo.sol';
+import './libraries/TransferHelperExtended.sol';
 
-    uint256 constant RATE_PRECISION = 10000;
-    uint256 constant ONE_YEAR_IN_SECONDS = 365 days;
-    uint256 constant ONE_DAY_IN_SECONDS = 1 days;
-    uint256 cooldownTime = 7 days;
-    address public USDT;
-    uint256 public lpTorqStake;
-    uint256 public torqDistribute;
+import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
+import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
+import '@uniswap/v3-core/contracts/interfaces/IERC20Minimal.sol';
 
-    uint256 constant PERIOD_PRECISION = 10000;
-    IERC20 public token;
-    IStakingTorque public sTorque;
-    IRouter public router;
+import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol';
+import '@uniswap/v3-periphery/contracts/base/Multicall.sol';
 
-    event Deposit(address indexed user, uint256 amount);
-    event Redeem(address indexed user, uint256 amount);
-
-    struct StakeDetail {
-        uint256 principal;
-        uint256 lastProcessAt;
-        uint256 pendingReward;
-        uint256 firstStakeAt;
+/// @title Uniswap V3 canonical staking interface
+contract USDFarm is IUniswapV3Staker, Multicall {
+    /// @notice Represents a staking incentive
+    struct Incentive {
+        uint256 totalRewardUnclaimed;
+        uint160 totalSecondsClaimedX128;
+        uint96 numberOfStakes;
     }
 
-    mapping(address => uint256) public apr;
-    mapping(address => bool) public enabled;
-    mapping(address => mapping(address => StakeDetail)) public stakers;
-
-    constructor(address _router, address _token, address _sTorqueToken) {
-        router = IRouter(_router);
-        token = IERC20(_token);
-        sTorque = IStakingTorque(_sTorqueToken);
+    /// @notice Represents the deposit of a liquidity NFT
+    struct Deposit {
+        address owner;
+        uint48 numberOfStakes;
+        int24 tickLower;
+        int24 tickUpper;
     }
 
-    function updateRouter(address _router) public onlyOwner {
-        router = IRouter(_router);
+    /// @notice Represents a staked liquidity NFT
+    struct Stake {
+        uint160 secondsPerLiquidityInsideInitialX128;
+        uint96 liquidityNoOverflow;
+        uint128 liquidityIfOverflow;
     }
 
-    function updateUSDT(address _usdt) public onlyOwner {
-        USDT = _usdt;
-    }
+    /// @inheritdoc IUniswapV3Staker
+    IUniswapV3Factory public immutable override factory;
+    /// @inheritdoc IUniswapV3Staker
+    INonfungiblePositionManager public immutable override nonfungiblePositionManager;
 
-    function setEnabled(bool _enabled, address _lptoken) external onlyOwner {
-        enabled[_lptoken] = _enabled;
-    }
+    /// @inheritdoc IUniswapV3Staker
+    uint256 public immutable override maxIncentiveStartLeadTime;
+    /// @inheritdoc IUniswapV3Staker
+    uint256 public immutable override maxIncentiveDuration;
 
-    function updateAPR(uint256 _apr, address _lptoken) external onlyOwner {
-        apr[_lptoken] = _apr;
-    }
+    /// @dev bytes32 refers to the return value of IncentiveId.compute
+    mapping(bytes32 => Incentive) public override incentives;
 
-    function emergencyWithdraw(uint256 _amount) external onlyOwner {
-        token.transfer(msg.sender, _amount);
-    }
+    /// @dev deposits[tokenId] => Deposit
+    mapping(uint256 => Deposit) public override deposits;
 
-    function setCooldownTime(uint256 _cooldownTime) public onlyOwner {
-        cooldownTime = _cooldownTime;
-    }
+    /// @dev stakes[tokenId][incentiveHash] => Stake
+    mapping(uint256 => mapping(bytes32 => Stake)) private _stakes;
 
-    function getStakeDetail(
-        address _staker,
-        address _lptoken
-    )
+    /// @inheritdoc IUniswapV3Staker
+    function stakes(uint256 tokenId, bytes32 incentiveId)
         public
         view
-        returns (
-            uint256 principal,
-            uint256 lastProcessAt,
-            uint256 pendingReward,
-            uint256 firstStakeAt
-        )
+        override
+        returns (uint160 secondsPerLiquidityInsideInitialX128, uint128 liquidity)
     {
-        StakeDetail memory stakeDetail = stakers[_staker][_lptoken];
-        return (
-            stakeDetail.principal,
-            stakeDetail.lastProcessAt,
-            stakeDetail.pendingReward,
-            stakeDetail.firstStakeAt
+        Stake storage stake = _stakes[tokenId][incentiveId];
+        secondsPerLiquidityInsideInitialX128 = stake.secondsPerLiquidityInsideInitialX128;
+        liquidity = stake.liquidityNoOverflow;
+        if (liquidity == type(uint96).max) {
+            liquidity = stake.liquidityIfOverflow;
+        }
+    }
+
+    /// @dev rewards[rewardToken][owner] => uint256
+    /// @inheritdoc IUniswapV3Staker
+    mapping(IERC20Minimal => mapping(address => uint256)) public override rewards;
+
+    /// @param _factory the Uniswap V3 factory
+    /// @param _nonfungiblePositionManager the NFT position manager contract address
+    /// @param _maxIncentiveStartLeadTime the max duration of an incentive in seconds
+    /// @param _maxIncentiveDuration the max amount of seconds into the future the incentive startTime can be set
+    constructor(
+        IUniswapV3Factory _factory,
+        INonfungiblePositionManager _nonfungiblePositionManager,
+        uint256 _maxIncentiveStartLeadTime,
+        uint256 _maxIncentiveDuration
+    ) {
+        factory = _factory;
+        nonfungiblePositionManager = _nonfungiblePositionManager;
+        maxIncentiveStartLeadTime = _maxIncentiveStartLeadTime;
+        maxIncentiveDuration = _maxIncentiveDuration;
+    }
+
+    /// @inheritdoc IUniswapV3Staker
+    function createIncentive(IncentiveKey memory key, uint256 reward) external override {
+        require(reward > 0, 'UniswapV3Staker::createIncentive: reward must be positive');
+        require(
+            block.timestamp <= key.startTime,
+            'UniswapV3Staker::createIncentive: start time must be now or in the future'
         );
+        require(
+            key.startTime - block.timestamp <= maxIncentiveStartLeadTime,
+            'UniswapV3Staker::createIncentive: start time too far into future'
+        );
+        require(key.startTime < key.endTime, 'UniswapV3Staker::createIncentive: start time must be before end time');
+        require(
+            key.endTime - key.startTime <= maxIncentiveDuration,
+            'UniswapV3Staker::createIncentive: incentive duration is too long'
+        );
+
+        bytes32 incentiveId = IncentiveId.compute(key);
+
+        incentives[incentiveId].totalRewardUnclaimed += reward;
+
+        TransferHelperExtended.safeTransferFrom(address(key.rewardToken), msg.sender, address(this), reward);
+
+        emit IncentiveCreated(key.rewardToken, key.pool, key.startTime, key.endTime, key.refundee, reward);
     }
 
-    function getInterest(address _staker, address _lptoken) public view returns (uint256) {
-        uint256 timestamp = block.timestamp;
-        return previewInterest(_staker, timestamp, _lptoken);
+    /// @inheritdoc IUniswapV3Staker
+    function endIncentive(IncentiveKey memory key) external override returns (uint256 refund) {
+        require(block.timestamp >= key.endTime, 'UniswapV3Staker::endIncentive: cannot end incentive before end time');
+
+        bytes32 incentiveId = IncentiveId.compute(key);
+        Incentive storage incentive = incentives[incentiveId];
+
+        refund = incentive.totalRewardUnclaimed;
+
+        require(refund > 0, 'UniswapV3Staker::endIncentive: no refund available');
+        require(
+            incentive.numberOfStakes == 0,
+            'UniswapV3Staker::endIncentive: cannot end incentive while deposits are staked'
+        );
+
+        // issue the refund
+        incentive.totalRewardUnclaimed = 0;
+        TransferHelperExtended.safeTransfer(address(key.rewardToken), key.refundee, refund);
+
+        // note we never clear totalSecondsClaimedX128
+
+        emit IncentiveEnded(incentiveId, refund);
     }
 
-    function previewInterest(
-        address _staker,
-        uint256 _timestamp,
-        address _lptoken
-    ) public view returns (uint256) {
-        StakeDetail memory stakeDetail = stakers[_staker][_lptoken];
-        uint256 duration = _timestamp.sub(stakeDetail.lastProcessAt);
-        uint256 interest = stakeDetail
-            .principal
-            .mul(apr[_lptoken])
-            .mul(duration)
-            .div(ONE_YEAR_IN_SECONDS)
-            .div(RATE_PRECISION);
-        return interest;
+    /// @notice Upon receiving a Uniswap V3 ERC721, creates the token deposit setting owner to `from`. Also stakes token
+    /// in one or more incentives if properly formatted `data` has a length > 0.
+    /// @inheritdoc IERC721Receiver
+    function onERC721Received(
+        address,
+        address from,
+        uint256 tokenId,
+        bytes calldata data
+    ) external override returns (bytes4) {
+        require(
+            msg.sender == address(nonfungiblePositionManager),
+            'UniswapV3Staker::onERC721Received: not a univ3 nft'
+        );
+
+        (, , , , , int24 tickLower, int24 tickUpper, , , , , ) = nonfungiblePositionManager.positions(tokenId);
+
+        deposits[tokenId] = Deposit({owner: from, numberOfStakes: 0, tickLower: tickLower, tickUpper: tickUpper});
+        emit DepositTransferred(tokenId, address(0), from);
+
+        if (data.length > 0) {
+            if (data.length == 160) {
+                _stakeToken(abi.decode(data, (IncentiveKey)), tokenId);
+            } else {
+                IncentiveKey[] memory keys = abi.decode(data, (IncentiveKey[]));
+                for (uint256 i = 0; i < keys.length; i++) {
+                    _stakeToken(keys[i], tokenId);
+                }
+            }
+        }
+        return this.onERC721Received.selector;
     }
 
-    function getTokenRewardInterest(
-        address _staker,
-        address _lptoken
-    ) external view returns (uint256) {
-        return
-            getInterest(_staker, _lptoken).mul(getPairPrice(_lptoken)).div(1e18).add(
-                stakers[_staker][_lptoken].pendingReward
+    /// @inheritdoc IUniswapV3Staker
+    function transferDeposit(uint256 tokenId, address to) external override {
+        require(to != address(0), 'UniswapV3Staker::transferDeposit: invalid transfer recipient');
+        address owner = deposits[tokenId].owner;
+        require(owner == msg.sender, 'UniswapV3Staker::transferDeposit: can only be called by deposit owner');
+        deposits[tokenId].owner = to;
+        emit DepositTransferred(tokenId, owner, to);
+    }
+
+    /// @inheritdoc IUniswapV3Staker
+    function withdrawToken(
+        uint256 tokenId,
+        address to,
+        bytes memory data
+    ) external override {
+        require(to != address(this), 'UniswapV3Staker::withdrawToken: cannot withdraw to staker');
+        Deposit memory deposit = deposits[tokenId];
+        require(deposit.numberOfStakes == 0, 'UniswapV3Staker::withdrawToken: cannot withdraw token while staked');
+        require(deposit.owner == msg.sender, 'UniswapV3Staker::withdrawToken: only owner can withdraw token');
+
+        delete deposits[tokenId];
+        emit DepositTransferred(tokenId, deposit.owner, address(0));
+
+        nonfungiblePositionManager.safeTransferFrom(address(this), to, tokenId, data);
+    }
+
+    /// @inheritdoc IUniswapV3Staker
+    function stakeToken(IncentiveKey memory key, uint256 tokenId) external override {
+        require(deposits[tokenId].owner == msg.sender, 'UniswapV3Staker::stakeToken: only owner can stake token');
+
+        _stakeToken(key, tokenId);
+    }
+
+    /// @inheritdoc IUniswapV3Staker
+    function unstakeToken(IncentiveKey memory key, uint256 tokenId) external override {
+        Deposit memory deposit = deposits[tokenId];
+        // anyone can call unstakeToken if the block time is after the end time of the incentive
+        if (block.timestamp < key.endTime) {
+            require(
+                deposit.owner == msg.sender,
+                'UniswapV3Staker::unstakeToken: only owner can withdraw token before incentive end time'
             );
-    }
-
-    function deposit(address _lptoken, uint256 _stakeAmount) external {
-        require(enabled[_lptoken], "Staking is not enabled");
-        require(_stakeAmount > 0, "USDFarm: Stake amount must be greater than 0");
-        IPair pair = IPair(_lptoken);
-        pair.transferFrom(msg.sender, address(this), _stakeAmount);
-        StakeDetail storage stakeDetail = stakers[msg.sender][_lptoken];
-        if (stakeDetail.firstStakeAt == 0) {
-            stakeDetail.principal = stakeDetail.principal.add(_stakeAmount);
-            stakeDetail.firstStakeAt = stakeDetail.firstStakeAt == 0
-                ? block.timestamp
-                : stakeDetail.firstStakeAt;
-        } else {
-            stakeDetail.principal = stakeDetail.principal.add(_stakeAmount);
         }
-        stakeDetail.lastProcessAt = block.timestamp;
-        emit Deposit(msg.sender, _stakeAmount);
-        sTorque.mint(_msgSender(), _stakeAmount.mul(2));
-        lpTorqStake = lpTorqStake.add(_stakeAmount);
+
+        bytes32 incentiveId = IncentiveId.compute(key);
+
+        (uint160 secondsPerLiquidityInsideInitialX128, uint128 liquidity) = stakes(tokenId, incentiveId);
+
+        require(liquidity != 0, 'UniswapV3Staker::unstakeToken: stake does not exist');
+
+        Incentive storage incentive = incentives[incentiveId];
+
+        deposits[tokenId].numberOfStakes--;
+        incentive.numberOfStakes--;
+
+        (, uint160 secondsPerLiquidityInsideX128, ) =
+            key.pool.snapshotCumulativesInside(deposit.tickLower, deposit.tickUpper);
+        (uint256 reward, uint160 secondsInsideX128) =
+            RewardMath.computeRewardAmount(
+                incentive.totalRewardUnclaimed,
+                incentive.totalSecondsClaimedX128,
+                key.startTime,
+                key.endTime,
+                liquidity,
+                secondsPerLiquidityInsideInitialX128,
+                secondsPerLiquidityInsideX128,
+                block.timestamp
+            );
+
+        // if this overflows, e.g. after 2^32-1 full liquidity seconds have been claimed,
+        // reward rate will fall drastically so it's safe
+        incentive.totalSecondsClaimedX128 += secondsInsideX128;
+        // reward is never greater than total reward unclaimed
+        incentive.totalRewardUnclaimed -= reward;
+        // this only overflows if a token has a total supply greater than type(uint256).max
+        rewards[key.rewardToken][deposit.owner] += reward;
+
+        Stake storage stake = _stakes[tokenId][incentiveId];
+        delete stake.secondsPerLiquidityInsideInitialX128;
+        delete stake.liquidityNoOverflow;
+        if (liquidity >= type(uint96).max) delete stake.liquidityIfOverflow;
+        emit TokenUnstaked(tokenId, incentiveId);
     }
 
-    function getPairPrice(address _lptoken) public view returns (uint256) {
-        uint112 reserve0;
-        uint112 reserve1;
-        IPair pair = IPair(_lptoken);
-        (reserve0, reserve1, ) = pair.getReserves();
-
-        uint256 totalPoolValue = reserve1.mul(2);
-        uint256 mintedPair = pair.totalSupply();
-        uint256 pairPriceInETH = totalPoolValue.mul(1e18).div(mintedPair);
-        address[] memory path = new address[](2);
-        path[0] = router.WETH();
-        path[1] = address(token);
-        uint256[] memory amounts = router.getAmountsOut(pairPriceInETH, path);
-        return amounts[1];
-    }
-
-    function redeem(address _lptoken, uint256 _redeemAmount) external {
-        require(enabled[_lptoken], "Staking is not enabled");
-        StakeDetail storage stakeDetail = stakers[msg.sender][_lptoken];
-        require(stakeDetail.firstStakeAt > 0, "USDFarm: No stake");
-        require(
-            stakeDetail.lastProcessAt + cooldownTime <= block.timestamp,
-            "Not reach cool down time"
-        );
-        IPair pair = IPair(_lptoken);
-        uint256 interest = getInterest(msg.sender, _lptoken);
-        uint256 claimAmount = interest.mul(_redeemAmount).div(stakeDetail.principal);
-        uint256 claimAmountInToken = claimAmount.mul(getPairPrice(_lptoken)).div(1e18);
-
-        uint256 remainAmount = interest.sub(claimAmount);
-        uint256 remainAmountInToken = remainAmount.mul(getPairPrice(_lptoken)).div(1e18);
-
-        stakeDetail.lastProcessAt = block.timestamp;
-        require(
-            stakeDetail.principal >= _redeemAmount,
-            "USDFarm: Redeem amount must be less than principal"
-        );
-        stakeDetail.pendingReward = remainAmountInToken;
-        stakeDetail.principal = stakeDetail.principal.sub(_redeemAmount);
-        require(pair.transfer(msg.sender, _redeemAmount), "USDFarm: Transfer failed");
-        require(
-            token.transfer(msg.sender, claimAmountInToken),
-            "USDFarm: Reward transfer failed"
-        );
-        emit Redeem(msg.sender, _redeemAmount);
-
-        sTorque.transferFrom(_msgSender(), address(this), _redeemAmount.mul(2));
-        sTorque.burn(address(this), _redeemAmount.mul(2));
-        lpTorqStake = lpTorqStake.sub(_redeemAmount);
-        torqDistribute = torqDistribute.add(claimAmountInToken);
-    }
-
-    function getUSDPrice(
-        address _token,
-        uint256 _amount,
-        address _lptoken
-    ) public view returns (uint256) {
-        IPair pair = IPair(_lptoken);
-        if (_token == router.WETH()) {
-            address[] memory path = new address[](2);
-            path[0] = router.WETH();
-            path[1] = USDT;
-            uint256[] memory amounts = router.getAmountsOut(_amount, path);
-            return amounts[1];
-        } else if (_token == address(pair)) {
-            uint256 pairTokenToToken = getPairPrice(_lptoken);
-            uint256 tokenEquivalent = _amount.mul(pairTokenToToken).div(1e18);
-            address[] memory path = new address[](3);
-            path[0] = address(token);
-            path[1] = router.WETH();
-            path[2] = USDT;
-            uint256[] memory amounts = router.getAmountsOut(tokenEquivalent, path);
-            return amounts[2];
-        } else {
-            address[] memory path = new address[](3);
-            path[0] = _token;
-            path[1] = router.WETH();
-            path[2] = USDT;
-            uint256[] memory amounts = router.getAmountsOut(_amount, path);
-            return amounts[2];
+    /// @inheritdoc IUniswapV3Staker
+    function claimReward(
+        IERC20Minimal rewardToken,
+        address to,
+        uint256 amountRequested
+    ) external override returns (uint256 reward) {
+        reward = rewards[rewardToken][msg.sender];
+        if (amountRequested != 0 && amountRequested < reward) {
+            reward = amountRequested;
         }
+
+        rewards[rewardToken][msg.sender] -= reward;
+        TransferHelperExtended.safeTransfer(address(rewardToken), to, reward);
+
+        emit RewardClaimed(to, reward);
     }
 
-    // Todo: Update from transfer function to transferFrom a vault that contain Torque token
+    /// @inheritdoc IUniswapV3Staker
+    function getRewardInfo(IncentiveKey memory key, uint256 tokenId)
+        external
+        view
+        override
+        returns (uint256 reward, uint160 secondsInsideX128)
+    {
+        bytes32 incentiveId = IncentiveId.compute(key);
+
+        (uint160 secondsPerLiquidityInsideInitialX128, uint128 liquidity) = stakes(tokenId, incentiveId);
+        require(liquidity > 0, 'UniswapV3Staker::getRewardInfo: stake does not exist');
+
+        Deposit memory deposit = deposits[tokenId];
+        Incentive memory incentive = incentives[incentiveId];
+
+        (, uint160 secondsPerLiquidityInsideX128, ) =
+            key.pool.snapshotCumulativesInside(deposit.tickLower, deposit.tickUpper);
+
+        (reward, secondsInsideX128) = RewardMath.computeRewardAmount(
+            incentive.totalRewardUnclaimed,
+            incentive.totalSecondsClaimedX128,
+            key.startTime,
+            key.endTime,
+            liquidity,
+            secondsPerLiquidityInsideInitialX128,
+            secondsPerLiquidityInsideX128,
+            block.timestamp
+        );
+    }
+
+    /// @dev Stakes a deposited token without doing an ownership check
+    function _stakeToken(IncentiveKey memory key, uint256 tokenId) private {
+        require(block.timestamp >= key.startTime, 'UniswapV3Staker::stakeToken: incentive not started');
+        require(block.timestamp < key.endTime, 'UniswapV3Staker::stakeToken: incentive ended');
+
+        bytes32 incentiveId = IncentiveId.compute(key);
+
+        require(
+            incentives[incentiveId].totalRewardUnclaimed > 0,
+            'UniswapV3Staker::stakeToken: non-existent incentive'
+        );
+        require(
+            _stakes[tokenId][incentiveId].liquidityNoOverflow == 0,
+            'UniswapV3Staker::stakeToken: token already staked'
+        );
+
+        (IUniswapV3Pool pool, int24 tickLower, int24 tickUpper, uint128 liquidity) =
+            NFTPositionInfo.getPositionInfo(factory, nonfungiblePositionManager, tokenId);
+
+        require(pool == key.pool, 'UniswapV3Staker::stakeToken: token pool is not the incentive pool');
+        require(liquidity > 0, 'UniswapV3Staker::stakeToken: cannot stake token with 0 liquidity');
+
+        deposits[tokenId].numberOfStakes++;
+        incentives[incentiveId].numberOfStakes++;
+
+        (, uint160 secondsPerLiquidityInsideX128, ) = pool.snapshotCumulativesInside(tickLower, tickUpper);
+
+        if (liquidity >= type(uint96).max) {
+            _stakes[tokenId][incentiveId] = Stake({
+                secondsPerLiquidityInsideInitialX128: secondsPerLiquidityInsideX128,
+                liquidityNoOverflow: type(uint96).max,
+                liquidityIfOverflow: liquidity
+            });
+        } else {
+            Stake storage stake = _stakes[tokenId][incentiveId];
+            stake.secondsPerLiquidityInsideInitialX128 = secondsPerLiquidityInsideX128;
+            stake.liquidityNoOverflow = uint96(liquidity);
+        }
+
+        emit TokenStaked(tokenId, incentiveId, liquidity);
+    }
 }
