@@ -2,6 +2,14 @@
 // OpenZeppelin Contracts (last updated v5.0.0) (finance/VestingWallet.sol)
 pragma solidity ^0.8.20;
 
+//  _________  ________  ________  ________  ___  ___  _______      
+// |\___   ___\\   __  \|\   __  \|\   __  \|\  \|\  \|\  ___ \     
+// \|___ \  \_\ \  \|\  \ \  \|\  \ \  \|\  \ \  \\\  \ \   __/|    
+//     \ \  \ \ \  \\\  \ \   _  _\ \  \\\  \ \  \\\  \ \  \_|/__  
+//      \ \  \ \ \  \\\  \ \  \\  \\ \  \\\  \ \  \\\  \ \  \_|\ \ 
+//       \ \__\ \ \_______\ \__\\ _\\ \_____  \ \_______\ \_______\
+//        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
+
 import {IERC20} from "../token/ERC20/IERC20.sol";
 import {SafeERC20} from "../token/ERC20/utils/SafeERC20.sol";
 import {Address} from "../utils/Address.sol";
