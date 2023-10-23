@@ -12,11 +12,12 @@ pragma solidity ^0.8.15;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
-import "../Interfaces/IStargateLPStaking.sol";
-import "../Interfaces/ISwapRouter.sol";
-import "../Interfaces/IWETH.sol";
 
-contract Boost is Ownable {
+import "../interfaces/IStargateLPStaking.sol";
+import "../interfaces/ISwapRouter.sol";
+import "../interfaces/IWETH.sol";
+
+contract SingleBoost is Ownable {
     using SafeMath for uint256;
     // variables and mapping
     IStargateLPStaking lpStaking;
