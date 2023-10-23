@@ -4,6 +4,7 @@ import "../../CompoundBase/IWETH9.sol";
 import "../../CompoundBase/bulkers/IARBBulker.sol";
 import "../../CompoundBase/IComet.sol";
 import "../Interfaces/IUSDEngine.sol";
+import "./RewardUtil.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
@@ -20,6 +21,8 @@ contract ARBI_EBorrow  is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUp
     address public comet;
     address public engine;
     address public usd;
+    address public rewardUtil;
+    address public rewardToken;
         /// @notice The action for supplying an asset to Comet
     bytes32 public constant ACTION_SUPPLY_ASSET = "ACTION_SUPPLY_ASSET";
 
@@ -45,14 +48,12 @@ contract ARBI_EBorrow  is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUp
 
     struct BorrowInfo {
         address user;
+        uint baseBorrowed;
         uint borrowed;
         uint supplied;
 
         uint borrowTime;
-    }
-    struct BorrowSnapshoot {
-        uint amount;
-        uint borrowTime;
+        uint reward;
     }
 
     mapping(address => BorrowInfo) public borrowInfoMap;
@@ -61,13 +62,15 @@ contract ARBI_EBorrow  is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUp
     
     function _authorizeUpgrade(address) internal override onlyOwner {}
 
-    function initialize(address _comet, address _asset, address _baseAsset, address _bulker, address _engine, address _usd) public initializer {
+    function initialize(address _comet, address _asset, address _baseAsset, address _bulker, address _engine, address _usd, address _rewardUtil, address _rewardToken) public initializer {
         comet = _comet;
         asset = _asset;
         baseAsset = _baseAsset;
         bulker = _bulker;
         engine = _engine;
         usd = _usd;
+        rewardUtil = _rewardUtil;
+        rewardToken = _rewardToken;
         IComet(comet).allow(_bulker, true);
         __Ownable_init();
         __ReentrancyGuard_init();
@@ -126,11 +129,17 @@ contract ARBI_EBorrow  is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUp
         require(borrowable >= borrowAmount, "borrow cap exceed");
 
         uint accruedInterest = 0;
+        uint reward = 0 ;
         if(userBorrowInfo.borrowed > 0) {
             accruedInterest = calculateInterest(userBorrowInfo.borrowed, userBorrowInfo.borrowTime);
+            reward = RewardUtil(rewardUtil).calculateReward(userBorrowInfo.baseBorrowed, userBorrowInfo.borrowTime);
         }
 
+        userBorrowInfo.baseBorrowed = userBorrowInfo.baseBorrowed.add(borrowAmount);
         userBorrowInfo.borrowed = userBorrowInfo.borrowed.add(borrowAmount).add(accruedInterest);
+        if(reward > 0) {
+            userBorrowInfo.reward = userBorrowInfo.reward.add(reward);
+        }
         userBorrowInfo.supplied = userBorrowInfo.supplied.add(supplyAmount);
         userBorrowInfo.borrowTime = block.timestamp;
 
@@ -166,6 +175,8 @@ contract ARBI_EBorrow  is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUp
         require(userBorrowInfo.supplied > 0, "User does not have asseet");
         
         if(userBorrowInfo.borrowed > 0) {
+            uint reward = RewardUtil(rewardUtil).calculateReward(userBorrowInfo.baseBorrowed, userBorrowInfo.borrowTime);
+            userBorrowInfo.reward = userBorrowInfo.reward.add(reward);
             uint accruedInterest = calculateInterest(userBorrowInfo.borrowed, userBorrowInfo.borrowTime);
             userBorrowInfo.borrowed = userBorrowInfo.borrowed.add(accruedInterest);
             userBorrowInfo.borrowTime = block.timestamp;
@@ -217,6 +228,7 @@ contract ARBI_EBorrow  is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUp
         require(baseAssetBalanceExpected == ERC20(baseAsset).balanceOf(address(this)), "invalid usdc claim from engine");
 
         uint accruedInterest = calculateInterest(userBorrowInfo.borrowed, userBorrowInfo.borrowTime);
+        uint reward = RewardUtil(rewardUtil).calculateReward(userBorrowInfo.baseBorrowed, userBorrowInfo.borrowTime) + userBorrowInfo.reward;
         userBorrowInfo.borrowed = userBorrowInfo.borrowed.add(accruedInterest);
 
         uint withdrawAssetAmount = userBorrowInfo.supplied.mul(withdrawUsdcAmountFromEngine).div(userBorrowInfo.borrowed);
@@ -239,9 +251,19 @@ contract ARBI_EBorrow  is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUp
         ERC20(baseAsset).approve(comet, repayUsdcAmount);
         IARBBulker(bulker).invoke(actions, callData);
 
+        if(userBorrowInfo.baseBorrowed < withdrawUsdcAmountFromEngine) {
+            userBorrowInfo.baseBorrowed = 0;
+        } else {
+            userBorrowInfo.baseBorrowed = userBorrowInfo.baseBorrowed.sub(withdrawUsdcAmountFromEngine);
+        }
         userBorrowInfo.borrowed = userBorrowInfo.borrowed.sub(withdrawUsdcAmountFromEngine);
         userBorrowInfo.supplied = userBorrowInfo.supplied.sub(withdrawAssetAmount);
         userBorrowInfo.borrowTime = block.timestamp;
+        userBorrowInfo.reward = 0;
+        if(reward > 0) {
+            require(ERC20(rewardToken).balanceOf(address(this)) >= reward, "insuffience balance to pay reward");
+            require(ERC20(rewardToken).transfer(msg.sender, reward), "transfer reward fail");
+        }
 
 
         (bool success, ) = msg.sender.call{ value: withdrawAssetAmount }("");
