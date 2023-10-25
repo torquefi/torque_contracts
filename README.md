@@ -1,5 +1,7 @@
 To do:
-- [ ] More GMX research
-- [ ] Finish refactoring
+- [ ] Finish preparations
+- [ ] Finalize GMX research
+- [ ] Implement full Boost
+- [ ] Complete refactoring
 - [ ] Gas optimizations
 - [ ] Security audits
