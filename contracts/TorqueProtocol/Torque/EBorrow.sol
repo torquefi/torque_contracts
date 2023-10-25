@@ -111,8 +111,8 @@ contract EBorrow is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgradea
 
     function borrow(uint borrowAmount, uint usdBorrowAmount) public payable nonReentrant(){
         (uint mintable, bool canMint) = IUsdEngine(engine).getMintableUSD(baseAsset, address(this), borrowAmount);
-        require(canMint, 'user cant mint more usd');
-        require(mintable > usdBorrowAmount, "exceed borrow amount");
+        require(canMint, 'User can not mint more USD');
+        require(mintable > usdBorrowAmount, "Exceeds borrow amount");
 
         uint supplyAmount = msg.value;
         IComet icomet = IComet(comet);
@@ -123,7 +123,7 @@ contract EBorrow is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgradea
         uint maxBorrow = (supplyAmount.add(userBorrowInfo.supplied)).mul(info.borrowCollateralFactor).mul(price).div(PRICE_MANTISA).div(SCALE);
 
         uint borrowable = maxBorrow.sub(userBorrowInfo.borrowed);
-        require(borrowable >= borrowAmount, "borrow cap exceed");
+        require(borrowable >= borrowAmount, "Borrow cap exceeded");
 
         uint accruedInterest = 0;
         if(userBorrowInfo.borrowed > 0) {
@@ -156,14 +156,14 @@ contract EBorrow is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgradea
         IUsdEngine(engine).depositCollateralAndMintUsd{value:0}(baseAsset, borrowAmount, usdBorrowAmount);
 
         uint exepectedUsd = usdBefore.add(usdBorrowAmount);
-        require(exepectedUsd == ERC20(usd).balanceOf(address(this)), "invalid claim borrow usd amount");
+        require(exepectedUsd == ERC20(usd).balanceOf(address(this)), "Invalid amount");
 
-        require(ERC20(usd).transfer(msg.sender, usdBorrowAmount), "transfer token fail");
+        require(ERC20(usd).transfer(msg.sender, usdBorrowAmount), "Transfer token failed");
     }
 
     function withdraw(uint withdrawAmount) public nonReentrant(){
         BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
-        require(userBorrowInfo.supplied > 0, "User does not have asseet");
+        require(userBorrowInfo.supplied > 0, "User does not have asset");
         
         if(userBorrowInfo.borrowed > 0) {
             uint accruedInterest = calculateInterest(userBorrowInfo.borrowed, userBorrowInfo.borrowTime);
@@ -179,7 +179,7 @@ contract EBorrow is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgradea
         uint minRequireSupplyAmount = userBorrowInfo.borrowed.mul(SCALE).mul(PRICE_MANTISA).div(price).div(uint(info.borrowCollateralFactor).sub(WITHDRAW_OFFSET));
         uint withdrawableAmount = userBorrowInfo.supplied - minRequireSupplyAmount;
 
-        require(withdrawAmount < withdrawableAmount, "Exceed asset supply");
+        require(withdrawAmount < withdrawableAmount, "Exceeds asset supply");
 
         userBorrowInfo.supplied = userBorrowInfo.supplied.sub(withdrawAmount);
 
@@ -203,9 +203,9 @@ contract EBorrow is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgradea
         BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
 
         (uint withdrawUsdcAmountFromEngine, bool burnable) = IUsdEngine(engine).getBurnableUSD(baseAsset, address(this), usdRepayAmount);
-        require(burnable, "not burnable");
-        require(userBorrowInfo.borrowed >= withdrawUsdcAmountFromEngine, "exceed current borrowed amount");
-        require(ERC20(usd).transferFrom(msg.sender,address(this), usdRepayAmount), "transfer asset fail");
+        require(burnable, "Not burnable");
+        require(userBorrowInfo.borrowed >= withdrawUsdcAmountFromEngine, "Exceeds current borrowed amount");
+        require(ERC20(usd).transferFrom(msg.sender,address(this), usdRepayAmount), "Transfer asset failed");
 
         uint baseAssetBalanceBefore = ERC20(baseAsset).balanceOf(address(this));
 
@@ -214,7 +214,7 @@ contract EBorrow is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgradea
         IUsdEngine(engine).redeemCollateralForUsd(baseAsset, withdrawUsdcAmountFromEngine, usdRepayAmount);
 
         uint baseAssetBalanceExpected = baseAssetBalanceBefore.add(withdrawUsdcAmountFromEngine);
-        require(baseAssetBalanceExpected == ERC20(baseAsset).balanceOf(address(this)), "invalid usdc claim from engine");
+        require(baseAssetBalanceExpected == ERC20(baseAsset).balanceOf(address(this)), "Invalid USDC claim to Engine");
 
         uint accruedInterest = calculateInterest(userBorrowInfo.borrowed, userBorrowInfo.borrowTime);
         userBorrowInfo.borrowed = userBorrowInfo.borrowed.add(accruedInterest);
@@ -245,7 +245,7 @@ contract EBorrow is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgradea
 
 
         (bool success, ) = msg.sender.call{ value: withdrawAssetAmount }("");
-        require(success, "transfer eth failed");
+        require(success, "ETH transfer failed");
     }
     
     function borrowBalanceOf(address user) public view returns (uint) {
