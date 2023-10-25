@@ -196,24 +196,4 @@ contract BoostETH is Ownable, ReentrancyGuard {
         require(_treasuryProportion < DENOMINATOR, "Invalid treasury proportion");
         treasuryProportion = _treasuryProportion;
     }
-
-    // For testing purposes only
-    function swapETHToSTG() public payable {
-        IWETH weth = IWETH(WETH);
-        uint256 _amount = msg.value;
-        weth.deposit{ value: _amount }();
-        IERC20 tokenInterface = IERC20(WETH);
-        tokenInterface.approve(address(swapRouter), _amount);
-        ISwapRouterV3.ExactInputSingleParams memory params = ISwapRouterV3.ExactInputSingleParams({
-            tokenIn: WETH,
-            tokenOut: address(stargateInterface),
-            fee: 10000,
-            recipient: msg.sender,
-            deadline: block.timestamp + 1000000,
-            amountIn: _amount,
-            amountOutMinimum: 0,
-            sqrtPriceLimitX96: 0
-        });
-        swapRouter.exactInputSingle(params);
-    }
 }
