@@ -66,9 +66,8 @@ contract USDEngine is USDEngineAbstract {
     }
 
     /*
-     * @notice careful! You'll burn your USD here. Make sure you want to do this...
-     * @dev you might want to use this if you're nervous you might get liquidated and want to just burn
-     * you USD but keep your collateral in.
+     * @notice Careful! You'll burn your USD here. Make sure you want to do this.
+     * @dev You can use this to safely move away from liquidation range while keeping assets in.
      */
     function burnUsd(uint256 amount, address collateral) external override(USDEngineAbstract) moreThanZero(amount) {
         _burnUsd(amount, msg.sender, msg.sender, collateral);
@@ -83,9 +82,9 @@ contract USDEngine is USDEngineAbstract {
      * @param debtToCover: The amount of USD you want to burn to cover the user's debt.
      *
      * @notice: You can partially liquidate a user.
-     * @notice: You will get a 10% LIQUIDATION_BONUS for taking the users funds.
-     * @notice: This function working assumes that the protocol will be roughly 150% overcollateralized in order for this to work.
-     * @notice: A known bug would be if the protocol was only 100% collateralized, we wouldn't be able to liquidate anyone.
+     * @notice: Liquidators receive a 10% LIQUIDATION_BONUS for ensuring protocol health.
+     * @notice: This function working assumes that the protocol will be roughly 150% overcollateralized.
+     * @notice: A known bug would be if the protocol was only 100% collateralized, we wouldn't be able to liquidate.
      * For example, if the price of the collateral plummeted before anyone could be liquidated.
      */
     function liquidate(
@@ -122,7 +121,7 @@ contract USDEngine is USDEngineAbstract {
     ///////////////////
     /*
      * @param amountUSDToMint: The amount of USD you want to mint
-     * You can only mint USD if you hav enough collateral
+     * You can only mint USD if you have enough collateral
      */
     function mintUsd(uint256 amountUsdToMint, address collateral) public override(USDEngineAbstract) moreThanZero(amountUsdToMint) nonReentrant {
         s_USDMinted[msg.sender][collateral] += amountUsdToMint;
