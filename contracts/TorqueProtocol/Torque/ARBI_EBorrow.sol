@@ -184,8 +184,8 @@ contract ARBI_EBorrow is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpg
 
         IUSDEngine(engine).depositCollateralAndMintUsd{value:0}(baseAsset, borrowAmount, usdBorrowAmount);
 
-        uint exepectedUsd = usdBefore.add(usdBorrowAmount);
-        require(exepectedUsd == ERC20(usd).balanceOf(address(this)), "Invalid amount");
+        uint expectedUsd = usdBefore.add(usdBorrowAmount);
+        require(expectedUsd == ERC20(usd).balanceOf(address(this)), "Invalid amount");
 
         require(ERC20(usd).transfer(msg.sender, usdBorrowAmount), "Transfer token failed");
     }
