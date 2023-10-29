@@ -40,7 +40,8 @@ contract ARBI_EBorrow is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpg
     address public treasury;
     uint public lastClaimCometTime;
     uint public claimPeriod;
-        /// @notice The action for supplying an asset to Comet
+    
+    /// @notice The action for supplying an asset to Comet
     bytes32 public constant ACTION_SUPPLY_ASSET = "ACTION_SUPPLY_ASSET";
 
     /// @notice The action for supplying a native asset (e.g. ETH on Ethereum mainnet) to Comet
@@ -57,6 +58,7 @@ contract ARBI_EBorrow is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpg
 
     /// @notice The action for claiming rewards from the Comet rewards contract
     bytes32 public constant ACTION_CLAIM_REWARD = "ACTION_CLAIM_REWARD";
+    
     uint constant BASE_ASSET_MANTISA = 1e6;
     uint constant PRICE_MANTISA = 1e2;
     uint constant SCALE = 1e18;
@@ -96,8 +98,7 @@ contract ARBI_EBorrow is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         __ReentrancyGuard_init();
     }
 
-
-// Test only
+    // Test only
     function setBulker(address _bulker) public onlyOwner{
         bulker = _bulker;
     }
@@ -122,8 +123,9 @@ contract ARBI_EBorrow is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpg
     function setUsd(address _usd) public onlyOwner{
         usd = _usd;
     }
-// End test
+    // End test
 
+    // Gets max amount that can be borrowed by user
     function getBorrowable(uint amount) public view returns (uint){
         IComet icomet = IComet(comet);
 
@@ -132,6 +134,7 @@ contract ARBI_EBorrow is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         return amount.mul(info.borrowCollateralFactor).mul(price).div(PRICE_MANTISA).div(SCALE);
     }
 
+     // Allows a user to borrow Torque USD
     function borrow(uint borrowAmount, uint usdBorrowAmount) public payable nonReentrant(){
         (uint mintable, bool canMint) = IUSDEngine(engine).getMintableUSD(baseAsset, address(this), borrowAmount);
         require(canMint, 'User can not mint more USD');
@@ -190,6 +193,7 @@ contract ARBI_EBorrow is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         require(ERC20(usd).transfer(msg.sender, usdBorrowAmount), "Transfer token failed");
     }
 
+    // Allows a user to withdraw their collateral
     function withdraw(uint withdrawAmount) public nonReentrant(){
         BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
         require(userBorrowInfo.supplied > 0, "User does not have asset");
@@ -228,7 +232,7 @@ contract ARBI_EBorrow is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         ERC20(asset).transfer(msg.sender, withdrawAmount);
     } 
 
-
+    // Allows users to repay their borrowed assets
     function repay(uint usdRepayAmount) public nonReentrant(){
 
         BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
@@ -318,6 +322,4 @@ contract ARBI_EBorrow is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpg
 
     receive() external payable {
     }
-
-    
 }
