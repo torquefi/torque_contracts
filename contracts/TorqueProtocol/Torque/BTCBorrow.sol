@@ -40,7 +40,8 @@ contract BTCBorrow is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgrad
     address public treasury;
     uint public lastClaimCometTime;
     uint public claimPeriod;
-        /// @notice The action for supplying an asset to Comet
+
+    /// @notice The action for supplying an asset to Comet
     bytes32 public constant ACTION_SUPPLY_ASSET = "ACTION_SUPPLY_ASSET";
 
     /// @notice The action for supplying a native asset (e.g. ETH on Ethereum mainnet) to Comet
@@ -57,6 +58,7 @@ contract BTCBorrow is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgrad
 
     /// @notice The action for claiming rewards from the Comet rewards contract
     bytes32 public constant ACTION_CLAIM_REWARD = "ACTION_CLAIM_REWARD";
+    
     uint constant BASE_ASSET_MANTISA = 1e6;
     uint constant PRICE_MANTISA = 1e2;
     uint constant SCALE = 1e18;
@@ -74,6 +76,7 @@ contract BTCBorrow is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgrad
     }
 
     mapping(address => BorrowInfo) public borrowInfoMap;
+
     event UserBorrow(address user, address collateralAddress, uint amount);
     event UserRepay(address user, address collateralAddress, uint repayAmount, uint claimAmount);
     
@@ -96,8 +99,7 @@ contract BTCBorrow is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgrad
         __ReentrancyGuard_init();
     }
 
-
-// Test only
+    // Test only
     function setBulker(address _bulker) public onlyOwner{
         bulker = _bulker;
     }
@@ -122,8 +124,9 @@ contract BTCBorrow is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgrad
     function setUsd(address _usd) public onlyOwner{
         usd = _usd;
     }
-// End test
+    // End test
 
+    // Gets max amount that can be borrowed by user
     function getBorrowable(uint amount) public view returns (uint){
         IComet icomet = IComet(comet);
 
@@ -132,23 +135,37 @@ contract BTCBorrow is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgrad
         return amount.mul(info.borrowCollateralFactor).mul(price).div(PRICE_MANTISA).div(SCALE);
     }
 
+    // Allows a user to borrow Torque USD
     function borrow(uint supplyAmount, uint borrowAmount, uint usdBorrowAmount) public nonReentrant(){
-         (uint mintable, bool canMint) = IUSDEngine(engine).getMintableUSD(baseAsset, address(this), borrowAmount);
+        
+        // Get the amount of USD the user is allowed to mint for the given asset
+        (uint mintable, bool canMint) = IUSDEngine(engine).getMintableUSD(baseAsset, address(this), borrowAmount);
+
+        // Ensure user is allowed to mint and doesn't exceed mintable limit
         require(canMint, 'User can not mint more USD');
         require(mintable > usdBorrowAmount, "Exceeds borrow amount");
+        
         IComet icomet = IComet(comet);
 
-
+        // Fetch the asset information and its price.
         AssetInfo memory info = icomet.getAssetInfoByAddress(asset);
         uint price = icomet.getPrice(info.priceFeed);
         
         BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
+        
+        // Calculate the maximum borrowable amount for the user based on collateral
         uint maxBorrow = (supplyAmount.add(userBorrowInfo.supplied)).mul(info.borrowCollateralFactor).mul(price).div(PRICE_MANTISA).div(SCALE);
 
+        // Calculate the amount user can still borrow.
         uint borrowable = maxBorrow.sub(userBorrowInfo.borrowed);
+        
+        // Ensure the user isn't trying to borrow more than what's allowed
         require(borrowable >= borrowAmount, "Borrow cap exceeded");
+        
+        // Transfer the asset from the user to this contract as collateral
         require(ERC20(asset).transferFrom(msg.sender, address(this), supplyAmount), "Transfer asset failed");
 
+        // If user has borrowed before, calculate accrued interest and reward
         uint accruedInterest = 0;
         uint reward = 0 ;
         if(userBorrowInfo.borrowed > 0) {
@@ -156,6 +173,7 @@ contract BTCBorrow is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgrad
             reward = RewardUtil(rewardUtil).calculateReward(userBorrowInfo.baseBorrowed, userBorrowInfo.borrowTime);
         }
 
+        // Update the user's borrowing information
         userBorrowInfo.baseBorrowed = userBorrowInfo.baseBorrowed.add(borrowAmount);
         userBorrowInfo.borrowed = userBorrowInfo.borrowed.add(borrowAmount).add(accruedInterest);
         if(reward > 0) {
@@ -164,6 +182,7 @@ contract BTCBorrow is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgrad
         userBorrowInfo.supplied = userBorrowInfo.supplied.add(supplyAmount);
         userBorrowInfo.borrowTime = block.timestamp;
 
+        // Prepare Comet actions for supplying and withdrawing assets
         bytes32[] memory actions = new bytes32[](2);
 
         actions[0] = ACTION_SUPPLY_ASSET;
@@ -177,23 +196,33 @@ contract BTCBorrow is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgrad
         bytes memory withdrawAssetCalldata = abi.encode(comet, address(this), baseAsset, borrowAmount);
         callData[1] = withdrawAssetCalldata;
 
+        // Approve Comet to use the asset
         ERC20(asset).approve(comet, supplyAmount);
+        
+        // Invoke actions in the Bulker for optimization
         IARBBulker(bulker).invoke(actions, callData);
-	    ERC20(baseAsset).approve(address(engine), borrowAmount);
+	    
+        // Approve the engine to use the base asset
+        ERC20(baseAsset).approve(address(engine), borrowAmount);
 
+        // Check the balance of USD before the minting operation
         uint usdBefore = ERC20(usd).balanceOf(address(this));
 
+        // Mint the USD equivalent of the borrowed asset
         IUSDEngine(engine).depositCollateralAndMintUsd(baseAsset, borrowAmount, usdBorrowAmount);
 
-        uint exepectedUsd = usdBefore.add(usdBorrowAmount);
-        require(exepectedUsd == ERC20(usd).balanceOf(address(this)), "Invalid amount");
+        // Ensure the expected USD amount was minted
+        uint expectedUsd = usdBefore.add(usdBorrowAmount);
+
+        require(expectedUsd == ERC20(usd).balanceOf(address(this)), "Invalid amount");
 
         require(ERC20(usd).transfer(msg.sender, usdBorrowAmount), "Transfer token failed");
     }
 
-    
-
+    // Allows a user to withdraw their collateral
     function withdraw(uint withdrawAmount) public nonReentrant(){
+        
+        // Fetch a users borrowing information
         BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
         require(userBorrowInfo.supplied > 0, "User does not have asset");
         
@@ -231,6 +260,7 @@ contract BTCBorrow is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgrad
         ERC20(asset).transfer(msg.sender, withdrawAmount);
     } 
 
+    // Allows users to repay their borrowed assets
     function repay(uint usdRepayAmount) public nonReentrant(){
         BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
 
@@ -239,7 +269,6 @@ contract BTCBorrow is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgrad
         require(userBorrowInfo.borrowed >= withdrawUsdcAmountFromEngine, "Exceeds current borrowed amount");
         require(ERC20(usd).transferFrom(msg.sender,address(this), usdRepayAmount), "Transfer assets failed");
 
-
         uint baseAssetBalanceBefore = ERC20(baseAsset).balanceOf(address(this));
 
         ERC20(usd).approve(address(engine), usdRepayAmount);
@@ -247,8 +276,6 @@ contract BTCBorrow is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgrad
 
         uint baseAssetBalanceExpected = baseAssetBalanceBefore.add(withdrawUsdcAmountFromEngine);
         require(baseAssetBalanceExpected == ERC20(baseAsset).balanceOf(address(this)), "Invalid USDC claim to Engine");
-
-
 
         uint accruedInterest = calculateInterest(userBorrowInfo.borrowed, userBorrowInfo.borrowTime);
         uint reward = RewardUtil(rewardUtil).calculateReward(userBorrowInfo.baseBorrowed, userBorrowInfo.borrowTime) + userBorrowInfo.reward;
@@ -290,6 +317,7 @@ contract BTCBorrow is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgrad
 
         require(ERC20(asset).transfer(msg.sender, withdrawAssetAmount), "Transfer asset from Compound failed");
     }
+
     function borrowBalanceOf(address user) public view returns (uint) {
         
         BorrowInfo storage userBorrowInfo = borrowInfoMap[user];

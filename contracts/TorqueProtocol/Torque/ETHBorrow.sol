@@ -40,7 +40,8 @@ contract ETHBorrow is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgrad
     address public treasury;
     uint public lastClaimCometTime;
     uint public claimPeriod;
-        /// @notice The action for supplying an asset to Comet
+    
+    /// @notice The action for supplying an asset to Comet
     bytes32 public constant ACTION_SUPPLY_ASSET = "ACTION_SUPPLY_ASSET";
 
     /// @notice The action for supplying a native asset (e.g. ETH on Ethereum mainnet) to Comet
@@ -57,6 +58,7 @@ contract ETHBorrow is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgrad
 
     /// @notice The action for claiming rewards from the Comet rewards contract
     bytes32 public constant ACTION_CLAIM_REWARD = "ACTION_CLAIM_REWARD";
+    
     uint constant BASE_ASSET_MANTISA = 1e6;
     uint constant PRICE_MANTISA = 1e2;
     uint constant SCALE = 1e18;
@@ -96,8 +98,7 @@ contract ETHBorrow is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgrad
         __ReentrancyGuard_init();
     }
 
-
-// Test only
+    // Test only
     function setBulker(address _bulker) public onlyOwner{
         bulker = _bulker;
     }
@@ -122,8 +123,9 @@ contract ETHBorrow is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgrad
     function setUsd(address _usd) public onlyOwner{
         usd = _usd;
     }
-// End test
+    // End test
 
+    // Gets max amount that can be borrowed by user
     function getBorrowable(uint amount) public view returns (uint){
         IComet icomet = IComet(comet);
 
@@ -132,6 +134,7 @@ contract ETHBorrow is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgrad
         return amount.mul(info.borrowCollateralFactor).mul(price).div(PRICE_MANTISA).div(SCALE);
     }
 
+     // Allows a user to borrow Torque USD
     function borrow(uint borrowAmount, uint usdBorrowAmount) public payable nonReentrant(){
         (uint mintable, bool canMint) = IUSDEngine(engine).getMintableUSD(baseAsset, address(this), borrowAmount);
         require(canMint, 'User can not mint more USD');
@@ -184,12 +187,13 @@ contract ETHBorrow is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgrad
 
         IUSDEngine(engine).depositCollateralAndMintUsd{value:0}(baseAsset, borrowAmount, usdBorrowAmount);
 
-        uint exepectedUsd = usdBefore.add(usdBorrowAmount);
-        require(exepectedUsd == ERC20(usd).balanceOf(address(this)), "Invalid amount");
+        uint expectedUsd = usdBefore.add(usdBorrowAmount);
+        require(expectedUsd == ERC20(usd).balanceOf(address(this)), "Invalid amount");
 
         require(ERC20(usd).transfer(msg.sender, usdBorrowAmount), "Transfer token failed");
     }
 
+    // Allows a user to withdraw their collateral
     function withdraw(uint withdrawAmount) public nonReentrant(){
         BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
         require(userBorrowInfo.supplied > 0, "User does not have asset");
@@ -228,7 +232,7 @@ contract ETHBorrow is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgrad
         ERC20(asset).transfer(msg.sender, withdrawAmount);
     } 
 
-
+    // Allows users to repay their borrowed assets
     function repay(uint usdRepayAmount) public nonReentrant(){
 
         BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
@@ -318,6 +322,4 @@ contract ETHBorrow is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgrad
 
     receive() external payable {
     }
-
-    
 }
