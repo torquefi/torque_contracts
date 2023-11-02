@@ -9,124 +9,114 @@ pragma solidity ^0.8.15;
 //       \ \__\ \ \_______\ \__\\ _\\ \_____  \ \_______\ \_______\
 //        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
 
-import "../interfaces/IStargateLPStaking.sol";
-import "../interfaces/ISwapRouterV3.sol";
-import "../interfaces/IWETH.sol";
-import "../interfaces/IGMX.sol";
+// @dev This is a basic setup of the top-level Boost ETH contract
+// which handles compounding, rebalancing, and distribution
+// to vehicle for further child-vault distribution.
 
-import "@openzeppelin/contracts/access/Ownable.sol";
+// @dev We should model BoostUSD off of this once the 6 related
+// BoostETH contracts are complete (BoostETH.sol, ETHVehicle.sol,
+// GMXV2ETH.sol, StargateETH.sol, TorqueETH.sol, and vToken.sol).
+
+import "../interfaces/IWETH.sol";
+
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+
+import "./ETHVehicle.sol"; // Deposits and withdraws routed through ETHVehicle
+import "./TorqueETH.sol"; // Need to implement mint and burn tETH logic
+import "./RewardUtil"; // Need to implement reward distribution setup
 
 contract BoostETH is Ownable, ReentrancyGuard {
     using SafeMath for uint256;
-    // variables and mapping
-    IStargateLPStaking lpStaking;
-    IERC20 public stargateInterface;
-    ISwapRouterV3 public swapRouter;
-    IGMX public gmxInterface;
-    address constant WETH = 0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6;
-    address public Stargate;
-    mapping(address => uint256) public totalStack;
+    
+    // Variables and mapping
+    ETHVehicle public ethVehicle;
     address treasuryWallet;
     uint256 treasuryProportion;
-    uint256 constant DENOMINATOR = 10000;
-    // address[] public stakeHolders;
+    address constant WETH = 0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6;
+
+    address [] stakeHolders;
 
     mapping(address => mapping(uint256 => UserInfo)) public userInfo;
     mapping(address => mapping(uint256 => bool)) public isStakeHolder;
     mapping(uint256 => address[]) public stakeHolders;
     mapping(address => uint256) public addressToPid;
+    mapping(address => uint256) public userBalances;
 
-    // structs and events
+    // Structs and events
     struct UserInfo {
         uint256 amount;
-        uint256 amountToSTG;
-        uint256 amountFromGMX;
-        uint256 lastProcess;
     }
 
-    // constructor and functions
-    constructor(
-        address _stargateStakingAddress,
-        address _stargateAddress,
-        address _swapRouter,
-        address _gmxAddress,
+    event TreasuryUpdated(address indexed newTreasuryWallet);
+    event UserDeposited(address indexed user, uint256 amount);
+    event UserWithdrawn(address indexed user, uint256 amount);
+    event UserAutoCompounded(address indexed user, uint256 amount);
+
+    constructor (
+        address _ethVehicleAddress,
         address _treasuryWallet,
         uint256 _treasuryProportion
     ) {
-        lpStaking = IStargateLPStaking(_stargateStakingAddress);
-        stargateInterface = IERC20(_stargateAddress);
-        swapRouter = ISwapRouterV3(_swapRouter);
-        gmxInterface = IGMX(_gmxAddress);
+        ethVehicle = ETHVehicle(_ethVehicleAddress);
         treasuryWallet = _treasuryWallet;
         treasuryProportion = _treasuryProportion;
     }
 
-    function changeConfigAddress(
-        address _stargateStakingAddress,
-        address _stargateAddress,
-        address _swapRouter
-    ) public onlyOwner {
-        lpStaking = IStargateLPStaking(_stargateStakingAddress);
-        stargateInterface = IERC20(_stargateAddress);
-        swapRouter = ISwapRouterV3(_swapRouter);
-    }
+    function deposit(uint256 _amount, bool _useETH) public payable nonReentrant {
+        require(_amount > 0, "Cannot deposit 0");
+            address user = msg.sender;
+            updateUserInfo(user);
 
-    function setPid(address _token, uint256 _pid) public onlyOwner {
-        addressToPid[_token] = _pid;
-    }
-
-    function deposit(address _token, uint256 _amount) public payable nonReentrant {
-        uint256 pid = addressToPid[_token];
-        IERC20 tokenInterface = IERC20(_token);
-        if (_token == WETH) {
-            require(msg.value >= _amount, "Not enough ETH");
-            IWETH weth = IWETH(WETH);
-            weth.deposit{ value: _amount / 2 }();
-        } else {
-            tokenInterface.transferFrom(_msgSender(), address(this), _amount);
+        if (_useETH) {
+        require(msg.value == _amount, "ETH value mismatch");
+            // Convert ETH to WETH
+            IWETH(WETH).deposit{value: _amount}();
+            } else {
+            require(msg.value == 0, "Should not send ETH");
+            // Transfer WETH from user to this contract
+            IERC20(WETH).transferFrom(user, address(this), _amount);
         }
-        tokenInterface.approve(address(lpStaking), _amount / 2);
-        // tokenInterface.approve(address(gmxInterface), _amount / 2);
-        lpStaking.deposit(pid, _amount);
-        uint256 gmTokenAmount = gmxInterface.createDeposit{ value: _amount / 2 }(_amount / 2);
+        
+        // Convert ETH to WETH
+        IWETH(WETH).deposit{value: _amount}();
+    
+        // Transfer WETH to ETHVehicle for further distribution
+        IERC20(WETH).safeTransfer(address(ethVehicle), _amount);
+    
+        // Notify ETHVehicle to distribute the WETH to child vaults
+        ethVehicle.handleWETH(_amount);
 
-        UserInfo storage _userInfo = userInfo[_msgSender()][pid];
-        if (_userInfo.lastProcess == 0) {
-            address[] storage stakes = stakeHolders[pid];
-            stakes.push(_msgSender());
-        }
-        _userInfo.amount = _userInfo.amount.add(_amount);
-        _userInfo.amountToSTG = _userInfo.amountToSTG.add(_amount / 2);
-        _userInfo.amountFromGMX = _userInfo.amountFromGMX.add(gmTokenAmount);
-        _userInfo.lastProcess = block.timestamp;
-        totalStack[_token] = totalStack[_token].add(_amount);
+        // Update the user's balance in the mapping
+        userBalances[msg.sender] = userBalances[msg.sender].add(_amount);
+    
+        // Emit an event to notify deposit has occurred
+        emit UserDeposited(msg.sender, _amount);
     }
 
-    function withdraw(address _token, uint256 _amount) public payable nonReentrant {
-        uint256 pid = addressToPid[_token];
-        UserInfo storage _userInfo = userInfo[_msgSender()][pid];
-        uint256 currentAmount = _userInfo.amount;
-        _userInfo.amount = currentAmount.sub(_amount);
-        uint256 amountFromSTG = _userInfo.amountToSTG.mul(_amount).div(currentAmount);
-        uint256 amountToGMX = _userInfo.amountFromGMX.mul(_amount).div(currentAmount);
-        _userInfo.lastProcess = block.timestamp;
-        totalStack[_token] = totalStack[_token].sub(_amount);
+    function withdraw(address _token, uint256 _amount) public nonReentrant {
+        require(_amount > 0, "Cannot withdraw 0");
+        require(userBalances[msg.sender] >= _amount, "Insufficient balance");
 
-        IERC20 tokenInterface = IERC20(_token);
-        lpStaking.withdraw(pid, amountFromSTG);
-        uint256 tokenFromGMX = gmxInterface.createWithdrawal(amountToGMX);
-        uint256 totalTokenReturn = tokenFromGMX + amountFromSTG;
+        // Step 1: Trigger ETHVehicle to withdraw from child vaults
+        ethVehicle.withdrawFromVaults(_token, _amount);
+
+        // Step 2: Update the user balance
+        userBalances[msg.sender] = userBalances[msg.sender].sub(_amount);
+
+        // Step 3: Distribute assets to end user after receiving from ETHVehicle
         if (_token == WETH) {
-            IWETH weth = IWETH(WETH);
-            weth.withdraw(amountFromSTG);
-            (bool success, ) = msg.sender.call{ value: totalTokenReturn }("");
+            IWETH(WETH).withdraw(_amount);
+            (bool success, ) = msg.sender.call{ value: _amount }("");
             require(success, "Transfer ETH failed");
         } else {
-            tokenInterface.transfer(_msgSender(), _amount);
+            IERC20(_token).transfer(msg.sender, _amount);
         }
+
+        emit UserWithdrawn(msg.sender, _amount);
     }
 
     function autoCompound(address _token) public nonReentrant {
@@ -151,9 +141,11 @@ contract BoostETH is Ownable, ReentrancyGuard {
             tokenInterface.approve(address(lpStaking), totalStack[_token]);
             lpStaking.deposit(pid, totalStack[_token]);
         }
+
+        emit UserAutoCompounded(msg.sender, totalStack[_token]);
     }
 
-    // internal functions
+    // Internal functions
     function calculateTotalProduct(uint256 _pid) internal view returns (uint256) {
         address[] memory stakes = stakeHolders[_pid];
         uint256 totalProduct = 0;
@@ -190,10 +182,14 @@ contract BoostETH is Ownable, ReentrancyGuard {
 
     function updateTreasury(address _treasuryWallet) public onlyOwner {
         treasuryWallet = _treasuryWallet;
+        emit TreasuryUpdated(_treasuryWallet);
     }
 
     function updateTreasuryProportion(uint256 _treasuryProportion) public onlyOwner {
         require(_treasuryProportion < DENOMINATOR, "Invalid treasury proportion");
         treasuryProportion = _treasuryProportion;
     }
+
+    receive() external payable {}
+
 }
