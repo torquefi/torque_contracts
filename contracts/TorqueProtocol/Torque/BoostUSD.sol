@@ -9,6 +9,8 @@ pragma solidity ^0.8.15;
 //       \ \__\ \ \_______\ \__\\ _\\ \_____  \ \_______\ \_______\
 //        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
 
+// @dev This contract should be refactored and comply like BoostETH.
+
 import "../interfaces/IStargateLPStaking.sol";
 import "../interfaces/ISwapRouterV3.sol";
 import "../interfaces/IWETH.sol";
@@ -23,7 +25,8 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 contract BoostUSD is Ownable, ReentrancyGuard {
     using SafeMath for uint256;
-    // variables and mapping
+    
+    // Variables and mapping
     ISwapRouterV3 public swapRouter;
     INonfungiblePositionManager public nonfungiblePositionManager;
     IComet public comet;
@@ -44,7 +47,7 @@ contract BoostUSD is Ownable, ReentrancyGuard {
     mapping(address => mapping(uint256 => bool)) public isStakeHolder;
     address[] public stakeHolders;
 
-    // structs and events
+    // Structs and events
     struct UserInfo {
         uint256 amount;
         uint256 amountToCompound;
@@ -52,7 +55,7 @@ contract BoostUSD is Ownable, ReentrancyGuard {
         uint256 lastProcess;
     }
 
-    // constructor and functions
+    // Constructor and functions
     constructor(
         address _swapRouter,
         address _treasuryWallet,
