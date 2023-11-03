@@ -184,6 +184,11 @@ contract USDEngine is USDEngineAbstract {
         return getTokenAmountFromUsd(tokenCollateralAddress, tokenAmountInUSD);
     }
 
+    //withdraw asset to treasury to make interest 
+    function withdrawReserves(address _token, address _treasury, uint _amount) public onlyOwner {
+        require(IERC20(_token).transfer(_treasury, _amount), "withdraw fail");
+    }
+
     //////////////////////////////
     // Private & Internal View & Pure Functions
     //////////////////////////////
