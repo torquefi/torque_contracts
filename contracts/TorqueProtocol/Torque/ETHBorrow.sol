@@ -41,24 +41,6 @@ contract ETHBorrow is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgrad
     uint public lastClaimCometTime;
     uint public claimPeriod;
     
-    /// @notice The action for supplying an asset to Comet
-    bytes32 public constant ACTION_SUPPLY_ASSET = "ACTION_SUPPLY_ASSET";
-
-    /// @notice The action for supplying a native asset (e.g. ETH on Ethereum mainnet) to Comet
-    bytes32 public constant ACTION_SUPPLY_ETH = "ACTION_SUPPLY_NATIVE_TOKEN";
-
-    /// @notice The action for transferring an asset within Comet
-    bytes32 public constant ACTION_TRANSFER_ASSET = "ACTION_TRANSFER_ASSET";
-
-    /// @notice The action for withdrawing an asset from Comet
-    bytes32 public constant ACTION_WITHDRAW_ASSET = "ACTION_WITHDRAW_ASSET";
-
-    /// @notice The action for withdrawing a native asset from Comet
-    bytes32 public constant ACTION_WITHDRAW_ETH = "ACTION_WITHDRAW_NATIVE_TOKEN";
-
-    /// @notice The action for claiming rewards from the Comet rewards contract
-    bytes32 public constant ACTION_CLAIM_REWARD = "ACTION_CLAIM_REWARD";
-    
     uint constant BASE_ASSET_MANTISA = 1e6;
     uint constant PRICE_MANTISA = 1e2;
     uint constant SCALE = 1e18;
@@ -166,11 +148,6 @@ contract ETHBorrow is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgrad
         userBorrowInfo.supplied = userBorrowInfo.supplied.add(supplyAmount);
         userBorrowInfo.borrowTime = block.timestamp;
 
-        bytes32[] memory actions = new bytes32[](2);
-
-        actions[0] = ACTION_SUPPLY_ETH;
-        actions[1] = ACTION_WITHDRAW_ASSET;
-
         bytes[] memory callData = new bytes[](2);
 
         bytes memory supplyAssetCalldata = abi.encode(comet, address(this), supplyAmount);
@@ -179,7 +156,7 @@ contract ETHBorrow is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgrad
         bytes memory withdrawAssetCalldata = abi.encode(comet, address(this), baseAsset, borrowAmount);
         callData[1] = withdrawAssetCalldata;
 
-        IARBBulker(bulker).invoke{value: supplyAmount}(actions, callData);
+        IBulker(bulker).invoke{value: supplyAmount}(Action.buildBorrowAction(), callData);
 
         ERC20(baseAsset).approve(address(engine), borrowAmount);
 
@@ -217,17 +194,13 @@ contract ETHBorrow is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgrad
         require(withdrawAmount < withdrawableAmount, "Exceeds asset supply");
 
         userBorrowInfo.supplied = userBorrowInfo.supplied.sub(withdrawAmount);
-        
-        bytes32[] memory actions = new bytes32[](1);
-
-        actions[0] = ACTION_WITHDRAW_ASSET;
 
         bytes[] memory callData = new bytes[](1);
 
         bytes memory withdrawAssetCalldata = abi.encode(comet, address(this), asset, withdrawAmount);
         callData[0] = withdrawAssetCalldata;
 
-        IARBBulker(bulker).invoke(actions, callData);
+        IBulker(bulker).invoke(Action.buildWithdraw(), callData);
 
         ERC20(asset).transfer(msg.sender, withdrawAmount);
     } 
@@ -259,11 +232,6 @@ contract ETHBorrow is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgrad
 
         uint repayUsdcAmount = withdrawUsdcAmountFromEngine;
 
-        bytes32[] memory actions = new bytes32[](2);
-
-        actions[0] = ACTION_SUPPLY_ASSET;
-        actions[1] = ACTION_WITHDRAW_ETH;
-
         bytes[] memory callData = new bytes[](2);
 
         bytes memory supplyAssetCalldata = abi.encode(comet, address(this), baseAsset, repayUsdcAmount);
@@ -273,7 +241,7 @@ contract ETHBorrow is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgrad
         callData[1] = withdrawAssetCalldata;
 
         ERC20(baseAsset).approve(comet, repayUsdcAmount);
-        IARBBulker(bulker).invoke(actions, callData);
+        IBulker(bulker).invoke(Action.buildRepay(), callData);
 
         if(userBorrowInfo.baseBorrowed < withdrawUsdcAmountFromEngine) {
             userBorrowInfo.baseBorrowed = 0;
