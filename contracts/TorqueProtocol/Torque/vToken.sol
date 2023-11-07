@@ -1,10 +1,11 @@
-pragma solidity ^0.8.0;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.15;
 
-//  _________  ________  ________  ________  ___  ___  _______      
-// |\___   ___\\   __  \|\   __  \|\   __  \|\  \|\  \|\  ___ \     
-// \|___ \  \_\ \  \|\  \ \  \|\  \ \  \|\  \ \  \\\  \ \   __/|    
-//     \ \  \ \ \  \\\  \ \   _  _\ \  \\\  \ \  \\\  \ \  \_|/__  
-//      \ \  \ \ \  \\\  \ \  \\  \\ \  \\\  \ \  \\\  \ \  \_|\ \ 
+//  _________  ________  ________  ________  ___  ___  _______
+// |\___   ___\\   __  \|\   __  \|\   __  \|\  \|\  \|\  ___ \
+// \|___ \  \_\ \  \|\  \ \  \|\  \ \  \|\  \ \  \\\  \ \   __/|
+//     \ \  \ \ \  \\\  \ \   _  _\ \  \\\  \ \  \\\  \ \  \_|/__
+//      \ \  \ \ \  \\\  \ \  \\  \\ \  \\\  \ \  \\\  \ \  \_|\ \
 //       \ \__\ \ \_______\ \__\\ _\\ \_____  \ \_______\ \_______\
 //        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
 
@@ -15,7 +16,6 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 // This contract represents a vault receipt token minted to vehicles and burned from them to fetch assets from child vaults.
 
 contract vToken is ERC20, Ownable, ReentrancyGuard {
-    
     // Token supply cap
     uint256 private _cap;
     // Managerial address
@@ -89,8 +89,7 @@ contract vToken is ERC20, Ownable, ReentrancyGuard {
     // Transfer contract ownership, restricted to contract owner
     function transferOwnership(address newOwner) public virtual override onlyOwner {
         require(newOwner != address(0), "vToken: new owner is the zero address");
-        emit OwnershipTransferred(_owner, newOwner);
-        _owner = newOwner;
+        _transferOwnership(newOwner);
     }
 
     // Sets a new cap, restricted to the manager
