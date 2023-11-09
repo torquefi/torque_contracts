@@ -1,22 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
-//  _________  ________  ________  ________  ___  ___  _______      
-// |\___   ___\\   __  \|\   __  \|\   __  \|\  \|\  \|\  ___ \     
-// \|___ \  \_\ \  \|\  \ \  \|\  \ \  \|\  \ \  \\\  \ \   __/|    
-//     \ \  \ \ \  \\\  \ \   _  _\ \  \\\  \ \  \\\  \ \  \_|/__  
-//      \ \  \ \ \  \\\  \ \  \\  \\ \  \\\  \ \  \\\  \ \  \_|\ \ 
+//  _________  ________  ________  ________  ___  ___  _______
+// |\___   ___\\   __  \|\   __  \|\   __  \|\  \|\  \|\  ___ \
+// \|___ \  \_\ \  \|\  \ \  \|\  \ \  \|\  \ \  \\\  \ \   __/|
+//     \ \  \ \ \  \\\  \ \   _  _\ \  \\\  \ \  \\\  \ \  \_|/__
+//      \ \  \ \ \  \\\  \ \  \\  \\ \  \\\  \ \  \\\  \ \  \_|\ \
 //       \ \__\ \ \_______\ \__\\ _\\ \_____  \ \_______\ \_______\
 //        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
 
 // @dev This contract should be refactored and comply like BoostETH.
 
-import "../interfaces/IStargateLPStaking.sol";
-import "../interfaces/ISwapRouterV3.sol";
-import "../interfaces/IWETH.sol";
-import "../interfaces/IGMX.sol";
-import "../interfaces/INonfungiblePositionManager.sol";
-import "../interfaces/IComet.sol";
+import "./interfaces/IStargateLPStaking.sol";
+import "./interfaces/ISwapRouterV3.sol";
+import "./interfaces/IWETH.sol";
+import "./interfaces/IGMX.sol";
+import "./interfaces/INonfungiblePositionManager.sol";
+import "./interfaces/IComet.sol";
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -25,7 +25,7 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 contract BoostUSD is Ownable, ReentrancyGuard {
     using SafeMath for uint256;
-    
+
     // Variables and mapping
     ISwapRouterV3 public swapRouter;
     INonfungiblePositionManager public nonfungiblePositionManager;

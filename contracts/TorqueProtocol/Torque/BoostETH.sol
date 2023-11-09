@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
-//  _________  ________  ________  ________  ___  ___  _______      
-// |\___   ___\\   __  \|\   __  \|\   __  \|\  \|\  \|\  ___ \     
-// \|___ \  \_\ \  \|\  \ \  \|\  \ \  \|\  \ \  \\\  \ \   __/|    
-//     \ \  \ \ \  \\\  \ \   _  _\ \  \\\  \ \  \\\  \ \  \_|/__  
-//      \ \  \ \ \  \\\  \ \  \\  \\ \  \\\  \ \  \\\  \ \  \_|\ \ 
+//  _________  ________  ________  ________  ___  ___  _______
+// |\___   ___\\   __  \|\   __  \|\   __  \|\  \|\  \|\  ___ \
+// \|___ \  \_\ \  \|\  \ \  \|\  \ \  \|\  \ \  \\\  \ \   __/|
+//     \ \  \ \ \  \\\  \ \   _  _\ \  \\\  \ \  \\\  \ \  \_|/__
+//      \ \  \ \ \  \\\  \ \  \\  \\ \  \\\  \ \  \\\  \ \  \_|\ \
 //       \ \__\ \ \_______\ \__\\ _\\ \_____  \ \_______\ \_______\
 //        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
 
@@ -17,7 +17,7 @@ pragma solidity ^0.8.15;
 // BoostETH contracts are complete (BoostETH.sol, ETHVehicle.sol,
 // GMXV2ETH.sol, StargateETH.sol, TorqueETH.sol, and vToken.sol).
 
-import "../interfaces/IWETH.sol";
+import "./interfaces/IWETH.sol";
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -27,18 +27,19 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 import "./ETHVehicle.sol"; // Deposits and withdraws routed through ETHVehicle
 import "./TorqueETH.sol"; // Need to implement mint and burn tETH logic
-import "./RewardUtil"; // Need to implement reward distribution setup
+
+// import "./RewardUtil"; // Need to implement reward distribution setup
 
 contract BoostETH is Ownable, ReentrancyGuard {
     using SafeMath for uint256;
-    
+
     // Variables and mapping
     ETHVehicle public ethVehicle;
     address treasuryWallet;
     uint256 treasuryProportion;
     address constant WETH = 0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6;
 
-    address [] stakeHolders;
+    address[] stakeHolders;
 
     mapping(address => mapping(uint256 => UserInfo)) public userInfo;
     mapping(address => mapping(uint256 => bool)) public isStakeHolder;
@@ -56,11 +57,7 @@ contract BoostETH is Ownable, ReentrancyGuard {
     event UserWithdrawn(address indexed user, uint256 amount);
     event UserAutoCompounded(address indexed user, uint256 amount);
 
-    constructor (
-        address _ethVehicleAddress,
-        address _treasuryWallet,
-        uint256 _treasuryProportion
-    ) {
+    constructor(address _ethVehicleAddress, address _treasuryWallet, uint256 _treasuryProportion) {
         ethVehicle = ETHVehicle(_ethVehicleAddress);
         treasuryWallet = _treasuryWallet;
         treasuryProportion = _treasuryProportion;
@@ -68,31 +65,31 @@ contract BoostETH is Ownable, ReentrancyGuard {
 
     function deposit(uint256 _amount, bool _useETH) public payable nonReentrant {
         require(_amount > 0, "Cannot deposit 0");
-            address user = msg.sender;
-            updateUserInfo(user);
+        address user = msg.sender;
+        updateUserInfo(user);
 
         if (_useETH) {
-        require(msg.value == _amount, "ETH value mismatch");
+            require(msg.value == _amount, "ETH value mismatch");
             // Convert ETH to WETH
-            IWETH(WETH).deposit{value: _amount}();
-            } else {
+            IWETH(WETH).deposit{ value: _amount }();
+        } else {
             require(msg.value == 0, "Should not send ETH");
             // Transfer WETH from user to this contract
             IERC20(WETH).transferFrom(user, address(this), _amount);
         }
-        
+
         // Convert ETH to WETH
-        IWETH(WETH).deposit{value: _amount}();
-    
+        IWETH(WETH).deposit{ value: _amount }();
+
         // Transfer WETH to ETHVehicle for further distribution
         IERC20(WETH).safeTransfer(address(ethVehicle), _amount);
-    
+
         // Notify ETHVehicle to distribute the WETH to child vaults
         ethVehicle.handleWETH(_amount);
 
         // Update the user's balance in the mapping
         userBalances[msg.sender] = userBalances[msg.sender].add(_amount);
-    
+
         // Emit an event to notify deposit has occurred
         emit UserDeposited(msg.sender, _amount);
     }
@@ -191,5 +188,4 @@ contract BoostETH is Ownable, ReentrancyGuard {
     }
 
     receive() external payable {}
-
 }

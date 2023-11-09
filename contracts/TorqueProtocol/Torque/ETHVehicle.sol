@@ -8,9 +8,9 @@ pragma solidity ^0.8.0;
 //       \ \__\ \ \_______\ \__\\ _\\ \_____  \ \_______\ \_______\
 //        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
 
-import "../interfaces/IStargateLPStaking.sol";
-import "../interfaces/ISwapRouterV3.sol";
-import "../interfaces/IGMX.sol";
+import "./interfaces/IStargateLPStaking.sol";
+import "./interfaces/ISwapRouterV3.sol";
+import "./interfaces/IGMX.sol";
 // import IChildVault.sol interface
 
 // @dev This is a basic setup of the ETHVehicle which handles child-vault routing.
