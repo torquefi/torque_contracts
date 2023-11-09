@@ -2,19 +2,19 @@
 // OpenZeppelin Contracts (last updated v5.0.0) (finance/VestingWallet.sol)
 pragma solidity ^0.8.20;
 
-//  _________  ________  ________  ________  ___  ___  _______      
-// |\___   ___\\   __  \|\   __  \|\   __  \|\  \|\  \|\  ___ \     
-// \|___ \  \_\ \  \|\  \ \  \|\  \ \  \|\  \ \  \\\  \ \   __/|    
-//     \ \  \ \ \  \\\  \ \   _  _\ \  \\\  \ \  \\\  \ \  \_|/__  
-//      \ \  \ \ \  \\\  \ \  \\  \\ \  \\\  \ \  \\\  \ \  \_|\ \ 
+//  _________  ________  ________  ________  ___  ___  _______
+// |\___   ___\\   __  \|\   __  \|\   __  \|\  \|\  \|\  ___ \
+// \|___ \  \_\ \  \|\  \ \  \|\  \ \  \|\  \ \  \\\  \ \   __/|
+//     \ \  \ \ \  \\\  \ \   _  _\ \  \\\  \ \  \\\  \ \  \_|/__
+//      \ \  \ \ \  \\\  \ \  \\  \\ \  \\\  \ \  \\\  \ \  \_|\ \
 //       \ \__\ \ \_______\ \__\\ _\\ \_____  \ \_______\ \_______\
 //        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
 
-import {IERC20} from "../token/ERC20/IERC20.sol";
-import {SafeERC20} from "../token/ERC20/utils/SafeERC20.sol";
-import {Address} from "../utils/Address.sol";
-import {Context} from "../utils/Context.sol";
-import {Ownable} from "../access/Ownable.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { Address } from "@openzeppelin/contracts/utils/Address.sol";
+import { Context } from "@openzeppelin/contracts/utils/Context.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
  * @dev A vesting wallet is an ownable contract that can receive native currency and ERC20 tokens, and release these
@@ -48,7 +48,11 @@ contract Vesting is Context, Ownable {
      * @dev Sets the sender as the initial owner, the beneficiary as the pending owner, the start timestamp and the
      * vesting duration of the vesting wallet.
      */
-    constructor(address beneficiary, uint64 startTimestamp, uint64 durationSeconds) payable Ownable(beneficiary) {
+    constructor(
+        address beneficiary,
+        uint64 startTimestamp,
+        uint64 durationSeconds
+    ) payable Ownable(beneficiary) {
         _start = startTimestamp;
         _duration = durationSeconds;
     }
@@ -143,14 +147,18 @@ contract Vesting is Context, Ownable {
      * @dev Calculates the amount of tokens that has already vested. Default implementation is a linear vesting curve.
      */
     function vestedAmount(address token, uint64 timestamp) public view virtual returns (uint256) {
-        return _vestingSchedule(IERC20(token).balanceOf(address(this)) + released(token), timestamp);
+        return
+            _vestingSchedule(IERC20(token).balanceOf(address(this)) + released(token), timestamp);
     }
 
     /**
      * @dev Virtual implementation of the vesting formula. This returns the amount vested, as a function of time, for
      * an asset given its total historical allocation.
      */
-    function _vestingSchedule(uint256 totalAllocation, uint64 timestamp) internal view virtual returns (uint256) {
+    function _vestingSchedule(
+        uint256 totalAllocation,
+        uint64 timestamp
+    ) internal view virtual returns (uint256) {
         if (timestamp < start()) {
             return 0;
         } else if (timestamp >= end()) {
