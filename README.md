@@ -1,10 +1,12 @@
 To do:
 - [X] Finish initial prep
 - [X] Finish Borrow contract
-- [X] Add decentralized governor
-- [X] Finish Torque token contract
-- [X] Finish USD Farm contracts
-- [X] Finish GMX integration
-- [X] Finish complete Boost
-- [ ] Optimize! Optimize!
-- [ ] Security audits
+- [X] Decentralized governor
+- [X] Torque token contract
+- [X] USD Farm contracts
+- [X] GMX integration
+- [ ] Boost USD setup
+- [ ] Optimizations
+- [ ] Borrow audit
+- [ ] Boost audit
+- [ ] Token audit
