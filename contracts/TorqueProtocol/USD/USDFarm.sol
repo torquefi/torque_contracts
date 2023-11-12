@@ -24,8 +24,9 @@ import '@uniswap/v3-core/contracts/interfaces/IERC20Minimal.sol';
 import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol';
 import '@uniswap/v3-periphery/contracts/base/Multicall.sol';
 
-/// @title Canonical staking interface for USDD/USD UNI V3 0.01 pool
-contract usddUSD is IUniswapV3Staker, Multicall {
+/// @title Canonical staking interface for Uniswap V3 LP
+/// @dev Should deploy instances for each liquidity pool
+contract USDFarm is IUniswapV3Staker, Multicall {
     /// @notice Represents a staking incentive
     struct Incentive {
         uint256 totalRewardUnclaimed;
