@@ -140,4 +140,16 @@ contract ETHBorrow is BorrowAbstract {
         (bool success, ) = msg.sender.call{ value: withdrawAssetAmount }("");
         require(success, "Transfer ETH failed");
     }
+
+    // View function to get the total amount supplied by a user
+    function getTotalAmountSupplied(address user) public view returns (uint) {
+        BorrowInfo storage userInfo = borrowInfoMap[user];
+        return userInfo.supplied;
+    }
+
+    // View function to get the total amount borrowed by a user
+    function getTotalAmountBorrowed(address user) public view returns (uint) {
+        BorrowInfo storage userInfo = borrowInfoMap[user];
+        return userInfo.borrowed;
+    }
 }
