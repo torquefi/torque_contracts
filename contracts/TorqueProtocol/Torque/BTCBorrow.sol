@@ -24,16 +24,10 @@ contract BTCBorrow is BorrowAbstract{
         require(canMint, 'User can not mint more USD');
         require(mintable > usdBorrowAmount, "Exceeds borrow amount");
         
-        IComet icomet = IComet(comet);
-
-        // Fetch the asset information and its price.
-        AssetInfo memory info = icomet.getAssetInfoByAddress(asset);
-        uint price = icomet.getPrice(info.priceFeed);
-        
         BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
         
         // Calculate the maximum borrowable amount for the user based on collateral
-        uint maxBorrow = (supplyAmount.add(userBorrowInfo.supplied)).mul(info.borrowCollateralFactor).mul(price).div(PRICE_MANTISA).div(SCALE);
+        uint maxBorrow = getBorrowableUsdc(supplyAmount.add(userBorrowInfo.supplied));
 
         // Calculate the amount user can still borrow.
         uint borrowable = maxBorrow.sub(userBorrowInfo.borrowed);
@@ -53,7 +47,7 @@ contract BTCBorrow is BorrowAbstract{
         }
 
         // Update the user's borrowing information
-        userBorrowInfo.baseBorrowed = userBorrowInfo.baseBorrowed.add(borrowAmount);
+        userBorrowInfo.baseBorrowed = userBorrowInfo.baseBorrowed.add(usdBorrowAmount);
         userBorrowInfo.borrowed = userBorrowInfo.borrowed.add(borrowAmount).add(accruedInterest);
         if(reward > 0) {
             userBorrowInfo.reward = userBorrowInfo.reward.add(reward);
@@ -90,6 +84,8 @@ contract BTCBorrow is BorrowAbstract{
         require(expectedUsd == ERC20(usd).balanceOf(address(this)), "Invalid amount");
 
         require(ERC20(usd).transfer(msg.sender, usdBorrowAmount), "Transfer token failed");
+        totalBorrow = totalBorrow.add(usdBorrowAmount);
+        totalSupplied = totalSupplied.add(supplyAmount);
     }
     // Allows users to repay their borrowed assets
     function repay(uint usdRepayAmount) public nonReentrant(){
@@ -112,9 +108,13 @@ contract BTCBorrow is BorrowAbstract{
         uint reward = RewardUtil(rewardUtil).calculateReward(userBorrowInfo.baseBorrowed, userBorrowInfo.borrowTime) + userBorrowInfo.reward;
         userBorrowInfo.borrowed = userBorrowInfo.borrowed.add(accruedInterest);
 
-        uint withdrawAssetAmount = userBorrowInfo.supplied.mul(withdrawUsdcAmountFromEngine).div(userBorrowInfo.borrowed);
-
         uint repayUsdcAmount = withdrawUsdcAmountFromEngine;
+        if(repayUsdcAmount > userBorrowInfo.borrowed) {
+            repayUsdcAmount = userBorrowInfo.borrowed;
+        }
+        uint repayUsd = userBorrowInfo.baseBorrowed.mul(repayUsdcAmount).div(userBorrowInfo.borrowed);
+        uint withdrawAssetAmount = userBorrowInfo.supplied.mul(repayUsdcAmount).div(userBorrowInfo.borrowed);
+
 
         bytes[] memory callData = new bytes[](2);
 
@@ -127,12 +127,9 @@ contract BTCBorrow is BorrowAbstract{
         ERC20(baseAsset).approve(comet, repayUsdcAmount);
         IBulker(bulker).invoke(buildRepay(), callData);
 
-        if(userBorrowInfo.baseBorrowed < withdrawUsdcAmountFromEngine) {
-            userBorrowInfo.baseBorrowed = 0;
-        } else {
-            userBorrowInfo.baseBorrowed = userBorrowInfo.baseBorrowed.sub(withdrawUsdcAmountFromEngine);
-        }
-        userBorrowInfo.borrowed = userBorrowInfo.borrowed.sub(withdrawUsdcAmountFromEngine);
+        
+        userBorrowInfo.baseBorrowed = userBorrowInfo.baseBorrowed.sub(repayUsd);
+        userBorrowInfo.borrowed = userBorrowInfo.borrowed.sub(repayUsdcAmount);
         userBorrowInfo.supplied = userBorrowInfo.supplied.sub(withdrawAssetAmount);
         userBorrowInfo.borrowTime = block.timestamp;
         userBorrowInfo.reward = 0;
@@ -142,6 +139,8 @@ contract BTCBorrow is BorrowAbstract{
         }
 
         require(ERC20(asset).transfer(msg.sender, withdrawAssetAmount), "Transfer asset from Compound failed");
+        totalBorrow = totalBorrow.sub(repayUsd);
+        totalSupplied = totalSupplied.sub(withdrawAssetAmount);
     }
 
     // View function to get the total amount supplied by a user

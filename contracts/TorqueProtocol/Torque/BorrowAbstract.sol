@@ -65,6 +65,7 @@ abstract contract BorrowAbstract is UUPSUpgradeable, OwnableUpgradeable, Reentra
     uint constant SCALE = 1e18;
     uint constant WITHDRAW_OFFSET = 1e2;
     uint constant USD_DECIMAL_OFFSET = 1e12;
+    uint constant PRICE_SCALE = 1e8;
 
     struct BorrowInfo {
         address user;
@@ -77,6 +78,8 @@ abstract contract BorrowAbstract is UUPSUpgradeable, OwnableUpgradeable, Reentra
     }
 
     mapping(address => BorrowInfo) public borrowInfoMap;
+    uint public totalBorrow;
+    uint public totalSupplied;
     event UserBorrow(address user, address collateralAddress, uint amount);
     event UserRepay(address user, address collateralAddress, uint repayAmount, uint claimAmount);
     
@@ -125,13 +128,26 @@ abstract contract BorrowAbstract is UUPSUpgradeable, OwnableUpgradeable, Reentra
     }
     // End test
 
-    // Gets max amount that can be borrowed by user
-    function getBorrowable(uint amount) public view returns (uint){
+    // Gets max amount that can be borrowed by supplied asset
+    function getBorrowable(uint supplyAmount) public view returns (uint){
+        uint maxBorrow = getBorrowableUsdc(supplyAmount);
+
+        // Get the amount of USD the user is allowed to mint for the given asset
+        (uint mintable,) = IUSDEngine(engine).getMintableUSD(baseAsset, address(this), maxBorrow);
+        return mintable;
+    }
+    // Gets max amount that can be borrowed by supplied asset
+    function getBorrowableUsdc(uint supplyAmount) public view returns (uint){
         IComet icomet = IComet(comet);
 
+        // Fetch the asset information and its price.
         AssetInfo memory info = icomet.getAssetInfoByAddress(asset);
         uint price = icomet.getPrice(info.priceFeed);
-        return amount.mul(info.borrowCollateralFactor).mul(price).div(PRICE_MANTISA).div(SCALE);
+        
+        uint assetDecimal = ERC20(asset).decimals();
+        // Calculate the maximum borrowable amount for the user based on collateral
+        uint maxBorrow = supplyAmount.mul(info.borrowCollateralFactor).mul(price).div(PRICE_MANTISA).div(10**assetDecimal).div(SCALE);
+        return maxBorrow;
     }
     // Allows a user to withdraw their collateral
     function withdraw(uint withdrawAmount) public nonReentrant(){
@@ -153,7 +169,8 @@ abstract contract BorrowAbstract is UUPSUpgradeable, OwnableUpgradeable, Reentra
         AssetInfo memory info = icomet.getAssetInfoByAddress(asset);
         uint price = icomet.getPrice(info.priceFeed);
 
-        uint minRequireSupplyAmount = userBorrowInfo.borrowed.mul(SCALE).mul(PRICE_MANTISA).div(price).div(uint(info.borrowCollateralFactor).sub(WITHDRAW_OFFSET));
+        uint assetDecimal = ERC20(asset).decimals();
+        uint minRequireSupplyAmount = userBorrowInfo.borrowed.mul(SCALE).mul(10**assetDecimal).mul(PRICE_MANTISA).div(price).div(uint(info.borrowCollateralFactor).sub(WITHDRAW_OFFSET));
         uint withdrawableAmount = userBorrowInfo.supplied - minRequireSupplyAmount;
 
         require(withdrawAmount < withdrawableAmount, "Exceeds asset supply");
@@ -168,10 +185,10 @@ abstract contract BorrowAbstract is UUPSUpgradeable, OwnableUpgradeable, Reentra
         IBulker(bulker).invoke(buildWithdraw(), callData);
 
         ERC20(asset).transfer(msg.sender, withdrawAmount);
+        totalSupplied = totalSupplied.sub(withdrawAmount);
     } 
     
    
-    
     function borrowBalanceOf(address user) public view returns (uint) {
         
         BorrowInfo storage userBorrowInfo = borrowInfoMap[user];
@@ -189,6 +206,12 @@ abstract contract BorrowAbstract is UUPSUpgradeable, OwnableUpgradeable, Reentra
         IComet icomet = IComet(comet);
         uint totalSecond = block.timestamp - borrowTime;
         return borrowAmount.mul(icomet.getBorrowRate(icomet.getUtilization())).mul(totalSecond).div(1e18);
+    }
+    //APR scale up by 1e18
+    function getApr() public view returns (uint) {
+        IComet icomet = IComet(comet);
+        uint borowRate = icomet.getBorrowRate(icomet.getUtilization());
+        return borowRate.mul(31536000);
     }
 
     function claimCReward() public onlyOwner{
