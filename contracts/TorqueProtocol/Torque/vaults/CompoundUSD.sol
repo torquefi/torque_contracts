@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
 //  _________  ________  ________  ________  ___  ___  _______
@@ -24,5 +25,4 @@ contract CompoundUSD is ERC4626, Ownable, ReentrancyGuard {
     // Logic to supply leftover USDC (50%) to Compound for USDC interest and COMP rewards
     // Logic for auto-compounding COMP for more USDC and resupplying USDC to Compound
     // Logic to direct performance fee to treasury with 12 hr min duration between calls
-
 }

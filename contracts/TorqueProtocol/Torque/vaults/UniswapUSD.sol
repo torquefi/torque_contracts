@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
 //  _________  ________  ________  ________  ___  ___  _______
@@ -24,5 +25,4 @@ contract UniswapUSD is ERC4626, Ownable, ReentrancyGuard {
     // Logic to supply 25% of deposit as USDC and 25% of deposit as Torque USD to Uniswap V3 0.01 pool
     // Logic for auto-compounding USDC and Torque USD fees to grow the liquidity provider's position
     // Logic to direct performance fee to treasury with 12 hr min duration between calls
-
 }
