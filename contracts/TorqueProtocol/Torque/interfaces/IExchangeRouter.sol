@@ -92,13 +92,13 @@ interface IExchangeRouter {
 
     function sendTokens(address token, address receiver, uint256 amount) external payable;
 
-    function createDeposit(CreateDepositParams calldata params) external payable returns (bytes32);
+    function createDeposit(CreateDepositParams memory params) external payable returns (bytes32);
 
     function createWithdrawal(
-        CreateWithdrawalParams calldata params
+        CreateWithdrawalParams memory params
     ) external payable returns (bytes32);
 
-    function createOrder(CreateOrderParams calldata params) external payable returns (bytes32);
+    function createOrder(CreateOrderParams memory params) external payable returns (bytes32);
 
     // function cancelDeposit(bytes32 key) external payable;
 

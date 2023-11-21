@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-pragma solidity =0.7.6;
+pragma solidity 0.8.15;
 
-//  _________  ________  ________  ________  ___  ___  _______      
-// |\___   ___\\   __  \|\   __  \|\   __  \|\  \|\  \|\  ___ \     
-// \|___ \  \_\ \  \|\  \ \  \|\  \ \  \|\  \ \  \\\  \ \   __/|    
-//     \ \  \ \ \  \\\  \ \   _  _\ \  \\\  \ \  \\\  \ \  \_|/__  
-//      \ \  \ \ \  \\\  \ \  \\  \\ \  \\\  \ \  \\\  \ \  \_|\ \ 
+//  _________  ________  ________  ________  ___  ___  _______
+// |\___   ___\\   __  \|\   __  \|\   __  \|\  \|\  \|\  ___ \
+// \|___ \  \_\ \  \|\  \ \  \|\  \ \  \|\  \ \  \\\  \ \   __/|
+//     \ \  \ \ \  \\\  \ \   _  _\ \  \\\  \ \  \\\  \ \  \_|/__
+//      \ \  \ \ \  \\\  \ \  \\  \\ \  \\\  \ \  \\\  \ \  \_|\ \
 //       \ \__\ \ \_______\ \__\\ _\\ \_____  \ \_______\ \_______\
 //        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
 
-import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol';
-import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
-import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
-import '@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol';
+import "@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
+import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
+import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+import "@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol";
 
 /// @notice Encapsulates the logic for getting info about a NFT token ID
 library NFTPositionInfo {
@@ -30,24 +30,30 @@ library NFTPositionInfo {
     )
         internal
         view
-        returns (
-            IUniswapV3Pool pool,
-            int24 tickLower,
-            int24 tickUpper,
-            uint128 liquidity
-        )
+        returns (IUniswapV3Pool pool, int24 tickLower, int24 tickUpper, uint128 liquidity)
     {
         address token0;
         address token1;
         uint24 fee;
-        (, , token0, token1, fee, tickLower, tickUpper, liquidity, , , , ) = nonfungiblePositionManager.positions(
-            tokenId
-        );
+        (
+            ,
+            ,
+            token0,
+            token1,
+            fee,
+            tickLower,
+            tickUpper,
+            liquidity,
+            ,
+            ,
+            ,
+
+        ) = nonfungiblePositionManager.positions(tokenId);
 
         pool = IUniswapV3Pool(
             PoolAddress.computeAddress(
                 address(factory),
-                PoolAddress.PoolKey({token0: token0, token1: token1, fee: fee})
+                PoolAddress.PoolKey({ token0: token0, token1: token1, fee: fee })
             )
         );
     }

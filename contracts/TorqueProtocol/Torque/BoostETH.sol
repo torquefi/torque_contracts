@@ -106,7 +106,7 @@ contract BoostETH is Ownable, GMXV2ETH, StargateETH {
         totalStack[_token] = totalStack[_token].sub(_amount);
 
         IERC20 tokenInterface = IERC20(_token);
-        _withdrawStargate(_token, amountFromSTG)
+        _withdrawStargate(_token, amountFromSTG);
         uint256 tokenFromGMX = _withdrawGMX(amountToGMX);
 
         uint256 totalTokenReturn = tokenFromGMX + amountFromSTG;
