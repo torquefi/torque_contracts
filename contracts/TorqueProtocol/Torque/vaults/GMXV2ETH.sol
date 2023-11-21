@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
 //  _________  ________  ________  ________  ___  ___  _______
@@ -15,9 +16,9 @@ import "./../interfaces/IExchangeRouter.sol";
 // import "./..interfaces/IDepositHandler.sol";
 // import "./..interfaces/IEvent.sol";
 // import "./..interfaces/IRouter.sol";
-import "./..interfaces/IWETH.sol";
-import "./..interfaces/IWithdraw.sol";
-import "./..interfaces/IWithdrawCallback.sol";
+// import "./..interfaces/IWETH.sol";
+// import "./..interfaces/IWithdraw.sol";
+// import "./..interfaces/IWithdrawCallback.sol";
 import "./../interfaces/IGMXV2ETH.sol";
 
 // @dev I imported all GMX interfaces that should be needed to be implemented.
@@ -30,36 +31,35 @@ import "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 
 import "./../vToken.sol";
 
-contract GMXV2ETH is ERC4626, Ownable, ReentrancyGuard, IGMXV2ETH {
+abstract contract GMXV2ETH is ERC4626, Ownable, ReentrancyGuard, IGMXV2ETH {
     using SafeERC20 for IERC20;
 
     IERC20 public immutable weth;
     IERC20 public immutable gmToken;
     IERC20 public immutable usdcToken;
     address marketAddress;
-    // IERC20 public immutable 
+    // IERC20 public immutable
     address booster;
     address depositVault;
     address withdrawalVault;
     IExchangeRouter public immutable gmxExchange;
     vToken public immutable vTokenInstance;
 
-
     constructor(
-        IERC20 _weth, 
-        IGMX _gmxExchange, 
-        address vTokenAddress, 
-        address _gmToken, 
-        address _usdcToken, 
-        address _booster, 
-        address _depositVault, 
+        IERC20 _weth,
+        IExchangeRouter _gmxExchange,
+        address vTokenAddress,
+        address _gmToken,
+        address _usdcToken,
+        address _booster,
+        address _depositVault,
         address _withdrawalVault
     ) {
         weth = _weth;
         gmxExchange = _gmxExchange;
         vTokenInstance = vToken(vTokenAddress);
-        gmToken = _gmToken;
-        usdcToken = _usdcToken;
+        gmToken = IERC20(_gmToken);
+        usdcToken = IERC20(_usdcToken);
         booster = _booster;
         depositVault = _depositVault;
         withdrawalVault = _withdrawalVault;
@@ -71,22 +71,24 @@ contract GMXV2ETH is ERC4626, Ownable, ReentrancyGuard, IGMXV2ETH {
 
     function _depositGMX(
         uint256 _amount
-    ) external payable nonReentrant returns(uint256 gmTokenAmount) {
-        CreateDepositParams params memory = createDepositParams(_amount);
-        usdcToken.safeTransferFrom(msg.sender, address(this), params.initialLongToken);
-        usdcToken.approve(depositVault, params.initialLongToken);
-        weth.safeTransferFrom(msg.sender, address(this), params.initialShortToken);
-        weth.approve(depositVault, params.initialShortToken);
+    ) external payable nonReentrant returns (uint256 gmTokenAmount) {
+        IExchangeRouter.CreateDepositParams memory params = createDepositParams(_amount);
+        // usdcToken.safeTransferFrom(msg.sender, address(this), _amount);
+        // usdcToken.approve(depositVault, _amount);
+        weth.safeTransferFrom(msg.sender, address(this), _amount);
+        weth.approve(depositVault, _amount);
         gmxExchange.createDeposit(params);
         vTokenInstance.mint(msg.sender, _amount);
         gmTokenAmount = gmToken.balanceOf(address(this));
         gmToken.transfer(booster, gmTokenAmount);
     }
 
-    function _withdrawGMX(uint256 _amount) external payable nonReentrant returns(uint256 wethAmount, uint256 usdcAmount) {
-        CreateWithdrawalParams params = createWithdrawParams(_amount);
-        gmToken.safeTransferFrom(msg.sender, address(this), params.marketTokenAmount);
-        gmToken.approve(withdrawalVault, params.marketTokenAmount);
+    function _withdrawGMX(
+        uint256 _amount
+    ) external payable nonReentrant returns (uint256 wethAmount, uint256 usdcAmount) {
+        IExchangeRouter.CreateWithdrawalParams memory params = createWithdrawParams(_amount);
+        gmToken.safeTransferFrom(msg.sender, address(this), _amount);
+        gmToken.approve(withdrawalVault, _amount);
         gmxExchange.createWithdrawal(params);
         weth.safeTransfer(msg.sender, _amount);
         vTokenInstance.burn(msg.sender, _amount);
@@ -100,8 +102,10 @@ contract GMXV2ETH is ERC4626, Ownable, ReentrancyGuard, IGMXV2ETH {
 
     function sendTokens() public {}
 
-    function createDepositParams(uint256 _amount) internal returns(CreateDepositParams) {
-        CreateDepositParams depositParams memory;
+    function createDepositParams(
+        uint256 _amount
+    ) internal view returns (IExchangeRouter.CreateDepositParams memory) {
+        IExchangeRouter.CreateDepositParams memory depositParams;
         depositParams.callbackContract = address(this);
         depositParams.callbackGasLimit = 0;
         depositParams.executionFee = 0;
@@ -115,19 +119,21 @@ contract GMXV2ETH is ERC4626, Ownable, ReentrancyGuard, IGMXV2ETH {
         return depositParams;
     }
 
-    function createWithdrawParams(uint256 _amount) internal returns(CreateWithdrawalParams) {
-        CreateWithdrawalParams withdrawParams memory;
+    function createWithdrawParams(
+        uint256 _amount
+    ) internal view returns (IExchangeRouter.CreateWithdrawalParams memory) {
+        IExchangeRouter.CreateWithdrawalParams memory withdrawParams;
         withdrawParams.callbackContract = address(this);
         withdrawParams.callbackGasLimit = 0;
         withdrawParams.executionFee = 0;
-        withdrawParams.initialLongToken = address(weth);
-        withdrawParams.initialShortToken = address(usdcToken);
+        // withdrawParams.initialLongToken = address(weth);
+        // withdrawParams.initialShortToken = address(usdcToken);
         withdrawParams.market = marketAddress;
         withdrawParams.shouldUnwrapNativeToken = true;
         withdrawParams.receiver = address(this);
         withdrawParams.minLongTokenAmount = 0;
         withdrawParams.minShortTokenAmount = 0;
 
-        return depositParams;
+        return withdrawParams;
     }
 }

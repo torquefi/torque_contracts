@@ -1,21 +1,21 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-pragma solidity =0.7.6;
+pragma solidity 0.8.15;
 pragma abicoder v2;
 
-//  _________  ________  ________  ________  ___  ___  _______      
-// |\___   ___\\   __  \|\   __  \|\   __  \|\  \|\  \|\  ___ \     
-// \|___ \  \_\ \  \|\  \ \  \|\  \ \  \|\  \ \  \\\  \ \   __/|    
-//     \ \  \ \ \  \\\  \ \   _  _\ \  \\\  \ \  \\\  \ \  \_|/__  
-//      \ \  \ \ \  \\\  \ \  \\  \\ \  \\\  \ \  \\\  \ \  \_|\ \ 
+//  _________  ________  ________  ________  ___  ___  _______
+// |\___   ___\\   __  \|\   __  \|\   __  \|\  \|\  \|\  ___ \
+// \|___ \  \_\ \  \|\  \ \  \|\  \ \  \|\  \ \  \\\  \ \   __/|
+//     \ \  \ \ \  \\\  \ \   _  _\ \  \\\  \ \  \\\  \ \  \_|/__
+//      \ \  \ \ \  \\\  \ \  \\  \\ \  \\\  \ \  \\\  \ \  \_|\ \
 //       \ \__\ \ \_______\ \__\\ _\\ \_____  \ \_______\ \_______\
 //        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
 
-import '@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol';
-import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
-import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
-import '@uniswap/v3-core/contracts/interfaces/IERC20Minimal.sol';
-import '@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol';
-import '@uniswap/v3-periphery/contracts/interfaces/IMulticall.sol';
+import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
+import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+import "@uniswap/v3-core/contracts/interfaces/IERC20Minimal.sol";
+import "@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
+import "@uniswap/v3-periphery/contracts/interfaces/IMulticall.sol";
 
 /// @title Uniswap V3 Staker Interface
 /// @notice Allows staking nonfungible liquidity tokens in exchange for reward tokens
@@ -50,7 +50,9 @@ interface IUniswapV3Staker is IERC721Receiver, IMulticall {
     /// @return totalRewardUnclaimed The amount of reward token not yet claimed by users
     /// @return totalSecondsClaimedX128 Total liquidity-seconds claimed, represented as a UQ32.128
     /// @return numberOfStakes The count of deposits that are currently staked for the incentive
-    function incentives(bytes32 incentiveId)
+    function incentives(
+        bytes32 incentiveId
+    )
         external
         view
         returns (
@@ -64,31 +66,31 @@ interface IUniswapV3Staker is IERC721Receiver, IMulticall {
     /// @return numberOfStakes Counter of how many incentives for which the liquidity is staked
     /// @return tickLower The lower tick of the range
     /// @return tickUpper The upper tick of the range
-    function deposits(uint256 tokenId)
+    function deposits(
+        uint256 tokenId
+    )
         external
         view
-        returns (
-            address owner,
-            uint48 numberOfStakes,
-            int24 tickLower,
-            int24 tickUpper
-        );
+        returns (address owner, uint48 numberOfStakes, int24 tickLower, int24 tickUpper);
 
     /// @notice Returns information about a staked liquidity NFT
     /// @param tokenId The ID of the staked token
     /// @param incentiveId The ID of the incentive for which the token is staked
     /// @return secondsPerLiquidityInsideInitialX128 secondsPerLiquidity represented as a UQ32.128
     /// @return liquidity The amount of liquidity in the NFT as of the last time the rewards were computed
-    function stakes(uint256 tokenId, bytes32 incentiveId)
-        external
-        view
-        returns (uint160 secondsPerLiquidityInsideInitialX128, uint128 liquidity);
+    function stakes(
+        uint256 tokenId,
+        bytes32 incentiveId
+    ) external view returns (uint160 secondsPerLiquidityInsideInitialX128, uint128 liquidity);
 
     /// @notice Returns amounts of reward tokens owed to a given address according to the last time all stakes were updated
     /// @param rewardToken The token for which to check rewards
     /// @param owner The owner for which the rewards owed are checked
     /// @return rewardsOwed The amount of the reward token claimable by the owner
-    function rewards(IERC20Minimal rewardToken, address owner) external view returns (uint256 rewardsOwed);
+    function rewards(
+        IERC20Minimal rewardToken,
+        address owner
+    ) external view returns (uint256 rewardsOwed);
 
     /// @notice Creates a new liquidity mining incentive program
     /// @param key Details of the incentive to create
@@ -109,11 +111,7 @@ interface IUniswapV3Staker is IERC721Receiver, IMulticall {
     /// @param tokenId The unique identifier of an Uniswap V3 LP token
     /// @param to The address where the LP token will be sent
     /// @param data An optional data array that will be passed along to the `to` address via the NFT safeTransferFrom
-    function withdrawToken(
-        uint256 tokenId,
-        address to,
-        bytes memory data
-    ) external;
+    function withdrawToken(uint256 tokenId, address to, bytes memory data) external;
 
     /// @notice Stakes a Uniswap V3 LP token
     /// @param key The key of the incentive for which to stake the NFT
@@ -140,9 +138,10 @@ interface IUniswapV3Staker is IERC721Receiver, IMulticall {
     /// @param key The key of the incentive
     /// @param tokenId The ID of the token
     /// @return reward The reward accrued to the NFT for the given incentive thus far
-    function getRewardInfo(IncentiveKey memory key, uint256 tokenId)
-        external
-        returns (uint256 reward, uint160 secondsInsideX128);
+    function getRewardInfo(
+        IncentiveKey memory key,
+        uint256 tokenId
+    ) external returns (uint256 reward, uint160 secondsInsideX128);
 
     /// @notice Event emitted when a liquidity mining incentive has been created
     /// @param rewardToken The token being distributed as a reward
@@ -169,7 +168,11 @@ interface IUniswapV3Staker is IERC721Receiver, IMulticall {
     /// @param tokenId The ID of the deposit (and token) that is being transferred
     /// @param oldOwner The owner before the deposit was transferred
     /// @param newOwner The owner after the deposit was transferred
-    event DepositTransferred(uint256 indexed tokenId, address indexed oldOwner, address indexed newOwner);
+    event DepositTransferred(
+        uint256 indexed tokenId,
+        address indexed oldOwner,
+        address indexed newOwner
+    );
 
     /// @notice Event emitted when a Uniswap V3 LP token has been staked
     /// @param tokenId The unique identifier of an Uniswap V3 LP token

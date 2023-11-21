@@ -19,12 +19,12 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 import "./TorqueUSD.sol"; // Need to implement mint and burn tETH logic
-import "./RewardUtil"; // Need to implement reward distribution setup
+
+// import "./RewardUtil"; // Need to implement reward distribution setup
 
 contract BoostUSD is Ownable, ReentrancyGuard {
     using SafeMath for uint256;
 
     // Logic handling dynamically-allocated deposits to and withdrawals from child vaults
     // Logic to swap 75% of deposited Torque USD to USDC for further child vault routing
-
 }
