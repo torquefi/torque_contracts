@@ -16,7 +16,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-import "./vToken.sol";
+import "./../vToken.sol";
 
 contract StargateETH is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
@@ -26,9 +26,9 @@ contract StargateETH is Ownable, ReentrancyGuard {
 
     mapping(address => uint256) public addressToPid;
 
-    constructor(IERC20 _weth, IStargate _stargatePool, address _stargateStakingAddress,) {
+    constructor(IERC20 _weth, address _stargateStakingAddress) {
         weth = _weth;
-       lpStaking = IStargateLPStaking(_stargateStakingAddress);
+        lpStaking = IStargateLPStaking(_stargateStakingAddress);
     }
 
     function setPid(address _token, uint256 _pid) public onlyOwner {
@@ -38,8 +38,8 @@ contract StargateETH is Ownable, ReentrancyGuard {
     function _depositStargate(address _token, uint256 _amount) external nonReentrant {
         uint256 pid = addressToPid[_token];
         weth.safeTransferFrom(msg.sender, address(this), _amount);
-        weth.approve(address(stargatePool), _amount);
-       lpStaking.deposit(pid, _amount);
+        weth.approve(address(lpStaking), _amount);
+        lpStaking.deposit(pid, _amount);
     }
 
     function _withdrawStargate(address _token, uint256 _amount) external nonReentrant {
