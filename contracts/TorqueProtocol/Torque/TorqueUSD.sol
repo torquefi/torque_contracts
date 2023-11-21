@@ -1,10 +1,11 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-//  _________  ________  ________  ________  ___  ___  _______      
-// |\___   ___\\   __  \|\   __  \|\   __  \|\  \|\  \|\  ___ \     
-// \|___ \  \_\ \  \|\  \ \  \|\  \ \  \|\  \ \  \\\  \ \   __/|    
-//     \ \  \ \ \  \\\  \ \   _  _\ \  \\\  \ \  \\\  \ \  \_|/__  
-//      \ \  \ \ \  \\\  \ \  \\  \\ \  \\\  \ \  \\\  \ \  \_|\ \ 
+//  _________  ________  ________  ________  ___  ___  _______
+// |\___   ___\\   __  \|\   __  \|\   __  \|\  \|\  \|\  ___ \
+// \|___ \  \_\ \  \|\  \ \  \|\  \ \  \|\  \ \  \\\  \ \   __/|
+//     \ \  \ \ \  \\\  \ \   _  _\ \  \\\  \ \  \\\  \ \  \_|/__
+//      \ \  \ \ \  \\\  \ \  \\  \\ \  \\\  \ \  \\\  \ \  \_|\ \
 //       \ \__\ \ \_______\ \__\\ _\\ \_____  \ \_______\ \_______\
 //        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
 
@@ -15,7 +16,6 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 // This contract represents a liquid token minted to users from vehicles (tUSD in this case)
 
 contract TorqueUSD is ERC20, Ownable, ReentrancyGuard {
-    
     // Token supply cap
     uint256 private _cap;
     // Managerial address
@@ -78,7 +78,7 @@ contract TorqueUSD is ERC20, Ownable, ReentrancyGuard {
     function setCap(uint256 newCap) public virtual onlyOwner {
         require(newCap > totalSupply(), "TorqueUSD: new cap must be greater than total supply");
         _cap = newCap;
-        
+
         emit CapChanged(_cap, newCap);
     }
 
