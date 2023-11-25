@@ -6,7 +6,4 @@ To do:
 - [X] USD Farm contracts
 - [X] GMX integration
 - [ ] Boost USD setup
-- [ ] Optimizations
-- [ ] Borrow audit
-- [ ] Boost audit
-- [ ] Token audit
+- [ ] Final audits
