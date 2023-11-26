@@ -39,6 +39,7 @@ const config: HardhatUserConfig = {
       mainnet: `${API_KEY_ETH}`, //eth
       bsc: `${API_KEY_BSC_MAINNET}`, //bsc
       arbitrumGoerli: `${API_KEY_ARBI_GOERLI}`,
+      arbitrumOne: 'H46CBCJXWGF2UXTDYFQGYC5DBHW3VRYC5G'
     },
   },
   networks: {
