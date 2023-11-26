@@ -19,7 +19,7 @@ import "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 
 import "./../vToken.sol";
 
-contract CompoundUSD is ERC4626, Ownable, ReentrancyGuard {
+contract CompoundUSD {
     using SafeERC20 for IERC20;
 
     // Logic to supply leftover USDC (50%) to Compound for USDC interest and COMP rewards
