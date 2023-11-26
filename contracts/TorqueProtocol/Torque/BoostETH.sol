@@ -33,7 +33,7 @@ import "./vaults/GMXV2ETH.sol";
 contract BoostETH is Ownable, GMXV2ETH, StargateETH {
     using SafeMath for uint256;
     // variables and mapping
-    IStargateLPStaking lpStaking;
+    // IStargateLPStaking lpStaking;
     IERC20 public stargateInterface;
     ISwapRouterV3 public swapRouter;
     IGMX public gmxInterface;
@@ -63,8 +63,26 @@ contract BoostETH is Ownable, GMXV2ETH, StargateETH {
         address _swapRouter,
         address _gmxAddress,
         address _treasuryWallet,
-        uint256 _treasuryProportion
-    ) {
+        uint256 _treasuryProportion,
+        address _weth,
+        address _vTokenAddress,
+        address _gmToken,
+        address _usdcToken,
+        address _depositVault,
+        address _withdrawalVault,
+        address _lpStaking
+    )
+        GMXV2ETH(
+            _weth,
+            _gmxAddress,
+            _vTokenAddress,
+            _gmToken,
+            _usdcToken,
+            _depositVault,
+            _withdrawalVault
+        )
+        StargateETH(_weth, _lpStaking)
+    {
         stargateInterface = IERC20(_stargateAddress);
         swapRouter = ISwapRouterV3(_swapRouter);
         gmxInterface = IGMX(_gmxAddress);
@@ -72,11 +90,7 @@ contract BoostETH is Ownable, GMXV2ETH, StargateETH {
         treasuryProportion = _treasuryProportion;
     }
 
-    function changeConfigAddress(
-        address _stargateStakingAddress,
-        address _stargateAddress,
-        address _swapRouter
-    ) public onlyOwner {
+    function changeConfigAddress(address _stargateAddress, address _swapRouter) public onlyOwner {
         stargateInterface = IERC20(_stargateAddress);
         swapRouter = ISwapRouterV3(_swapRouter);
     }
@@ -85,13 +99,13 @@ contract BoostETH is Ownable, GMXV2ETH, StargateETH {
         IERC20 tokenInterface = IERC20(_token);
         if (_token == WETH) {
             require(msg.value >= _amount, "Not enough ETH");
-            weth.deposit{ value: _amount / 2 }();
+            // weth.{ value: _amount / 2 }();
         } else {
             tokenInterface.transferFrom(_msgSender(), address(this), _amount);
         }
 
-        uint256 gmTokenAmount = _depositGMX{ value: _amount / 2 }(_amount / 2);
-        _depositStargate(_token, _amount / 2);
+        uint256 gmTokenAmount = this._depositGMX{ value: _amount / 2 }(_amount / 2);
+        this._depositStargate(_token, _amount / 2);
         UserInfo storage _userInfo = userInfo[_msgSender()];
         if (_userInfo.lastProcess == 0) {
             address[] storage stakes = stakeHolders;
@@ -114,12 +128,14 @@ contract BoostETH is Ownable, GMXV2ETH, StargateETH {
         totalStack[_token] = totalStack[_token].sub(_amount);
 
         IERC20 tokenInterface = IERC20(_token);
-        _withdrawStargate(_token, amountFromSTG);
-        uint256 tokenFromGMX = _withdrawGMX(amountToGMX);
+        this._withdrawStargate(_token, amountFromSTG);
+        (uint256 wethAmount, uint256 usdcAmount) = this._withdrawGMX(amountToGMX);
+        uint256 usdcToWethAmount = swapUsdcToWeth(usdcAmount);
+        uint256 tokenFromGMX = wethAmount + usdcToWethAmount;
 
         uint256 totalTokenReturn = tokenFromGMX + amountFromSTG;
         if (_token == WETH) {
-            weth.withdraw(amountFromSTG);
+            // weth.withdraw(amountFromSTG);
             (bool success, ) = msg.sender.call{ value: totalTokenReturn }("");
             require(success, "Transfer ETH failed");
         } else {
@@ -139,9 +155,9 @@ contract BoostETH is Ownable, GMXV2ETH, StargateETH {
             uint256 treasuryReserved = tokenReward.mul(treasuryProportion).div(DENOMINATOR);
             uint256 remainReward = tokenReward.sub(treasuryReserved);
             tokenInterface.transfer(treasuryWallet, treasuryReserved);
-            address[] memory stakes = stakeHolders[pid];
+            address[] memory stakes = stakeHolders;
             for (uint256 i = 0; i < stakes.length; i++) {
-                UserInfo storage _userInfo = userInfo[stakes[i]][pid];
+                UserInfo storage _userInfo = userInfo[stakes[i]];
                 uint256 userProduct = calculateUserProduct(pid, stakes[i]);
                 uint256 reward = remainReward.mul(userProduct).div(totalProduction);
                 _userInfo.amount = _userInfo.amount.add(reward);
@@ -154,7 +170,7 @@ contract BoostETH is Ownable, GMXV2ETH, StargateETH {
 
     // internal functions
     function calculateTotalProduct(uint256 _pid) internal view returns (uint256) {
-        address[] memory stakes = stakeHolders[_pid];
+        address[] memory stakes = stakeHolders;
         uint256 totalProduct = 0;
         for (uint256 i = 0; i < stakes.length; i++) {
             uint256 userProduct = calculateUserProduct(_pid, stakes[i]);
@@ -164,7 +180,7 @@ contract BoostETH is Ownable, GMXV2ETH, StargateETH {
     }
 
     function calculateUserProduct(uint256 _pid, address _staker) internal view returns (uint256) {
-        UserInfo memory _userInfo = userInfo[_staker][_pid];
+        UserInfo memory _userInfo = userInfo[_staker];
         uint256 interval = block.timestamp.sub(_userInfo.lastProcess);
         return interval.mul(_userInfo.amount);
     }
@@ -187,6 +203,21 @@ contract BoostETH is Ownable, GMXV2ETH, StargateETH {
         amountOut = swapRouter.exactInputSingle(params);
     }
 
+    function swapUsdcToWeth(uint256 _usdcAmountIn) internal returns (uint256 amountOut) {
+        stargateInterface.approve(address(swapRouter), _usdcAmountIn);
+        ISwapRouterV3.ExactInputSingleParams memory params = ISwapRouterV3.ExactInputSingleParams({
+            tokenIn: address(usdcToken),
+            tokenOut: WETH,
+            fee: 10000,
+            recipient: address(this),
+            deadline: block.timestamp + 1000000,
+            amountIn: _usdcAmountIn,
+            amountOutMinimum: 0,
+            sqrtPriceLimitX96: 0
+        });
+        amountOut = swapRouter.exactInputSingle(params);
+    }
+
     function updateTreasury(address _treasuryWallet) public onlyOwner {
         treasuryWallet = _treasuryWallet;
     }
@@ -198,9 +229,9 @@ contract BoostETH is Ownable, GMXV2ETH, StargateETH {
 
     // For test
     function swapETHToSTG() public payable {
-        IWETH weth = IWETH(WETH);
+        // IWETH weth = IWETH(WETH);
         uint256 _amount = msg.value;
-        weth.deposit{ value: _amount }();
+        // weth.deposit{ value: _amount }();
         IERC20 tokenInterface = IERC20(WETH);
         tokenInterface.approve(address(swapRouter), _amount);
         ISwapRouterV3.ExactInputSingleParams memory params = ISwapRouterV3.ExactInputSingleParams({

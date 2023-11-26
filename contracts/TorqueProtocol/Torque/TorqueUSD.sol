@@ -28,7 +28,6 @@ contract TorqueUSD is ERC20, Ownable, ReentrancyGuard {
     // Event emitted when the cap is adjusted
     event CapChanged(uint256 oldCap, uint256 newCap);
     // Event emited when ownership is transferred
-    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     // Mapping of approved contracts
     mapping(address => bool) private approvedContracts;
@@ -88,14 +87,6 @@ contract TorqueUSD is ERC20, Ownable, ReentrancyGuard {
         manager = newManager;
 
         emit ResponsibilityDelegated(manager, newManager);
-    }
-
-    // Transfer contract ownership, restricted to contract owner
-    function transferOwnership(address newOwner) public virtual override onlyOwner {
-        require(newOwner != address(0), "TorqueUSD: new owner is the zero address");
-        _owner = newOwner;
-
-        emit OwnershipTransferred(_owner, newOwner);
     }
 
     // Sets a new cap, restricted to the manager

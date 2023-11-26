@@ -12,7 +12,7 @@ abstract contract ICometRewards {
         uint owed;
     }
 
-    function claim(address comet, address src, bool shouldAccrue) external;
+    function claim(address comet, address src, bool shouldAccrue) external virtual;
 
     function rewardConfig(address) external virtual returns (RewardConfig memory);
 
