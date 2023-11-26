@@ -1,8 +1,8 @@
 const { ethers } = require('hardhat');
-const PROXY_CONTRACT_ADDRESS = "0xD6047Dc4258aDFf8F35dA52DAE16f04cA5E0F16B"
+const PROXY_CONTRACT_ADDRESS = "0xbA32f8febc4aFB1Ee9A92548c9deb8989F37Daf4"
 async function main() {
    
-  const UpdateContract = await ethers.getContractFactory("BTCBorrow");
+  const UpdateContract = await ethers.getContractFactory("ETHBorrow");
   await upgrades.upgradeProxy(PROXY_CONTRACT_ADDRESS,UpdateContract);
 
 }
