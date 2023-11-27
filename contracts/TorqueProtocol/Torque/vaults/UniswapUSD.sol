@@ -15,11 +15,11 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
+// import "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 
 import "./../vToken.sol";
 
-contract UniswapUSD is ERC4626, Ownable, ReentrancyGuard {
+contract UniswapUSD is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     // Logic to supply 25% of deposit as USDC and 25% of deposit as Torque USD to Uniswap V3 0.01 pool
