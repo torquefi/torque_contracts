@@ -61,16 +61,27 @@ contract WstETHPriceFeed is IPriceFeed {
      * @return updatedAt Timestamp when the round was last updated; passed on from stETH price feed
      * @return answeredInRound Round id in which the answer was computed; passed on from stETH price feed
      **/
-    function latestRoundData() override external view returns (
-        uint80 roundId,
-        int256 answer,
-        uint256 startedAt,
-        uint256 updatedAt,
-        uint80 answeredInRound
-    ) {
-        (uint80 roundId_, int256 stETHPrice, uint256 startedAt_, uint256 updatedAt_, uint80 answeredInRound_) = AggregatorV3Interface(stETHtoETHPriceFeed).latestRoundData();
+    function latestRoundData()
+        external
+        view
+        override
+        returns (
+            uint80 roundId,
+            int256 answer,
+            uint256 startedAt,
+            uint256 updatedAt,
+            uint80 answeredInRound
+        )
+    {
+        (
+            uint80 roundId_,
+            int256 stETHPrice,
+            uint256 startedAt_,
+            uint256 updatedAt_,
+            uint80 answeredInRound_
+        ) = AggregatorV3Interface(stETHtoETHPriceFeed).latestRoundData();
         uint256 tokensPerStEth = IWstETH(wstETH).tokensPerStEth();
-        int256 price = stETHPrice * wstETHScale / signed256(tokensPerStEth);
+        int256 price = (stETHPrice * wstETHScale) / signed256(tokensPerStEth);
         // Note: The stETH price feed should always have an equal or larger amount of decimals than this price feed (enforced by validation in constructor)
         int256 scaledPrice = price / int256(10 ** (stETHToETHPriceFeedDecimals - decimals));
         return (roundId_, scaledPrice, startedAt_, updatedAt_, answeredInRound_);

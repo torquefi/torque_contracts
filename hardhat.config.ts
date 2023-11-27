@@ -29,6 +29,9 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
 // Go to https://hardhat.org/config/ to learn more
 
 const config: HardhatUserConfig = {
+  paths: {
+    sources: "./contracts/TorqueProtocol",
+  },
   etherscan: {
     apiKey: {
       bscTestnet: `${API_KEY_BSC_TESTNET}`,
@@ -85,17 +88,57 @@ const config: HardhatUserConfig = {
   },
   solidity: {
     compilers: [
-      {
-        version: "0.8.7",
-      },
-      {
-        version: "0.7.6",
-      },
+      // {
+      //   version: "0.8.7",
+      // },
+      // {
+      //   version: "0.7.6",
+      // },
       {
         version: "0.8.19",
+        settings: {
+          optimizer: process.env["OPTIMIZER_DISABLED"]
+            ? { enabled: false }
+            : {
+                enabled: true,
+                runs: 1,
+                details: {
+                  yulDetails: {
+                    optimizerSteps:
+                      "dhfoDgvulfnTUtnIf [xa[r]scLM cCTUtTOntnfDIul Lcul Vcul [j] Tpeul xa[rul] xa[r]cL gvif CTUca[r]LsTOtfDnca[r]Iulc] jmul[jul] VcTOcul jmul",
+                  },
+                },
+              },
+          outputSelection: {
+            "*": {
+              "*": ["evm.deployedBytecode.sourceMap"],
+            },
+          },
+          viaIR: process.env["OPTIMIZER_DISABLED"] ? false : true,
+        },
       },
       {
         version: "0.8.20",
+        settings: {
+          optimizer: process.env["OPTIMIZER_DISABLED"]
+            ? { enabled: false }
+            : {
+                enabled: true,
+                runs: 1,
+                details: {
+                  yulDetails: {
+                    optimizerSteps:
+                      "dhfoDgvulfnTUtnIf [xa[r]scLM cCTUtTOntnfDIul Lcul Vcul [j] Tpeul xa[rul] xa[r]cL gvif CTUca[r]LsTOtfDnca[r]Iulc] jmul[jul] VcTOcul jmul",
+                  },
+                },
+              },
+          outputSelection: {
+            "*": {
+              "*": ["evm.deployedBytecode.sourceMap"],
+            },
+          },
+          viaIR: process.env["OPTIMIZER_DISABLED"] ? false : true,
+        },
       },
       {
         version: "0.8.15",

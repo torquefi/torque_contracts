@@ -16,6 +16,7 @@ import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 
+
 contract Torque is ERC20, ERC20Burnable, ERC20Permit, ERC20Votes, Ownable {
     constructor() ERC20("Torque", "TORQ") ERC20Permit("Torque") {
         _mint(msg.sender, 100_000_000_000 * 10**decimals());

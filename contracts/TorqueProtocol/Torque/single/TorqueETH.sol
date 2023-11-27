@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
-//  _________  ________  ________  ________  ___  ___  _______      
-// |\___   ___\\   __  \|\   __  \|\   __  \|\  \|\  \|\  ___ \     
-// \|___ \  \_\ \  \|\  \ \  \|\  \ \  \|\  \ \  \\\  \ \   __/|    
-//     \ \  \ \ \  \\\  \ \   _  _\ \  \\\  \ \  \\\  \ \  \_|/__  
-//      \ \  \ \ \  \\\  \ \  \\  \\ \  \\\  \ \  \\\  \ \  \_|\ \ 
+//  _________  ________  ________  ________  ___  ___  _______
+// |\___   ___\\   __  \|\   __  \|\   __  \|\  \|\  \|\  ___ \
+// \|___ \  \_\ \  \|\  \ \  \|\  \ \  \|\  \ \  \\\  \ \   __/|
+//     \ \  \ \ \  \\\  \ \   _  _\ \  \\\  \ \  \\\  \ \  \_|/__
+//      \ \  \ \ \  \\\  \ \  \\  \\ \  \\\  \ \  \\\  \ \  \_|\ \
 //       \ \__\ \ \_______\ \__\\ _\\ \_____  \ \_______\ \_______\
 //        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
 
@@ -16,11 +16,13 @@ import "../interfaces/IWETH.sol";
 
 interface IGMXV2ETH {
     function handleDeposit(uint256 amount) external;
+
     function handleWithdrawal(uint256 amount) external returns (uint256);
 }
 
 interface IStargateETH {
     function handleDeposit(uint256 amount) external;
+
     function handleWithdrawal(uint256 amount) external returns (uint256);
 }
 
@@ -29,6 +31,7 @@ contract TorqueETH is ERC20, Ownable, ReentrancyGuard {
 
     IGMXV2ETH public gmxV2Eth;
     IStargateETH public stargateEth;
+    address treasuryAddress;
 
     event Deposited(address indexed user, uint256 amount, bool isETH);
     event Withdrawn(address indexed user, uint256 amount, bool toETH);
@@ -46,7 +49,10 @@ contract TorqueETH is ERC20, Ownable, ReentrancyGuard {
     uint256 private lastCaptureTime;
 
     function capturePerformanceFee() public {
-        require(block.timestamp - lastCaptureTime >= 12 hours, "Minimum duration of 12 hours has not passed yet");
+        require(
+            block.timestamp - lastCaptureTime >= 12 hours,
+            "Minimum duration of 12 hours has not passed yet"
+        );
         lastCaptureTime = block.timestamp;
 
         uint256 balanceBefore = weth.balanceOf(address(this));
@@ -66,7 +72,7 @@ contract TorqueETH is ERC20, Ownable, ReentrancyGuard {
         require(amount > 0, "Cannot deposit 0");
         if (useETH) {
             require(msg.value == amount, "ETH value sent is not correct");
-            weth.deposit{value: amount}(); // Wrap ETH to WETH
+            weth.deposit{ value: amount }(); // Wrap ETH to WETH
         } else {
             require(msg.value == 0, "Do not send ETH");
             weth.transferFrom(msg.sender, address(this), amount); // Transfer WETH from user
@@ -87,7 +93,7 @@ contract TorqueETH is ERC20, Ownable, ReentrancyGuard {
         uint256 half = amount / 2;
         weth.transfer(address(gmxV2Eth), half);
         weth.transfer(address(stargateEth), amount - half);
-        
+
         gmxV2Eth.handleDeposit(half);
         stargateEth.handleDeposit(amount - half);
     }
@@ -95,46 +101,49 @@ contract TorqueETH is ERC20, Ownable, ReentrancyGuard {
     uint256 private lastWithdrawalTime;
 
     function withdraw(uint256 amount) external nonReentrant {
-            require(amount <= balanceOf(msg.sender), "Insufficient balance");
-            require(amount > 0, "Cannot withdraw 0");
+        require(amount <= balanceOf(msg.sender), "Insufficient balance");
+        require(amount > 0, "Cannot withdraw 0");
 
-            // Check if minimum duration of deposit has passed
-            require(block.timestamp - lastCaptureTime >= 7 days, "Minimum duration of 7 days has not passed yet");
+        // Check if minimum duration of deposit has passed
+        require(
+            block.timestamp - lastCaptureTime >= 7 days,
+            "Minimum duration of 7 days has not passed yet"
+        );
 
-            // Burn tETH from user's balance
-            _burn(msg.sender, amount);
+        // Burn tETH from user's balance
+        _burn(msg.sender, amount);
 
-            // Logic for withdrawing assets from child vaults would go here
-            // This involves distributing the withdrawal request across both
-            uint256 withdrawnAmount = gmxV2Eth.handleWithdrawal(amount / 2);
-            withdrawnAmount += stargateEth.handleWithdrawal(amount - withdrawnAmount);
+        // Logic for withdrawing assets from child vaults would go here
+        // This involves distributing the withdrawal request across both
+        uint256 withdrawnAmount = gmxV2Eth.handleWithdrawal(amount / 2);
+        withdrawnAmount += stargateEth.handleWithdrawal(amount - withdrawnAmount);
 
-            // Calculate management fee based on duration of deposit
-            uint256 fee = 0;
-            if (lastWithdrawalTime != 0) {
-                uint256 depositDuration = block.timestamp - lastWithdrawalTime;
-                if (depositDuration < 7 days) {
-                    fee = (withdrawnAmount * 20) / 100; // Early exit fee is 20%
-                } else {
-                    fee = (withdrawnAmount * 2) / 100; // Default fee is 2%
-                }
-            }
-            lastWithdrawalTime = block.timestamp;
-
-            // Transfer management fee to treasury
-            weth.transfer(treasuryAddress, fee);
-
-            // Return WETH or ETH to user
-            if (block.timestamp - lastCaptureTime < 7 days) {
-                // If the user is withdrawing before the minimum duration, they must pay the early exit fee
-                weth.transfer(msg.sender, withdrawnAmount - fee);
+        // Calculate management fee based on duration of deposit
+        uint256 fee = 0;
+        if (lastWithdrawalTime != 0) {
+            uint256 depositDuration = block.timestamp - lastWithdrawalTime;
+            if (depositDuration < 7 days) {
+                fee = (withdrawnAmount * 20) / 100; // Early exit fee is 20%
             } else {
-                // If the user is withdrawing after the minimum duration, they don't have to pay the early exit fee
-                weth.transfer(msg.sender, withdrawnAmount);
+                fee = (withdrawnAmount * 2) / 100; // Default fee is 2%
             }
-
-            emit Withdrawn(msg.sender, withdrawnAmount, false);
         }
+        lastWithdrawalTime = block.timestamp;
+
+        // Transfer management fee to treasury
+        weth.transfer(treasuryAddress, fee);
+
+        // Return WETH or ETH to user
+        if (block.timestamp - lastCaptureTime < 7 days) {
+            // If the user is withdrawing before the minimum duration, they must pay the early exit fee
+            weth.transfer(msg.sender, withdrawnAmount - fee);
+        } else {
+            // If the user is withdrawing after the minimum duration, they don't have to pay the early exit fee
+            weth.transfer(msg.sender, withdrawnAmount);
+        }
+
+        emit Withdrawn(msg.sender, withdrawnAmount, false);
+    }
 
     // Allow contract to receive ETH
     receive() external payable {
