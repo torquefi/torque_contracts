@@ -16,7 +16,7 @@ import "../../CompoundBase/bulkers/IBulker.sol";
 import "../../CompoundBase/IComet.sol";
 
 import "./interfaces/ICometRewards.sol";
-import "./interfaces/IUSDEngine.sol";
+import "./interfaces/ITUSDEngine.sol";
 
 
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
@@ -53,7 +53,7 @@ abstract contract BorrowAbstract is UUPSUpgradeable, OwnableUpgradeable, Reentra
     address public comet;
     address public cometReward;
     address public engine;
-    address public usd;
+    address public tusd;
     address public rewardUtil;
     address public rewardToken;
     address public treasury;
@@ -64,7 +64,7 @@ abstract contract BorrowAbstract is UUPSUpgradeable, OwnableUpgradeable, Reentra
     uint constant PRICE_MANTISA = 1e2;
     uint constant SCALE = 1e18;
     uint constant WITHDRAW_OFFSET = 1e2;
-    uint constant USD_DECIMAL_OFFSET = 1e12;
+    uint constant TUSD_DECIMAL_OFFSET = 1e12;
     uint constant PRICE_SCALE = 1e8;
 
     struct BorrowInfo {
@@ -85,14 +85,14 @@ abstract contract BorrowAbstract is UUPSUpgradeable, OwnableUpgradeable, Reentra
     
     function _authorizeUpgrade(address) internal override onlyOwner {}
 
-    function initialize(address _comet, address _cometReward, address _asset, address _baseAsset, address _bulker, address _engine, address _usd, address _treasury, address _rewardUtil, address _rewardToken) public initializer {
+    function initialize(address _comet, address _cometReward, address _asset, address _baseAsset, address _bulker, address _engine, address _tusd, address _treasury, address _rewardUtil, address _rewardToken) public initializer {
         comet = _comet;
         cometReward = _cometReward;
         asset = _asset;
         baseAsset = _baseAsset;
         bulker = _bulker;
         engine = _engine;
-        usd = _usd;
+        tusd = _tusd;
         treasury = _treasury;
         rewardUtil = _rewardUtil;
         rewardToken = _rewardToken;
@@ -119,12 +119,12 @@ abstract contract BorrowAbstract is UUPSUpgradeable, OwnableUpgradeable, Reentra
         IComet(comet).allow(manager, _allow);
     }
 
-    function setUsdEngine(address _newEngine) public onlyOwner{
+    function setTusdEngine(address _newEngine) public onlyOwner{
         engine = _newEngine;
     }
 
-    function setUsd(address _usd) public onlyOwner{
-        usd = _usd;
+    function setTusd(address _tusd) public onlyOwner{
+        tusd = _tusd;
     }
     // End test
 
@@ -132,8 +132,8 @@ abstract contract BorrowAbstract is UUPSUpgradeable, OwnableUpgradeable, Reentra
     function getBorrowable(uint supplyAmount) public view returns (uint){
         uint maxBorrow = getBorrowableUsdc(supplyAmount);
 
-        // Get the amount of USD the user is allowed to mint for the given asset
-        (uint mintable,) = IUSDEngine(engine).getMintableUSD(baseAsset, address(this), maxBorrow);
+        // Get the amount of TUSD the user is allowed to mint for the given asset
+        (uint mintable,) = ITUSDEngine(engine).getMintableTUSD(baseAsset, address(this), maxBorrow);
         return mintable;
     }
     // Gets max amount that can be borrowed by supplied asset

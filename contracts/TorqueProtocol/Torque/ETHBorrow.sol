@@ -14,18 +14,18 @@ contract ETHBorrow is BorrowAbstract {
     using SafeMath for uint256;
 
      // Allows a user to borrow Torque USD
-    function borrow(uint borrowAmount, uint usdBorrowAmount) public payable nonReentrant(){
-        // Get the amount of USD the user is allowed to mint for the given asset
-	    (uint mintable, bool canMint) = IUSDEngine(engine).getMintableUSD(baseAsset, address(this), borrowAmount);
+    function borrow(uint borrowAmount, uint tusdBorrowAmount) public payable nonReentrant(){
+        // Get the amount of TUSD the user is allowed to mint for the given asset
+	    (uint mintable, bool canMint) = ITUSDEngine(engine).getMintableTUSD(baseAsset, address(this), borrowAmount);
         // Ensure user is allowed to mint and doesn't exceed mintable limit
-	    require(canMint, 'User can not mint more USD');
-        require(mintable > usdBorrowAmount, "Exceeds borrow amount");
+	    require(canMint, 'User can not mint more TUSD');
+        require(mintable > tusdBorrowAmount, "Exceeds borrow amount");
 
         uint supplyAmount = msg.value;
         BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
         
         // Calculate the maximum borrowable amount for the user based on collateral
-        uint maxBorrow = getBorrowableUsdc(supplyAmount.add(userBorrowInfo.supplied));
+        uint maxBorrow = getBorrowableTusdc(supplyAmount.add(userBorrowInfo.supplied));
 
         // Calculate the amount user can still borrow.
         uint borrowable = maxBorrow.sub(userBorrowInfo.borrowed);
@@ -45,7 +45,7 @@ contract ETHBorrow is BorrowAbstract {
         }
 
         // Update the user's borrowing information
-        userBorrowInfo.baseBorrowed = userBorrowInfo.baseBorrowed.add(usdBorrowAmount);
+        userBorrowInfo.baseBorrowed = userBorrowInfo.baseBorrowed.add(tusdBorrowAmount);
         userBorrowInfo.borrowed = userBorrowInfo.borrowed.add(borrowAmount).add(accruedInterest);
         if(reward > 0) {
             userBorrowInfo.reward = userBorrowInfo.reward.add(reward);
@@ -66,36 +66,36 @@ contract ETHBorrow is BorrowAbstract {
 
         ERC20(baseAsset).approve(address(engine), borrowAmount);
 
-        // Check the balance of USD before the minting operation
-        uint usdBefore = ERC20(usd).balanceOf(address(this));
+        // Check the balance of TUSD before the minting operation
+        uint tusdBefore = ERC20(tusd).balanceOf(address(this));
 
-        // Mint the USD equivalent of the borrowed asset
-        IUSDEngine(engine).depositCollateralAndMintUsd{value:0}(baseAsset, borrowAmount, usdBorrowAmount);
+        // Mint the TUSD equivalent of the borrowed asset
+        ITUSDEngine(engine).depositCollateralAndMintTusd{value:0}(baseAsset, borrowAmount, tusdBorrowAmount);
 
-        // Ensure the expected USD amount was minted
-        uint expectedUsd = usdBefore.add(usdBorrowAmount);
-        require(expectedUsd == ERC20(usd).balanceOf(address(this)), "Invalid amount");
+        // Ensure the expected TUSD amount was minted
+        uint expectedTusd = tusdBefore.add(tusdBorrowAmount);
+        require(expectedTusd == ERC20(tusd).balanceOf(address(this)), "Invalid amount");
 
-        require(ERC20(usd).transfer(msg.sender, usdBorrowAmount), "Transfer token failed");
-        totalBorrow = totalBorrow.add(usdBorrowAmount);
+        require(ERC20(tusd).transfer(msg.sender, tusdBorrowAmount), "Transfer token failed");
+        totalBorrow = totalBorrow.add(tusdBorrowAmount);
         totalSupplied = totalSupplied.add(supplyAmount);
     }
 
     // Allows users to repay their borrowed assets
-    function repay(uint usdRepayAmount) public nonReentrant(){
+    function repay(uint tusdRepayAmount) public nonReentrant(){
 
         BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
 
-        (uint withdrawUsdcAmountFromEngine, bool burnable) = IUSDEngine(engine).getBurnableUSD(baseAsset, address(this), usdRepayAmount);
+        (uint withdrawUsdcAmountFromEngine, bool burnable) = ITUSDEngine(engine).getBurnableTUSD(baseAsset, address(this), tusdRepayAmount);
         require(burnable, "Not burnable");
         require(userBorrowInfo.borrowed >= withdrawUsdcAmountFromEngine, "Exceeds current borrowed amount");
-        require(ERC20(usd).transferFrom(msg.sender,address(this), usdRepayAmount), "Transfer asset failed");
+        require(ERC20(tusd).transferFrom(msg.sender,address(this), tusdRepayAmount), "Transfer asset failed");
 
         uint baseAssetBalanceBefore = ERC20(baseAsset).balanceOf(address(this));
 
-        ERC20(usd).approve(address(engine), usdRepayAmount);
+        ERC20(tusd).approve(address(engine), tusdRepayAmount);
 
-        IUSDEngine(engine).redeemCollateralForUsd(baseAsset, withdrawUsdcAmountFromEngine, usdRepayAmount);
+        ITUSDEngine(engine).redeemCollateralForTusd(baseAsset, withdrawUsdcAmountFromEngine, tusdRepayAmount);
 
         uint baseAssetBalanceExpected = baseAssetBalanceBefore.add(withdrawUsdcAmountFromEngine);
         require(baseAssetBalanceExpected == ERC20(baseAsset).balanceOf(address(this)), "Invalid USDC claim to Engine");
@@ -109,7 +109,7 @@ contract ETHBorrow is BorrowAbstract {
         if(repayUsdcAmount > userBorrowInfo.borrowed) {
             repayUsdcAmount = userBorrowInfo.borrowed;
         }
-        uint repayUsd = userBorrowInfo.baseBorrowed.mul(repayUsdcAmount).div(userBorrowInfo.borrowed);
+        uint repayTusd = userBorrowInfo.baseBorrowed.mul(repayUsdcAmount).div(userBorrowInfo.borrowed);
 
         uint withdrawAssetAmount = userBorrowInfo.supplied.mul(repayUsdcAmount).div(userBorrowInfo.borrowed);
 
@@ -125,7 +125,7 @@ contract ETHBorrow is BorrowAbstract {
         ERC20(baseAsset).approve(comet, repayUsdcAmount);
         IBulker(bulker).invoke(buildRepay(), callData);
 
-        userBorrowInfo.baseBorrowed = userBorrowInfo.baseBorrowed.sub(repayUsd);
+        userBorrowInfo.baseBorrowed = userBorrowInfo.baseBorrowed.sub(repayTusd);
         userBorrowInfo.borrowed = userBorrowInfo.borrowed.sub(repayUsdcAmount);
         userBorrowInfo.supplied = userBorrowInfo.supplied.sub(withdrawAssetAmount);
         userBorrowInfo.borrowTime = block.timestamp;
@@ -138,7 +138,7 @@ contract ETHBorrow is BorrowAbstract {
 
         (bool success, ) = msg.sender.call{ value: withdrawAssetAmount }("");
         require(success, "Transfer ETH failed");
-        totalBorrow = totalBorrow.sub(repayUsd);
+        totalBorrow = totalBorrow.sub(repayTusd);
         totalSupplied = totalSupplied.sub(withdrawAssetAmount);
     }
 
