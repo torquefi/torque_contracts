@@ -13,7 +13,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-// This contract represents a liquid token minted to users from vehicles (tUSD in this case)
+// This contract represents a liquid token minted to users from vehicles (tTUSD in this case)
 
 contract TorqueUSD is ERC20, Ownable, ReentrancyGuard {
     // Token supply cap
@@ -34,13 +34,13 @@ contract TorqueUSD is ERC20, Ownable, ReentrancyGuard {
 
     // Restricts function calls to manager
     modifier onlyManager() {
-        require(msg.sender == manager, "TorqueUSD: caller is not the manager");
+        require(msg.sender == manager, "Caller is not the manager");
         _;
     }
 
     // Restricts function calls to approved contract
     modifier onlyApprovedContract() {
-        require(approvedContracts[msg.sender], "TorqueUSD: caller is not an approved contract");
+        require(approvedContracts[msg.sender], "Caller is not an approved contract");
         _;
     }
 
@@ -51,7 +51,7 @@ contract TorqueUSD is ERC20, Ownable, ReentrancyGuard {
         uint256 cap_,
         address manager_
     ) ERC20(name, symbol) {
-        require(cap_ > 0, "TorqueUSD: cap is 0");
+        require(cap_ > 0, "Cap is 0");
         _cap = cap_;
         manager = manager_;
     }
@@ -63,19 +63,19 @@ contract TorqueUSD is ERC20, Ownable, ReentrancyGuard {
 
     // Mints new tokens, restricted to approved contracts
     function mint(address to, uint256 amount) public virtual onlyApprovedContract nonReentrant {
-        require(totalSupply() + amount <= _cap, "TorqueUSD: cap exceeded");
+        require(totalSupply() + amount <= _cap, "Cap exceeded");
         _mint(to, amount);
     }
 
     // Burns tokens, restricted to approved contracts
     function burn(address from, uint256 amount) public virtual onlyApprovedContract nonReentrant {
-        require(balanceOf(from) >= amount, "TorqueUSD: insufficient balance");
+        require(balanceOf(from) >= amount, "Insufficient balance");
         _burn(from, amount);
     }
 
     // Sets a new cap, restricted to contract owner
     function setCap(uint256 newCap) public virtual onlyOwner {
-        require(newCap > totalSupply(), "TorqueUSD: new cap must be greater than total supply");
+        require(newCap > totalSupply(), "New cap must be greater than total supply");
         _cap = newCap;
 
         emit CapChanged(_cap, newCap);
@@ -83,7 +83,7 @@ contract TorqueUSD is ERC20, Ownable, ReentrancyGuard {
 
     // Delegate managerial responsibility to a new address, restricted to contract owner
     function delegateResponsibility(address newManager) public virtual onlyOwner {
-        require(newManager != address(0), "TorqueUSD: new manager is the zero address");
+        require(newManager != address(0), "New manager is the zero address");
         manager = newManager;
 
         emit ResponsibilityDelegated(manager, newManager);
@@ -91,7 +91,7 @@ contract TorqueUSD is ERC20, Ownable, ReentrancyGuard {
 
     // Sets a new cap, restricted to the manager
     function setCapByManager(uint256 newCap) public virtual onlyManager {
-        require(newCap > totalSupply(), "TorqueUSD: new cap must be greater than total supply");
+        require(newCap > totalSupply(), "New cap must be greater than total supply");
         _cap = newCap;
 
         emit CapChanged(_cap, newCap);
@@ -99,7 +99,7 @@ contract TorqueUSD is ERC20, Ownable, ReentrancyGuard {
 
     // Approve a contract address, restricted to contract owner
     function addApprovedContract(address contractAddress) external onlyOwner {
-        require(contractAddress != address(0), "TorqueUSD: approve zero address");
+        require(contractAddress != address(0), "Approve zero address");
         approvedContracts[contractAddress] = true;
 
         emit ContractApproval(contractAddress, true);
@@ -107,7 +107,7 @@ contract TorqueUSD is ERC20, Ownable, ReentrancyGuard {
 
     // Remove approval from a contract address, restricted to contract owner
     function removeApprovedContract(address contractAddress) external onlyOwner {
-        require(contractAddress != address(0), "TorqueUSD: disapprove zero address");
+        require(contractAddress != address(0), "Disapprove zero address");
         approvedContracts[contractAddress] = false;
 
         emit ContractApproval(contractAddress, false);

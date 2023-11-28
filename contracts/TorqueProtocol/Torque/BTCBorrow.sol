@@ -12,24 +12,24 @@ pragma solidity ^0.8.6;
 import "./BorrowAbstract.sol";
 
 contract BTCBorrow is BorrowAbstract{
-    using SafeMath for uint256;
+    using SafeMath for uint256; 
 
     // Allows a user to borrow Torque USD
     function borrow(
         uint supplyAmount,
         uint borrowAmount,
-        uint usdBorrowAmount
+        uint tusdBorrowAmount
     ) public nonReentrant {
-        // Get the amount of USD the user is allowed to mint for the given asset
-        (uint mintable, bool canMint) = IUSDEngine(engine).getMintableUSD(
+        // Get the amount of TUSD the user is allowed to mint for the given asset
+        (uint mintable, bool canMint) = ITUSDEngine(engine).getMintableTUSD(
             baseAsset,
             address(this),
             borrowAmount
         );
 
         // Ensure user is allowed to mint and doesn't exceed mintable limit
-        require(canMint, "User can not mint more USD");
-        require(mintable > usdBorrowAmount, "Exceeds borrow amount");
+        require(canMint, "User can not mint more TUSD");
+        require(mintable > tusdBorrowAmount, "Exceeds borrow amount");
 
         BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
 
@@ -61,7 +61,7 @@ contract BTCBorrow is BorrowAbstract{
         }
 
         // Update the user's borrowing information
-        userBorrowInfo.baseBorrowed = userBorrowInfo.baseBorrowed.add(usdBorrowAmount);
+        userBorrowInfo.baseBorrowed = userBorrowInfo.baseBorrowed.add(tusdBorrowAmount);
         userBorrowInfo.borrowed = userBorrowInfo.borrowed.add(borrowAmount).add(accruedInterest);
         if (reward > 0) {
             userBorrowInfo.reward = userBorrowInfo.reward.add(reward);
@@ -91,30 +91,30 @@ contract BTCBorrow is BorrowAbstract{
         // Approve the engine to use the base asset
         ERC20(baseAsset).approve(address(engine), borrowAmount);
 
-        // Check the balance of USD before the minting operation
-        uint usdBefore = ERC20(usd).balanceOf(address(this));
+        // Check the balance of TUSD before the minting operation
+        uint tusdBefore = ERC20(tusd).balanceOf(address(this));
 
-        // Mint the USD equivalent of the borrowed asset
-        IUSDEngine(engine).depositCollateralAndMintUsd(baseAsset, borrowAmount, usdBorrowAmount);
+        // Mint the TUSD equivalent of the borrowed asset
+        ITUSDEngine(engine).depositCollateralAndMintTusd(baseAsset, borrowAmount, tusdBorrowAmount);
 
-        // Ensure the expected USD amount was minted
-        uint expectedUsd = usdBefore.add(usdBorrowAmount);
+        // Ensure the expected TUSD amount was minted
+        uint expectedTusd = tusdBefore.add(tusdBorrowAmount);
 
-        require(expectedUsd == ERC20(usd).balanceOf(address(this)), "Invalid amount");
+        require(expectedTusd == ERC20(tusd).balanceOf(address(this)), "Invalid amount");
 
-        require(ERC20(usd).transfer(msg.sender, usdBorrowAmount), "Transfer token failed");
-        totalBorrow = totalBorrow.add(usdBorrowAmount);
+        require(ERC20(tusd).transfer(msg.sender, tusdBorrowAmount), "Transfer token failed");
+        totalBorrow = totalBorrow.add(tusdBorrowAmount);
         totalSupplied = totalSupplied.add(supplyAmount);
     }
 
     // Allows users to repay their borrowed assets
-    function repay(uint usdRepayAmount) public nonReentrant {
+    function repay(uint tusdRepayAmount) public nonReentrant {
         BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
 
-        (uint withdrawUsdcAmountFromEngine, bool burnable) = IUSDEngine(engine).getBurnableUSD(
+        (uint withdrawUsdcAmountFromEngine, bool burnable) = ITUSDEngine(engine).getBurnableTUSD(
             baseAsset,
             address(this),
-            usdRepayAmount
+            tusdRepayAmount
         );
         require(burnable, "Not burnable");
         require(
@@ -122,17 +122,17 @@ contract BTCBorrow is BorrowAbstract{
             "Exceeds current borrowed amount"
         );
         require(
-            ERC20(usd).transferFrom(msg.sender, address(this), usdRepayAmount),
+            ERC20(tusd).transferFrom(msg.sender, address(this), tusdRepayAmount),
             "Transfer assets failed"
         );
 
         uint baseAssetBalanceBefore = ERC20(baseAsset).balanceOf(address(this));
 
-        ERC20(usd).approve(address(engine), usdRepayAmount);
-        IUSDEngine(engine).redeemCollateralForUsd(
+        ERC20(tusd).approve(address(engine), tusdRepayAmount);
+        ITUSDEngine(engine).redeemCollateralForTusd(
             baseAsset,
             withdrawUsdcAmountFromEngine,
-            usdRepayAmount
+            tusdRepayAmount
         );
 
         uint baseAssetBalanceExpected = baseAssetBalanceBefore.add(withdrawUsdcAmountFromEngine);
@@ -155,7 +155,7 @@ contract BTCBorrow is BorrowAbstract{
         if(repayUsdcAmount > userBorrowInfo.borrowed) {
             repayUsdcAmount = userBorrowInfo.borrowed;
         }
-        uint repayUsd = userBorrowInfo.baseBorrowed.mul(repayUsdcAmount).div(userBorrowInfo.borrowed);
+        uint repayTusd = userBorrowInfo.baseBorrowed.mul(repayUsdcAmount).div(userBorrowInfo.borrowed);
         uint withdrawAssetAmount = userBorrowInfo.supplied.mul(repayUsdcAmount).div(userBorrowInfo.borrowed);
 
 
@@ -180,7 +180,7 @@ contract BTCBorrow is BorrowAbstract{
         ERC20(baseAsset).approve(comet, repayUsdcAmount);
         IBulker(bulker).invoke(buildRepay(), callData);
         
-        userBorrowInfo.baseBorrowed = userBorrowInfo.baseBorrowed.sub(repayUsd);
+        userBorrowInfo.baseBorrowed = userBorrowInfo.baseBorrowed.sub(repayTusd);
         userBorrowInfo.borrowed = userBorrowInfo.borrowed.sub(repayUsdcAmount);
         userBorrowInfo.supplied = userBorrowInfo.supplied.sub(withdrawAssetAmount);
         userBorrowInfo.borrowTime = block.timestamp;
@@ -194,7 +194,7 @@ contract BTCBorrow is BorrowAbstract{
         }
 
         require(ERC20(asset).transfer(msg.sender, withdrawAssetAmount), "Transfer asset from Compound failed");
-        totalBorrow = totalBorrow.sub(repayUsd);
+        totalBorrow = totalBorrow.sub(repayTusd);
         totalSupplied = totalSupplied.sub(withdrawAssetAmount);
     }
 
