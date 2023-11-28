@@ -22,7 +22,7 @@ import "./TorqueUSD.sol"; // Need to implement mint and burn tETH logic
 
 // import "./RewardUtil"; // Need to implement reward distribution setup
 
-contract BoostUSD is Ownable, ReentrancyGuard {
+contract BoostTUSD is Ownable, ReentrancyGuard {
     using SafeMath for uint256;
 
     // Logic handling dynamically-allocated deposits to and withdrawals from child vaults

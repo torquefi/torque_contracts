@@ -1,29 +1,29 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-interface IUSDEngine {
+interface ITUSDEngine {
 
-   function getMintableUSD(
+   function getMintableTUSD(
         address tokenCollateralAddress,
         address user,
         uint256 amountCollateral
     ) external view returns (uint256, bool);
 
-    function depositCollateralAndMintUsd(
+    function depositCollateralAndMintTusd(
         address tokenCollateralAddress,
         uint256 amountCollateral,
-        uint256 amountUsdToMint
+        uint256 amountTusdToMint
     ) external payable ;
 
-    function getBurnableUSD(
+    function getBurnableTUSD(
         address tokenCollateralAddress,
         address user,
-        uint256 amountUSD
+        uint256 amountTUSD
     ) external view returns (uint256, bool) ;
 
-    function redeemCollateralForUsd(
+    function redeemCollateralForTusd(
         address tokenCollateralAddress,
         uint256 amountCollateral,
-        uint256 amountUsdToBurn
+        uint256 amountTusdToBurn
     ) external payable;
 }
