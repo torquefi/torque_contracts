@@ -9,19 +9,19 @@ pragma solidity ^0.8.15;
 //       \ \__\ \ \_______\ \__\\ _\\ \_____  \ \_______\ \_______\
 //        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
 
-interface IUSDEngine {
+interface ITUSDEngine {
     ///////////////////
     // Errors
     ///////////////////
-    error USDEngine__TokenAddressesAndPriceFeedAddressesAmountsDontMatch();
-    error USDEngine__NeedsMoreThanZero();
-    error USDEngine__TokenNotAllowed(address token);
-    error USDEngine__TransferFailed();
-    error USDEngine__BreaksHealthFactor(uint256 healthFactorValue);
-    error USDEngine__MintFailed();
-    error USDEngine__HealthFactorOk();
-    error USDEngine__HealthFactorNotImproved();
-    error USDEngine__NotLatestPrice();
+    error TUSDEngine__TokenAddressesAndPriceFeedAddressesAmountsDontMatch();
+    error TUSDEngine__NeedsMoreThanZero();
+    error TUSDEngine__TokenNotAllowed(address token);
+    error TUSDEngine__TransferFailed();
+    error TUSDEngine__BreaksHealthFactor(uint256 healthFactorValue);
+    error TUSDEngine__MintFailed();
+    error TUSDEngine__HealthFactorOk();
+    error TUSDEngine__HealthFactorNotImproved();
+    error TUSDEngine__NotLatestPrice();
     error OracleLib__StalePrice();
 
     ///////////////////
