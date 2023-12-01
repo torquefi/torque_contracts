@@ -10,20 +10,20 @@
 //
 
 pragma solidity 0.8.19;
-import "./USDEngineAbstract.sol";
+import "./TUSDEngineAbstract.sol";
 
 /*
  * Title: USDEngine
  * Author: Torque Inc.
  * Collateral: Exogenous
  * Minting: Algorithmic
- * Stability: USD Peg
+ * Stability: TUSD Peg
  * Collateral: Crypto
  *
- * This contract is the core of USD.money. It handles the USD 'mint
+ * This contract is the core of TUSD.money. It handles the TUSD 'mint
  * and redeem' logic and is based on the MakerDAO DSS system.
  */
-contract USDEngine is USDEngineAbstract {
+contract TUSDEngine is TUSDEngineAbstract {
     ///////////////////
     // Functions
     ///////////////////
@@ -33,14 +33,14 @@ contract USDEngine is USDEngineAbstract {
         address[] memory priceFeedAddresses,
         uint256[] memory liquidationThresholds,
         uint256[] memory collateralDecimals,
-        address usdAddress
+        address tusdAddress
     )
-        USDEngineAbstract(
+        TUSDEngineAbstract(
             tokenAddresses,
             priceFeedAddresses,
             liquidationThresholds,
             collateralDecimals,
-            usdAddress
+            tusdAddress
         )
     {}
 
@@ -57,7 +57,7 @@ contract USDEngine is USDEngineAbstract {
         address tokenCollateralAddress,
         uint256 amountCollateral,
         uint256 amountUsdToMint
-    ) external payable override(USDEngineAbstract) {
+    ) external payable override(TUSDEngineAbstract) {
         depositCollateral(tokenCollateralAddress, amountCollateral);
         mintUsd(amountUsdToMint, tokenCollateralAddress);
     }
@@ -72,7 +72,7 @@ contract USDEngine is USDEngineAbstract {
         address tokenCollateralAddress,
         uint256 amountCollateral,
         uint256 amountUsdToBurn
-    ) external payable override(USDEngineAbstract) moreThanZero(amountCollateral) {
+    ) external payable override(TUSDEngineAbstract) moreThanZero(amountCollateral) {
         _burnUsd(amountUsdToBurn, msg.sender, msg.sender, tokenCollateralAddress);
         _redeemCollateral(tokenCollateralAddress, amountCollateral, msg.sender, msg.sender);
         revertIfHealthFactorIsBroken(msg.sender, tokenCollateralAddress);
@@ -87,7 +87,7 @@ contract USDEngine is USDEngineAbstract {
     function redeemCollateral(
         address tokenCollateralAddress,
         uint256 amountCollateral
-    ) external payable override(USDEngineAbstract) moreThanZero(amountCollateral) nonReentrant {
+    ) external payable override(TUSDEngineAbstract) moreThanZero(amountCollateral) nonReentrant {
         _redeemCollateral(tokenCollateralAddress, amountCollateral, msg.sender, msg.sender);
         revertIfHealthFactorIsBroken(msg.sender, tokenCollateralAddress);
     }
@@ -100,7 +100,7 @@ contract USDEngine is USDEngineAbstract {
     function burnUsd(
         uint256 amount,
         address collateral
-    ) external override(USDEngineAbstract) moreThanZero(amount) {
+    ) external override(TUSDEngineAbstract) moreThanZero(amount) {
         _burnUsd(amount, msg.sender, msg.sender, collateral);
         revertIfHealthFactorIsBroken(msg.sender, collateral);
     }
@@ -122,10 +122,10 @@ contract USDEngine is USDEngineAbstract {
         address collateral,
         address user,
         uint256 debtToCover
-    ) external payable override(USDEngineAbstract) moreThanZero(debtToCover) nonReentrant {
+    ) external payable override(TUSDEngineAbstract) moreThanZero(debtToCover) nonReentrant {
         uint256 startingUserHealthFactor = _healthFactor(user, collateral);
         if (startingUserHealthFactor >= MIN_HEALTH_FACTOR) {
-            revert USDEngine__HealthFactorOk();
+            revert TUSDEngine__HealthFactorOk();
         }
         // If covering 100 USD, we need to $100 of collateral
         (uint256 tokenAmountFromDebtCovered, bool isLatestPrice) = getTokenAmountFromUsd(
@@ -133,7 +133,7 @@ contract USDEngine is USDEngineAbstract {
             debtToCover
         );
         if (!isLatestPrice) {
-            revert USDEngine__NotLatestPrice();
+            revert TUSDEngine__NotLatestPrice();
         }
         // And give them a 10% bonus
         // So we are giving the liquidator $110 of WETH for 100 USD
@@ -153,7 +153,7 @@ contract USDEngine is USDEngineAbstract {
         uint256 endingUserHealthFactor = _healthFactor(user, collateral);
         // This conditional should never hit, but just in case
         if (endingUserHealthFactor <= startingUserHealthFactor) {
-            revert USDEngine__HealthFactorNotImproved();
+            revert TUSDEngine__HealthFactorNotImproved();
         }
         revertIfHealthFactorIsBroken(msg.sender, collateral);
     }
@@ -168,13 +168,13 @@ contract USDEngine is USDEngineAbstract {
     function mintUsd(
         uint256 amountUsdToMint,
         address collateral
-    ) public override(USDEngineAbstract) moreThanZero(amountUsdToMint) nonReentrant {
+    ) public override(TUSDEngineAbstract) moreThanZero(amountUsdToMint) nonReentrant {
         s_USDMinted[msg.sender][collateral] += amountUsdToMint;
         revertIfHealthFactorIsBroken(msg.sender, collateral);
         bool minted = i_usd.mint(msg.sender, amountUsdToMint);
 
         if (minted != true) {
-            revert USDEngine__MintFailed();
+            revert TUSDEngine__MintFailed();
         }
     }
 
@@ -182,7 +182,7 @@ contract USDEngine is USDEngineAbstract {
         address tokenCollateralAddress,
         address user,
         uint256 amountCollateral
-    ) public view override(USDEngineAbstract) returns (uint256, bool) {
+    ) public view override(TUSDEngineAbstract) returns (uint256, bool) {
         uint256 amount = s_collateralDeposited[user][tokenCollateralAddress];
         uint256 normalizedAmount = normalizeTokenAmount(amountCollateral, tokenCollateralAddress);
         (uint256 usdValue, bool isLatestPrice) = _getUsdValue(
@@ -207,7 +207,7 @@ contract USDEngine is USDEngineAbstract {
         address tokenCollateralAddress,
         address user,
         uint256 amountUSD
-    ) public view override(USDEngineAbstract) returns (uint256, bool) {
+    ) public view override(TUSDEngineAbstract) returns (uint256, bool) {
         (uint256 totalUsdMinted, uint256 totalCollateralInUSD, ) = _getAccountInformation(
             user,
             tokenCollateralAddress
@@ -244,7 +244,7 @@ contract USDEngine is USDEngineAbstract {
     )
         internal
         view
-        override(USDEngineAbstract)
+        override(TUSDEngineAbstract)
         returns (uint256 totalUsdMinted, uint256 collateralValueInUsd, bool isLatestPrice)
     {
         totalUsdMinted = s_USDMinted[user][collateral];
@@ -259,7 +259,7 @@ contract USDEngine is USDEngineAbstract {
     function _healthFactor(
         address user,
         address collateral
-    ) internal view override(USDEngineAbstract) returns (uint256) {
+    ) internal view override(TUSDEngineAbstract) returns (uint256) {
         (
             uint256 totalUsdMinted,
             uint256 collateralValueInUsd,
@@ -277,7 +277,7 @@ contract USDEngine is USDEngineAbstract {
     function getAccountCollateralValue(
         address user,
         address collateral
-    ) public view override(USDEngineAbstract) returns (uint256, bool) {
+    ) public view override(TUSDEngineAbstract) returns (uint256, bool) {
         uint256 amount = s_collateralDeposited[user][collateral];
         return _getUsdValue(collateral, amount);
     }
@@ -285,7 +285,7 @@ contract USDEngine is USDEngineAbstract {
     function getTokenAmountFromUsd(
         address token,
         uint256 usdAmountInWei
-    ) public view override(USDEngineAbstract) returns (uint256, bool) {
+    ) public view override(TUSDEngineAbstract) returns (uint256, bool) {
         uint256 tokenAmount;
         bool isLatestPrice;
         if (s_priceFeeds[token] == WSTETHPriceFeed) {
