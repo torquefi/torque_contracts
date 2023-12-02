@@ -50,7 +50,6 @@ contract BoostETH is Ownable, GMXV2ETH, StargateETH {
 
     // constructor and functions
     constructor(
-        address _stargateStakingAddress,
         address _stargateAddress,
         address _swapRouter,
         address _gmxAddress,

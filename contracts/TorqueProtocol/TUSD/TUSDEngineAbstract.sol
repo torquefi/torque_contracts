@@ -15,14 +15,14 @@ import { AggregatorV3Interface } from "@chainlink/contracts/src/v0.8/interfaces/
 import "@openzeppelin/contracts/access/Ownable.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { USD } from "./USD.sol";
-import "./interfaces/IUsdEngine.sol";
+import { TUSD } from "./TUSD.sol";
+import "./interfaces/ITUsdEngine.sol";
 
-abstract contract USDEngineAbstract is ReentrancyGuard, Ownable, IUSDEngine {
+abstract contract TUSDEngineAbstract is ReentrancyGuard, Ownable, ITUSDEngine {
     ///////////////////
     // State Variables
     ///////////////////
-    USD internal immutable i_usd;
+    TUSD internal immutable i_usd;
 
     // uint256 private constant LIQUIDATION_THRESHOLD = 50; // This means you need to be 200% over-collateralized
     mapping(address => uint256) internal liquidationThreshold;
@@ -54,14 +54,14 @@ abstract contract USDEngineAbstract is ReentrancyGuard, Ownable, IUSDEngine {
     ///////////////////
     modifier moreThanZero(uint256 amount) {
         if (amount == 0) {
-            revert USDEngine__NeedsMoreThanZero();
+            revert TUSDEngine__NeedsMoreThanZero();
         }
         _;
     }
 
     modifier isAllowedToken(address token) {
         if (s_priceFeeds[token] == address(0)) {
-            revert USDEngine__TokenNotAllowed(token);
+            revert TUSDEngine__TokenNotAllowed(token);
         }
         _;
     }
@@ -74,13 +74,13 @@ abstract contract USDEngineAbstract is ReentrancyGuard, Ownable, IUSDEngine {
         address[] memory priceFeedAddresses,
         uint256[] memory liquidationThresholds,
         uint256[] memory collateralDecimals,
-        address usdAddress
+        address tusdAddress
     ) {
         if (
             tokenAddresses.length != priceFeedAddresses.length &&
             tokenAddresses.length != collateralDecimals.length
         ) {
-            revert USDEngine__TokenAddressesAndPriceFeedAddressesAmountsDontMatch();
+            revert TUSDEngine__TokenAddressesAndPriceFeedAddressesAmountsDontMatch();
         }
         // These feeds will be the USD pairs
         // For example ETH / USD or MKR / USD
@@ -90,7 +90,7 @@ abstract contract USDEngineAbstract is ReentrancyGuard, Ownable, IUSDEngine {
             liquidationThreshold[tokenAddresses[i]] = liquidationThresholds[i];
             s_collateralDecimal[tokenAddresses[i]] = collateralDecimals[i];
         }
-        i_usd = USD(usdAddress);
+        i_usd = TUSD(tusdAddress);
     }
 
     function updateWSTETHPriceFeed(
@@ -112,7 +112,7 @@ abstract contract USDEngineAbstract is ReentrancyGuard, Ownable, IUSDEngine {
             tokenAddresses.length != priceFeedAddresses.length &&
             tokenAddresses.length != collateralDecimals.length
         ) {
-            revert USDEngine__TokenAddressesAndPriceFeedAddressesAmountsDontMatch();
+            revert TUSDEngine__TokenAddressesAndPriceFeedAddressesAmountsDontMatch();
         }
         // These feeds will be the USD pairs
         // For example ETH / USD or MKR / USD
@@ -184,7 +184,7 @@ abstract contract USDEngineAbstract is ReentrancyGuard, Ownable, IUSDEngine {
         isAllowedToken(tokenCollateralAddress)
     {
         if (tokenCollateralAddress == WETH) {
-            require(msg.value == amountCollateral, "USD: Not enough balance");
+            require(msg.value == amountCollateral, "TUSD: Not enough balance");
         } else {
             bool success = IERC20(tokenCollateralAddress).transferFrom(
                 msg.sender,
@@ -192,7 +192,7 @@ abstract contract USDEngineAbstract is ReentrancyGuard, Ownable, IUSDEngine {
                 amountCollateral
             );
             if (!success) {
-                revert USDEngine__TransferFailed();
+                revert TUSDEngine__TransferFailed();
             }
         }
         uint256 normalizedAmount = normalizeTokenAmount(amountCollateral, tokenCollateralAddress);
@@ -225,11 +225,11 @@ abstract contract USDEngineAbstract is ReentrancyGuard, Ownable, IUSDEngine {
         s_collateralDeposited[from][tokenCollateralAddress] -= normalizedAmount;
         if (tokenCollateralAddress == WETH) {
             (bool success, ) = to.call{ value: amountCollateral }("");
-            require(success, "USD: Transfer ETH failed");
+            require(success, "TUSD: Transfer ETH failed");
         } else {
             bool success = IERC20(tokenCollateralAddress).transfer(to, amountCollateral);
             if (!success) {
-                revert USDEngine__TransferFailed();
+                revert TUSDEngine__TransferFailed();
             }
         }
         emit CollateralRedeemed(from, amountCollateral, from, to);
@@ -250,7 +250,7 @@ abstract contract USDEngineAbstract is ReentrancyGuard, Ownable, IUSDEngine {
         bool success = i_usd.transferFrom(usdFrom, address(this), amountUsdToBurn);
         // This conditional is hypothetically unreachable
         if (!success) {
-            revert USDEngine__TransferFailed();
+            revert TUSDEngine__TransferFailed();
         }
         i_usd.burn(amountUsdToBurn);
     }
@@ -320,7 +320,7 @@ abstract contract USDEngineAbstract is ReentrancyGuard, Ownable, IUSDEngine {
     function revertIfHealthFactorIsBroken(address user, address collateral) internal view {
         uint256 userHealthFactor = _healthFactor(user, collateral);
         if (userHealthFactor < MIN_HEALTH_FACTOR) {
-            revert USDEngine__BreaksHealthFactor(userHealthFactor);
+            revert TUSDEngine__BreaksHealthFactor(userHealthFactor);
         }
     }
 
