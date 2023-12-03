@@ -22,9 +22,9 @@ async function main() {
     "0xf740359877183aD9647fa2924597B9112877Cb2d",
   ]);
 
-  await USDEngine.waitForDeployment();
+  await USDEngine.deployed();
 
-  console.log(`usd engine deployed at ${USDEngine.target}`);
+  console.log(`usd engine deployed at ${USDEngine.address}`);
 }
 
 // We recommend this pattern to be able to use async/await everywhere

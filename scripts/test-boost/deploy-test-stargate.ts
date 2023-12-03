@@ -7,9 +7,9 @@ async function main() {
     "0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6", // WETH
   ]);
 
-  await testStargate.waitForDeployment();
+  await testStargate.deployed();
 
-  console.log(`TestStargate deployed at ${testStargate.target}`);
+  console.log(`TestStargate deployed at ${testStargate.address}`);
 }
 
 // We recommend this pattern to be able to use async/await everywhere
