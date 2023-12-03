@@ -42,7 +42,7 @@ contract TestStargate is Ownable {
         WETH = _WETH;
     }
 
-    function depositStargate(address _token, uint256 _amount) public onlyOwner {
+    function depositStargate(address _token, uint256 _amount) public payable onlyOwner {
         if (_token == WETH) {
             IRouterETH routerETH = IRouterETH(iRouterETH);
             routerETH.addLiquidityETH{ value: _amount }();
