@@ -2,8 +2,7 @@
 pragma solidity ^0.8.6;
 
 interface ITUSDEngine {
-
-   function getMintableTUSD(
+    function getMintableTUSD(
         address tokenCollateralAddress,
         address user,
         uint256 amountCollateral
@@ -12,18 +11,18 @@ interface ITUSDEngine {
     function depositCollateralAndMintTusd(
         address tokenCollateralAddress,
         uint256 amountCollateral,
-        uint256 amountTusdToMint
-    ) external payable ;
+        uint256 amounUSDToMint
+    ) external payable;
 
     function getBurnableTUSD(
         address tokenCollateralAddress,
         address user,
-        uint256 amountTUSD
-    ) external view returns (uint256, bool) ;
+        uint256 amountUSD
+    ) external view returns (uint256, bool);
 
     function redeemCollateralForTusd(
         address tokenCollateralAddress,
         uint256 amountCollateral,
-        uint256 amountTusdToBurn
+        uint256 amountUSDToBurn
     ) external payable;
 }
