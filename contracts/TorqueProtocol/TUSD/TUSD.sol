@@ -17,7 +17,7 @@ contract TUSD is ERC20Burnable, Ownable {
     error TUSD__BurnAmountExceedsBalance();
     error TUSD__NotZeroAddress();
 
-    constructor() ERC20("Torque TUSD", "TUSD") {}
+    constructor() ERC20("Torque USD", "TUSD") {}
 
     function burn(uint256 _amount) public override onlyOwner {
         uint256 balance = balanceOf(msg.sender);
