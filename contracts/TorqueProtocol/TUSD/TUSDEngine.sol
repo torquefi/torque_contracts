@@ -1,18 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
+
+//  _________  ________  ________  ________  ___  ___  _______
+// |\___   ___\\   __  \|\   __  \|\   __  \|\  \|\  \|\  ___ \
+// \|___ \  \_\ \  \|\  \ \  \|\  \ \  \|\  \ \  \\\  \ \   __/|
+//     \ \  \ \ \  \\\  \ \   _  _\ \  \\\  \ \  \\\  \ \  \_|/__
+//      \ \  \ \ \  \\\  \ \  \\  \\ \  \\\  \ \  \\\  \ \  \_|\ \
+//       \ \__\ \ \_______\ \__\\ _\\ \_____  \ \_______\ \_______\
+//        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
+
 import "./TUSDEngineAbstract.sol";
 
-/*
- * Title: USDEngine
- * Author: Torque Inc.
- * Collateral: Exogenous
- * Minting: Algorithmic
- * Stability: TUSD Peg
- * Collateral: Crypto
- *
- * This contract is the core of TUSD.money. It handles the TUSD 'mint
- * and redeem' logic and is based on the MakerDAO DSS system.
- */
 contract TUSDEngine is TUSDEngineAbstract {
     ///////////////////
     // Functions
