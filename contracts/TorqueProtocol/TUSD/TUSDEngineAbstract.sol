@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+pragma solidity 0.8.19;
 
 //  _________  ________  ________  ________  ___  ___  _______
 // |\___   ___\\   __  \|\   __  \|\   __  \|\  \|\  \|\  ___ \
@@ -9,14 +10,12 @@
 //        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
 //
 
-pragma solidity 0.8.19;
-
 import { AggregatorV3Interface } from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { TUSD } from "./TUSD.sol";
-import "./interfaces/ITUsdEngine.sol";
+import "./interfaces/ITusdEngine.sol";
 
 abstract contract TUSDEngineAbstract is ReentrancyGuard, Ownable, ITUSDEngine {
     ///////////////////
@@ -43,7 +42,7 @@ abstract contract TUSDEngineAbstract is ReentrancyGuard, Ownable, ITUSDEngine {
     /// @dev Amount of collateral deposited by user
     mapping(address user => mapping(address collateralToken => uint256 amount))
         internal s_collateralDeposited;
-    /// @dev Amount of USD minted by user
+    /// @dev Amount of TUSD minted by user
     mapping(address user => mapping(address token => uint256 amount)) internal s_USDMinted;
     /// @dev If we know exactly how many tokens we have, we could make this immutable!
     mapping(address => uint256) s_collateralDecimal;
@@ -82,8 +81,6 @@ abstract contract TUSDEngineAbstract is ReentrancyGuard, Ownable, ITUSDEngine {
         ) {
             revert TUSDEngine__TokenAddressesAndPriceFeedAddressesAmountsDontMatch();
         }
-        // These feeds will be the USD pairs
-        // For example ETH / USD or MKR / USD
         for (uint256 i = 0; i < tokenAddresses.length; i++) {
             s_priceFeeds[tokenAddresses[i]] = priceFeedAddresses[i];
             s_collateralTokens.push(tokenAddresses[i]);
@@ -114,8 +111,6 @@ abstract contract TUSDEngineAbstract is ReentrancyGuard, Ownable, ITUSDEngine {
         ) {
             revert TUSDEngine__TokenAddressesAndPriceFeedAddressesAmountsDontMatch();
         }
-        // These feeds will be the USD pairs
-        // For example ETH / USD or MKR / USD
         for (uint256 i = 0; i < tokenAddresses.length; i++) {
             s_priceFeeds[tokenAddresses[i]] = priceFeedAddresses[i];
             s_collateralTokens.push(tokenAddresses[i]);
@@ -139,16 +134,16 @@ abstract contract TUSDEngineAbstract is ReentrancyGuard, Ownable, ITUSDEngine {
         WETH = _WETH;
     }
 
-    function depositCollateralAndMintUsd(
+    function depositCollateralAndMintTusd(
         address tokenCollateralAddress,
         uint256 amountCollateral,
-        uint256 amountUsdToMint
+        uint256 amounUSDToMint
     ) external payable virtual {}
 
-    function redeemCollateralForUsd(
+    function redeemCollateralForTusd(
         address tokenCollateralAddress,
         uint256 amountCollateral,
-        uint256 amountUsdToBurn
+        uint256 amountUSDToBurn
     ) external payable virtual moreThanZero(amountCollateral) {}
 
     function redeemCollateral(
@@ -156,7 +151,7 @@ abstract contract TUSDEngineAbstract is ReentrancyGuard, Ownable, ITUSDEngine {
         uint256 amountCollateral
     ) external payable virtual moreThanZero(amountCollateral) nonReentrant {}
 
-    function burnUsd(uint256 amount, address collateral) external virtual moreThanZero(amount) {}
+    function burnTusd(uint256 amount, address collateral) external virtual moreThanZero(amount) {}
 
     function liquidate(
         address collateral,
@@ -164,10 +159,10 @@ abstract contract TUSDEngineAbstract is ReentrancyGuard, Ownable, ITUSDEngine {
         uint256 debtToCover
     ) external payable virtual moreThanZero(debtToCover) nonReentrant {}
 
-    function mintUsd(
-        uint256 amountUsdToMint,
+    function mintTusd(
+        uint256 amounUSDToMint,
         address collateral
-    ) public virtual moreThanZero(amountUsdToMint) nonReentrant {}
+    ) public virtual moreThanZero(amounUSDToMint) nonReentrant {}
 
     /*
      * @param tokenCollateralAddress: The ERC20 token address of the collateral you're depositing
@@ -200,13 +195,13 @@ abstract contract TUSDEngineAbstract is ReentrancyGuard, Ownable, ITUSDEngine {
         emit CollateralDeposited(msg.sender, tokenCollateralAddress, amountCollateral);
     }
 
-    function getMintableUSD(
+    function getMintableTUSD(
         address tokenCollateralAddress,
         address user,
         uint256 amountCollateral
     ) public view virtual returns (uint256, bool) {}
 
-    function getBurnableUSD(
+    function getBurnableTUSD(
         address tokenCollateralAddress,
         address user,
         uint256 amountUSD
@@ -236,23 +231,23 @@ abstract contract TUSDEngineAbstract is ReentrancyGuard, Ownable, ITUSDEngine {
     }
 
     function _burnUsd(
-        uint256 amountUsdToBurn,
+        uint256 amountUSDToBurn,
         address onBehalfOf,
-        address usdFrom,
+        address tusdFrom,
         address collateral
     ) internal {
-        if (s_USDMinted[onBehalfOf][collateral] >= amountUsdToBurn) {
-            s_USDMinted[onBehalfOf][collateral] -= amountUsdToBurn;
+        if (s_USDMinted[onBehalfOf][collateral] >= amountUSDToBurn) {
+            s_USDMinted[onBehalfOf][collateral] -= amountUSDToBurn;
         } else {
             s_USDMinted[onBehalfOf][collateral] = 0;
         }
 
-        bool success = i_usd.transferFrom(usdFrom, address(this), amountUsdToBurn);
+        bool success = i_usd.transferFrom(tusdFrom, address(this), amountUSDToBurn);
         // This conditional is hypothetically unreachable
         if (!success) {
             revert TUSDEngine__TransferFailed();
         }
-        i_usd.burn(amountUsdToBurn);
+        i_usd.burn(amountUSDToBurn);
     }
 
     //////////////////////////////
@@ -274,22 +269,22 @@ abstract contract TUSDEngineAbstract is ReentrancyGuard, Ownable, ITUSDEngine {
         address collateral
     ) internal view virtual returns (uint256) {}
 
-    // function _getUsdValue(address token, uint256 amount) internal view virtual returns (uint256) {}
-    function _getUsdValue(address token, uint256 amount) internal view returns (uint256, bool) {
-        uint256 usdValue;
+    // function _getTusdValue(address token, uint256 amount) internal view virtual returns (uint256) {}
+    function _getTusdValue(address token, uint256 amount) internal view returns (uint256, bool) {
+        uint256 tusdValue;
         bool isLatestPrice;
         if (s_priceFeeds[token] == WSTETHPriceFeed) {
             (uint256 wstToETHPrice, bool isLatestPrice1) = validatePriceFeedAndReturnValue(
                 WSTETHPriceFeed
             );
-            (uint256 ethToUSDPrice, bool isLatestPrice2) = validatePriceFeedAndReturnValue(
+            (uint256 ethToTUSDPrice, bool isLatestPrice2) = validatePriceFeedAndReturnValue(
                 ETHPriceFeed
             );
             isLatestPrice = isLatestPrice1 && isLatestPrice2;
-            usdValue =
+            tusdValue =
                 (amount *
                     uint256(wstToETHPrice) *
-                    uint256(ethToUSDPrice) *
+                    uint256(ethToTUSDPrice) *
                     ADDITIONAL_FEED_PRECISION ** 2) /
                 PRECISION ** 2;
         } else {
@@ -297,13 +292,9 @@ abstract contract TUSDEngineAbstract is ReentrancyGuard, Ownable, ITUSDEngine {
                 s_priceFeeds[token]
             );
             isLatestPrice = _isLatestPrice;
-            usdValue = ((uint256(price) * ADDITIONAL_FEED_PRECISION) * amount) / PRECISION;
+            tusdValue = ((uint256(price) * ADDITIONAL_FEED_PRECISION) * amount) / PRECISION;
         }
-        // 1 ETH = 1000 USD
-        // The returned value from Chainlink will be 1000 * 1e8
-        // Most USD pairs have 8 decimals, so we will just pretend they all do
-        // We want to have everything in terms of WEI, so we add 10 zeros at the end
-        return (usdValue, isLatestPrice);
+        return (tusdValue, isLatestPrice);
     }
 
     function _calculateHealthFactor(
@@ -369,11 +360,11 @@ abstract contract TUSDEngineAbstract is ReentrancyGuard, Ownable, ITUSDEngine {
         return _getAccountInformation(user, collateral);
     }
 
-    function getUsdValue(
+    function getTusdValue(
         address token,
         uint256 amount // in WEI
     ) external view returns (uint256, bool) {
-        return _getUsdValue(token, amount);
+        return _getTusdValue(token, amount);
     }
 
     function getCollateralBalanceOfUser(
@@ -388,7 +379,7 @@ abstract contract TUSDEngineAbstract is ReentrancyGuard, Ownable, ITUSDEngine {
         address collateral
     ) public view virtual returns (uint256, bool) {}
 
-    function getTokenAmountFromUsd(
+    function getTokenAmountFromTusd(
         address token,
         uint256 usdAmountInWei
     ) public view virtual returns (uint256, bool) {}
@@ -417,7 +408,7 @@ abstract contract TUSDEngineAbstract is ReentrancyGuard, Ownable, ITUSDEngine {
         return s_collateralTokens;
     }
 
-    function getUsd() external view returns (address) {
+    function getTusd() external view returns (address) {
         return address(i_usd);
     }
 

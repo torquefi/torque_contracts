@@ -1,14 +1,4 @@
 // SPDX-License-Identifier: MIT
-
-//  _________  ________  ________  ________  ___  ___  _______
-// |\___   ___\\   __  \|\   __  \|\   __  \|\  \|\  \|\  ___ \
-// \|___ \  \_\ \  \|\  \ \  \|\  \ \  \|\  \ \  \\\  \ \   __/|
-//      \ \  \ \ \  \\\  \ \   _  _\ \  \\\  \ \  \\\  \ \  \_|/__
-//       \ \  \ \ \  \\\  \ \  \\  \\ \  \\\  \ \  \\\  \ \  \_|\ \
-//        \ \__\ \ \_______\ \__\\ _\\ \_____  \ \_______\ \_______\
-//         \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
-//
-
 pragma solidity 0.8.19;
 import "./TUSDEngineAbstract.sol";
 
@@ -50,25 +40,25 @@ contract TUSDEngine is TUSDEngineAbstract {
     /*
      * @param tokenCollateralAddress: The ERC20 token address of the collateral you're depositing
      * @param amountCollateral: The amount of collateral you're depositing
-     * @param amountUSDToMint: The amount of USD you want to mint
-     * @notice This function will deposit your collateral and mint USD in one transaction
+     * @param amountUSD;ToMint: The amount of TUSD you want to mint
+     * @notice This function will deposit your collateral and mint TUSD in one transaction
      */
-    function depositCollateralAndMintUsd(
+    function depositCollateralAndMintTusd(
         address tokenCollateralAddress,
         uint256 amountCollateral,
-        uint256 amountUsdToMint
+        uint256 amounUSDToMint
     ) external payable override(TUSDEngineAbstract) {
         depositCollateral(tokenCollateralAddress, amountCollateral);
-        mintUsd(amountUsdToMint, tokenCollateralAddress);
+        mintTusd(amounUSDToMint, tokenCollateralAddress);
     }
 
     /*
      * @param tokenCollateralAddress: The ERC20 token address of the collateral you're depositing
      * @param amountCollateral: The amount of collateral you're depositing
-     * @param amountUSDToBurn: The amount of USD you want to burn
-     * @notice This function will withdraw your collateral and burn USD in one transaction
+     * @param amountUSD;ToBurn: The amount of TUSD you want to burn
+     * @notice This function will withdraw your collateral and burn TUSD in one transaction
      */
-    function redeemCollateralForUsd(
+    function redeemCollateralForTusd(
         address tokenCollateralAddress,
         uint256 amountCollateral,
         uint256 amountUsdToBurn
@@ -82,7 +72,7 @@ contract TUSDEngine is TUSDEngineAbstract {
      * @param tokenCollateralAddress: The ERC20 token address of the collateral you're redeeming
      * @param amountCollateral: The amount of collateral you're redeeming
      * @notice This function will redeem your collateral.
-     * @notice If you have USD minted, you will not be able to redeem until you burn your USD
+     * @notice If you have TUSD minted, you'll not be able to redeem until you burn your TUSD
      */
     function redeemCollateral(
         address tokenCollateralAddress,
@@ -93,11 +83,10 @@ contract TUSDEngine is TUSDEngineAbstract {
     }
 
     /*
-     * @notice careful! You'll burn your USD here! Make sure you want to do this...
-     * @dev you might want to use this if you're nervous you might get liquidated and want to just burn
-     * you USD but keep your collateral in.
+     * @notice You'll burn your TUSD here! Make sure you want to do this..
+     * @dev You might want to use this to just to move away from liquidation.
      */
-    function burnUsd(
+    function burnTusd(
         uint256 amount,
         address collateral
     ) external override(TUSDEngineAbstract) moreThanZero(amount) {
@@ -108,9 +97,9 @@ contract TUSDEngine is TUSDEngineAbstract {
     /*
      * @param collateral: The ERC20 token address of the collateral you're using to make the protocol solvent again.
      * This is collateral that you're going to take from the user who is insolvent.
-     * In return, you have to burn your USD to pay off their debt, but you don't pay off your own.
+     * In return, you have to burn your TUSD to pay off their debt, but you don't pay off your own.
      * @param user: The user who is insolvent. They have to have a _healthFactor below MIN_HEALTH_FACTOR
-     * @param debtToCover: The amount of USD you want to burn to cover the user's debt.
+     * @param debtToCover: The amount of TUSD you want to burn to cover the user's debt.
      *
      * @notice: You can partially liquidate a user.
      * @notice: You will get a 10% LIQUIDATION_BONUS for taking the users funds.
@@ -127,8 +116,8 @@ contract TUSDEngine is TUSDEngineAbstract {
         if (startingUserHealthFactor >= MIN_HEALTH_FACTOR) {
             revert TUSDEngine__HealthFactorOk();
         }
-        // If covering 100 USD, we need to $100 of collateral
-        (uint256 tokenAmountFromDebtCovered, bool isLatestPrice) = getTokenAmountFromUsd(
+        // If covering 100 TUSD, we need to $100 of collateral
+        (uint256 tokenAmountFromDebtCovered, bool isLatestPrice) = getTokenAmountFromTusd(
             collateral,
             debtToCover
         );
@@ -136,11 +125,11 @@ contract TUSDEngine is TUSDEngineAbstract {
             revert TUSDEngine__NotLatestPrice();
         }
         // And give them a 10% bonus
-        // So we are giving the liquidator $110 of WETH for 100 USD
+        // So we are giving the liquidator $110 of WETH for 100 TUSD
         // We should implement a feature to liquidate in the event the protocol is insolvent
         // And sweep extra amounts into a treasury
         uint256 bonusCollateral = (tokenAmountFromDebtCovered * LIQUIDATION_BONUS) / 100;
-        // Burn USD equal to debtToCover
+        // Burn TUSD equal to debtToCover
         // Figure out how much collateral to recover based on how much burnt
         _redeemCollateral(
             collateral,
@@ -162,48 +151,48 @@ contract TUSDEngine is TUSDEngineAbstract {
     // Public Functions
     ///////////////////
     /*
-     * @param amountUSDToMint: The amount of USD you want to mint
-     * You can only mint USD if you hav enough collateral
+     * @param amountUSD;ToMint: The amount of TUSD you want to mint
+     * You can only mint TUSD if you have enough collateral
      */
-    function mintUsd(
-        uint256 amountUsdToMint,
+    function mintTusd(
+        uint256 amounUSDToMint,
         address collateral
-    ) public override(TUSDEngineAbstract) moreThanZero(amountUsdToMint) nonReentrant {
-        s_USDMinted[msg.sender][collateral] += amountUsdToMint;
+    ) public override(TUSDEngineAbstract) moreThanZero(amounUSDToMint) nonReentrant {
+        s_USDMinted[msg.sender][collateral] += amounUSDToMint;
         revertIfHealthFactorIsBroken(msg.sender, collateral);
-        bool minted = i_usd.mint(msg.sender, amountUsdToMint);
+        bool minted = i_usd.mint(msg.sender, amounUSDToMint);
 
         if (minted != true) {
             revert TUSDEngine__MintFailed();
         }
     }
 
-    function getMintableUSD(
+    function getMintableTUSD(
         address tokenCollateralAddress,
         address user,
         uint256 amountCollateral
     ) public view override(TUSDEngineAbstract) returns (uint256, bool) {
         uint256 amount = s_collateralDeposited[user][tokenCollateralAddress];
         uint256 normalizedAmount = normalizeTokenAmount(amountCollateral, tokenCollateralAddress);
-        (uint256 usdValue, bool isLatestPrice) = _getUsdValue(
+        (uint256 tusdValue, bool isLatestPrice) = _getTusdValue(
             tokenCollateralAddress,
             amount + normalizedAmount
         );
-        uint256 totalUsdMintableAmount = (usdValue * liquidationThreshold[tokenCollateralAddress]) /
-            100;
+        uint256 totalTusdMintableAmount = (tusdValue *
+            liquidationThreshold[tokenCollateralAddress]) / 100;
 
         (uint256 totalUsdMinted, , ) = _getAccountInformation(user, tokenCollateralAddress);
 
-        if (totalUsdMintableAmount <= totalUsdMinted) {
-            uint256 debtUsdAmount = totalUsdMinted - totalUsdMintableAmount;
-            return (debtUsdAmount, false); // cannot mint usd anymore
+        if (totalTusdMintableAmount <= totalUsdMinted) {
+            uint256 debtTusdAmount = totalUsdMinted - totalTusdMintableAmount;
+            return (debtTusdAmount, false); // cannot mint tusd anymore
         } else {
-            uint256 mintableUsdAmount = totalUsdMintableAmount - totalUsdMinted;
-            return (convertToSafetyValue(mintableUsdAmount), isLatestPrice);
+            uint256 mintableTusdAmount = totalTusdMintableAmount - totalUsdMinted;
+            return (convertToSafetyValue(mintableTusdAmount), isLatestPrice);
         }
     }
 
-    function getBurnableUSD(
+    function getBurnableTUSD(
         address tokenCollateralAddress,
         address user,
         uint256 amountUSD
@@ -212,27 +201,27 @@ contract TUSDEngine is TUSDEngineAbstract {
             user,
             tokenCollateralAddress
         );
-        uint256 totalUsdAfterBurn = 0;
-        uint256 tokenAmountInUSD = 0;
+        uint256 totalTusdAfterBurn = 0;
+        uint256 tokenAmountInTUSD = 0;
         if (amountUSD < totalUsdMinted) {
-            totalUsdAfterBurn = totalUsdMinted - amountUSD;
+            totalTusdAfterBurn = totalUsdMinted - amountUSD;
         }
-        uint256 inneedUSDAmount = 0;
-        inneedUSDAmount +=
+        uint256 inneedTUSDAmount = 0;
+        inneedTUSDAmount +=
             (totalCollateralInUSD * liquidationThreshold[tokenCollateralAddress]) /
             100;
 
-        if (inneedUSDAmount >= totalUsdAfterBurn) {
-            tokenAmountInUSD = totalCollateralInUSD;
+        if (inneedTUSDAmount >= totalTusdAfterBurn) {
+            tokenAmountInTUSD = totalCollateralInUSD;
         } else {
-            uint256 backupTokenInUSD = ((totalUsdAfterBurn - inneedUSDAmount) * 100) /
+            uint256 backupTokenInTUSD = ((totalTusdAfterBurn - inneedTUSDAmount) * 100) /
                 liquidationThreshold[tokenCollateralAddress];
-            tokenAmountInUSD = totalCollateralInUSD >= backupTokenInUSD
-                ? totalCollateralInUSD - backupTokenInUSD
+            tokenAmountInTUSD = totalCollateralInUSD >= backupTokenInTUSD
+                ? totalCollateralInUSD - backupTokenInTUSD
                 : 0;
         }
 
-        return getTokenAmountFromUsd(tokenCollateralAddress, tokenAmountInUSD);
+        return getTokenAmountFromTusd(tokenCollateralAddress, tokenAmountInTUSD);
     }
 
     //////////////////////////////
@@ -279,10 +268,10 @@ contract TUSDEngine is TUSDEngineAbstract {
         address collateral
     ) public view override(TUSDEngineAbstract) returns (uint256, bool) {
         uint256 amount = s_collateralDeposited[user][collateral];
-        return _getUsdValue(collateral, amount);
+        return _getTusdValue(collateral, amount);
     }
 
-    function getTokenAmountFromUsd(
+    function getTokenAmountFromTusd(
         address token,
         uint256 usdAmountInWei
     ) public view override(TUSDEngineAbstract) returns (uint256, bool) {
@@ -292,13 +281,13 @@ contract TUSDEngine is TUSDEngineAbstract {
             (uint256 wstETHToEthPrice, bool isLatestPrice1) = validatePriceFeedAndReturnValue(
                 WSTETHPriceFeed
             );
-            (uint256 ethToUSDPrice, bool isLatestPrice2) = validatePriceFeedAndReturnValue(
+            (uint256 ethToTUSDPrice, bool isLatestPrice2) = validatePriceFeedAndReturnValue(
                 ETHPriceFeed
             );
             isLatestPrice = isLatestPrice1 && isLatestPrice2;
             tokenAmount =
                 (usdAmountInWei * PRECISION ** 2) /
-                (ADDITIONAL_FEED_PRECISION ** 2 * wstETHToEthPrice * ethToUSDPrice);
+                (ADDITIONAL_FEED_PRECISION ** 2 * wstETHToEthPrice * ethToTUSDPrice);
         } else {
             (uint256 price, bool _isLatestPrice) = validatePriceFeedAndReturnValue(
                 s_priceFeeds[token]
@@ -306,10 +295,6 @@ contract TUSDEngine is TUSDEngineAbstract {
             isLatestPrice = _isLatestPrice;
             tokenAmount = ((usdAmountInWei * PRECISION) / (price * ADDITIONAL_FEED_PRECISION));
         }
-        // $100e18 USD Debt
-        // 1 ETH = 2000 USD
-        // The returned value from Chainlink will be 2000 * 1e8
-        // Most USD pairs have 8 decimals, so we will just pretend they all do
         uint256 finalAmount = (tokenAmount * 10 ** s_collateralDecimal[token]) / 10 ** 18;
         return (finalAmount, isLatestPrice);
     }
