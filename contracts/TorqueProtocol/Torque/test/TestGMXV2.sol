@@ -19,7 +19,6 @@ contract TestGMXV2 is Ownable {
     IERC20 public wethGMX;
     IERC20 public gmToken;
     IERC20 public usdcToken;
-    address marketAddress;
     // IERC20 public immutable
     address depositVault;
     address withdrawalVault;
@@ -42,25 +41,26 @@ contract TestGMXV2 is Ownable {
     }
 
     function depositGMX(uint256 _amount) public payable onlyOwner returns (uint256 gmTokenAmount) {
-        gmxExchange.sendWnt(depositVault, _amount);
+        gmxExchange.sendWnt{ value: _amount }(depositVault, _amount);
         IExchangeRouter.CreateDepositParams memory params = createDepositParams();
-        wethGMX.transferFrom(msg.sender, address(this), _amount);
-        wethGMX.approve(depositVault, _amount);
-        gmxExchange.createDeposit{ value: _amount }(params);
+        gmxExchange.createDeposit(params);
         gmTokenAmount = gmToken.balanceOf(address(this));
+        gmToken.transfer(msg.sender, gmTokenAmount);
     }
 
-    function _withdrawGMX(
+    function withdrawGMX(
         uint256 _amount
-    ) public payable onlyOwner returns (uint256 wethAmount, uint256 usdcAmount) {
-        gmxExchange.sendTokens(address(gmToken), withdrawalVault, _amount);
-        IExchangeRouter.CreateWithdrawalParams memory params = createWithdrawParams();
+    ) public payable onlyOwner returns (uint256 ethAmount, uint256 usdcAmount) {
         gmToken.transferFrom(msg.sender, address(this), _amount);
         gmToken.approve(withdrawalVault, _amount);
+        gmxExchange.sendTokens(address(gmToken), withdrawalVault, _amount);
+        IExchangeRouter.CreateWithdrawalParams memory params = createWithdrawParams();
         gmxExchange.createWithdrawal(params);
-        wethGMX.transfer(msg.sender, _amount);
-        wethAmount = wethGMX.balanceOf(address(this));
+        ethAmount = address(this).balance;
         usdcAmount = usdcToken.balanceOf(address(this));
+        (bool success, ) = msg.sender.call{ value: ethAmount }("");
+        require(success, "Transfer native token failed");
+        usdcToken.transfer(msg.sender, usdcAmount);
     }
 
     function createDepositParams()
@@ -69,15 +69,14 @@ contract TestGMXV2 is Ownable {
         returns (IExchangeRouter.CreateDepositParams memory)
     {
         IExchangeRouter.CreateDepositParams memory depositParams;
-        depositParams.callbackContract = address(this);
-        depositParams.callbackGasLimit = 0;
-        depositParams.executionFee = 0;
+        depositParams.receiver = address(this);
+        depositParams.market = address(gmToken);
         depositParams.initialLongToken = address(wethGMX);
         depositParams.initialShortToken = address(usdcToken);
-        depositParams.market = marketAddress;
-        depositParams.shouldUnwrapNativeToken = true;
-        depositParams.receiver = address(this);
         depositParams.minMarketTokens = 0;
+        depositParams.shouldUnwrapNativeToken = true;
+        depositParams.executionFee = 0; // Should check the execution fee later
+        depositParams.callbackGasLimit = 0;
 
         return depositParams;
     }
@@ -88,16 +87,13 @@ contract TestGMXV2 is Ownable {
         returns (IExchangeRouter.CreateWithdrawalParams memory)
     {
         IExchangeRouter.CreateWithdrawalParams memory withdrawParams;
-        withdrawParams.callbackContract = address(this);
-        withdrawParams.callbackGasLimit = 0;
-        withdrawParams.executionFee = 0;
-        // withdrawParams.initialLongToken = address(weth);
-        // withdrawParams.initialShortToken = address(usdcToken);
-        withdrawParams.market = marketAddress;
-        withdrawParams.shouldUnwrapNativeToken = true;
         withdrawParams.receiver = address(this);
+        withdrawParams.market = address(gmToken);
         withdrawParams.minLongTokenAmount = 0;
         withdrawParams.minShortTokenAmount = 0;
+        withdrawParams.shouldUnwrapNativeToken = true;
+        withdrawParams.executionFee = 0; // Should check the execution fee later
+        withdrawParams.callbackGasLimit = 0;
 
         return withdrawParams;
     }

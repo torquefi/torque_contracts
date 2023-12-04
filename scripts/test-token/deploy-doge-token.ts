@@ -3,9 +3,9 @@ import { ethers } from "hardhat";
 async function main() {
   const btc = await ethers.deployContract("Token", ["DOGE Token", "DOGE"]);
 
-  await btc.waitForDeployment();
+  await btc.deployed();
 
-  console.log(`DOGE token deployed at ${btc.target}`);
+  console.log(`DOGE token deployed at ${btc.address}`);
 }
 
 // We recommend this pattern to be able to use async/await everywhere

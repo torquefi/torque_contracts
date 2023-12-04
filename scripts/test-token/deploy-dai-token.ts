@@ -3,9 +3,9 @@ import { ethers } from "hardhat";
 async function main() {
   const dai = await ethers.deployContract("Token", ["DAI Token", "DAI"]);
 
-  await dai.waitForDeployment();
+  await dai.deployed();
 
-  console.log(`DAI token deployed at ${dai.target}`);
+  console.log(`DAI token deployed at ${dai.address}`);
 }
 
 // We recommend this pattern to be able to use async/await everywhere
