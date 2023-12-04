@@ -3,9 +3,9 @@ import { ethers } from "hardhat";
 async function main() {
   const gmx = await ethers.deployContract("Token", ["GMX Token", "GMX"]);
 
-  await gmx.waitForDeployment();
+  await gmx.deployed();
 
-  console.log(`GMX token deployed at ${gmx.target}`);
+  console.log(`GMX token deployed at ${gmx.address}`);
 }
 
 // We recommend this pattern to be able to use async/await everywhere

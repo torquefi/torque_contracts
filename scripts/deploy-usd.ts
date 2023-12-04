@@ -3,7 +3,7 @@ import { ethers } from "hardhat";
 async function main() {
   const usd = await ethers.deployContract("USD", []);
 
-  await usd.waitForDeployment();
+  await usd.deployed();
 
   console.log(`usd deployed at ${usd.target}`);
 }
