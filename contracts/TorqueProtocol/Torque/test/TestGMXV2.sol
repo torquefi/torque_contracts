@@ -22,7 +22,9 @@ contract TestGMXV2 is Ownable {
     // IERC20 public immutable
     address depositVault;
     address withdrawalVault;
+    address gmxRouter;
     IExchangeRouter public immutable gmxExchange;
+    uint256 executionFee = 1000000000000000; // amount of 0.001 ETH is equivalent to over 2$
 
     constructor(
         address _weth,
@@ -30,7 +32,8 @@ contract TestGMXV2 is Ownable {
         address _gmToken,
         address _usdcToken,
         address _depositVault,
-        address _withdrawalVault
+        address _withdrawalVault,
+        address _gmxRouter
     ) {
         wethGMX = IERC20(_weth);
         gmxExchange = IExchangeRouter(_gmxExchange);
@@ -38,6 +41,7 @@ contract TestGMXV2 is Ownable {
         usdcToken = IERC20(_usdcToken);
         depositVault = _depositVault;
         withdrawalVault = _withdrawalVault;
+        gmxRouter = _gmxRouter;
     }
 
     function depositGMX(uint256 _amount) public payable onlyOwner returns (uint256 gmTokenAmount) {
@@ -51,8 +55,9 @@ contract TestGMXV2 is Ownable {
     function withdrawGMX(
         uint256 _amount
     ) public payable onlyOwner returns (uint256 ethAmount, uint256 usdcAmount) {
+        gmxExchange.sendWnt{ value: executionFee }(withdrawalVault, executionFee);
         gmToken.transferFrom(msg.sender, address(this), _amount);
-        gmToken.approve(withdrawalVault, _amount);
+        gmToken.approve(gmxRouter, _amount);
         gmxExchange.sendTokens(address(gmToken), withdrawalVault, _amount);
         IExchangeRouter.CreateWithdrawalParams memory params = createWithdrawParams();
         gmxExchange.createWithdrawal(params);
@@ -75,7 +80,7 @@ contract TestGMXV2 is Ownable {
         depositParams.initialShortToken = address(usdcToken);
         depositParams.minMarketTokens = 0;
         depositParams.shouldUnwrapNativeToken = true;
-        depositParams.executionFee = 0; // Should check the execution fee later
+        depositParams.executionFee = executionFee; // Should check the execution fee later
         depositParams.callbackGasLimit = 0;
 
         return depositParams;
@@ -92,7 +97,7 @@ contract TestGMXV2 is Ownable {
         withdrawParams.minLongTokenAmount = 0;
         withdrawParams.minShortTokenAmount = 0;
         withdrawParams.shouldUnwrapNativeToken = true;
-        withdrawParams.executionFee = 0; // Should check the execution fee later
+        withdrawParams.executionFee = executionFee; // Should check the execution fee later
         withdrawParams.callbackGasLimit = 0;
 
         return withdrawParams;

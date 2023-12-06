@@ -8,6 +8,7 @@ async function main() {
     "0xaf88d065e77c8cC2239327C5EDb3A432268e5831", // USDC Token
     "F89e77e8Dc11691C9e8757e84aaFbCD8A67d7A55", // Deposit Vault
     "0x0628D46b5D145f183AdB6Ef1f2c97eD1C4701C55", // Withdraw Vault
+    "0x7452c558d45f8afC8c83dAe62C3f8A5BE19c71f6", // GMX Router
   ]);
 
   await testGMX.deployed();
