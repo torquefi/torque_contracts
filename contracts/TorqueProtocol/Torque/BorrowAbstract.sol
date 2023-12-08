@@ -53,7 +53,7 @@ abstract contract BorrowAbstract is UUPSUpgradeable, OwnableUpgradeable, Reentra
     address public comet;
     address public cometReward;
     address public engine;
-    address public tusd;
+    address public usd;
     address public rewardUtil;
     address public rewardToken;
     address public treasury;
@@ -93,7 +93,7 @@ abstract contract BorrowAbstract is UUPSUpgradeable, OwnableUpgradeable, Reentra
         baseAsset = _baseAsset;
         bulker = _bulker;
         engine = _engine;
-        tusd = _tusd;
+        usd = _tusd;
         treasury = _treasury;
         rewardUtil = _rewardUtil;
         rewardToken = _rewardToken;
@@ -126,7 +126,7 @@ abstract contract BorrowAbstract is UUPSUpgradeable, OwnableUpgradeable, Reentra
     }
 
     function setTusd(address _tusd) public onlyOwner{
-        tusd = _tusd;
+        usd = _tusd;
     }
     function setRepaySlippage(uint _repaySlippage) public onlyOwner{
         require(_repaySlippage < 100, "invalid value");
@@ -165,7 +165,7 @@ abstract contract BorrowAbstract is UUPSUpgradeable, OwnableUpgradeable, Reentra
         uint maxBorrow = getBorrowableUsdc(supplyAmount);
 
         // Get the amount of USD the user is allowed to mint for the given asset
-        (uint mintable,) = IUSDEngine(engine).getMintableTUSD(baseAsset, msg.sender, maxBorrow);
+        (uint mintable,) = ITUSDEngine(engine).getMintableTUSD(baseAsset, msg.sender, maxBorrow);
         return mintable;
     }
     // Gets max amount that can be borrowed by supplied asset
