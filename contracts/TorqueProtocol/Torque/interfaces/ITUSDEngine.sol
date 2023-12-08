@@ -11,7 +11,8 @@ interface ITUSDEngine {
     function depositCollateralAndMintTusd(
         address tokenCollateralAddress,
         uint256 amountCollateral,
-        uint256 amounUSDToMint
+        uint256 amounUSDToMint,
+        address onBehalfUser
     ) external payable;
 
     function getBurnableTUSD(
@@ -23,6 +24,7 @@ interface ITUSDEngine {
     function redeemCollateralForTusd(
         address tokenCollateralAddress,
         uint256 amountCollateral,
-        uint256 amountUSDToBurn
+        uint256 amountUSDToBurn,
+        address onBehalfUser
     ) external payable;
 }
