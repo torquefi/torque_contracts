@@ -80,6 +80,7 @@ abstract contract BorrowAbstract is UUPSUpgradeable, OwnableUpgradeable, Reentra
     mapping(address => BorrowInfo) public borrowInfoMap;
     uint public totalBorrow;
     uint public totalSupplied;
+    uint public repaySlippage;
     event UserBorrow(address user, address collateralAddress, uint amount);
     event UserRepay(address user, address collateralAddress, uint repayAmount, uint claimAmount);
     
@@ -98,6 +99,7 @@ abstract contract BorrowAbstract is UUPSUpgradeable, OwnableUpgradeable, Reentra
         rewardToken = _rewardToken;
         IComet(comet).allow(_bulker, true);
         claimPeriod = 86400;
+        repaySlippage = 2;
         __Ownable_init();
         __ReentrancyGuard_init();
     }
@@ -126,14 +128,44 @@ abstract contract BorrowAbstract is UUPSUpgradeable, OwnableUpgradeable, Reentra
     function setTusd(address _tusd) public onlyOwner{
         tusd = _tusd;
     }
+    function setRepaySlippage(uint _repaySlippage) public onlyOwner{
+        require(_repaySlippage < 100, "invalid value");
+        repaySlippage = _repaySlippage;
+    }
+
+    function setTotalSupplied(uint _totalSupplied) public onlyOwner{
+        totalSupplied = _totalSupplied;
+    }
+    function setTotalBorrow(uint _totalBorrow) public onlyOwner{
+        totalBorrow = _totalBorrow;
+    }
     // End test
 
+
+    //get collatral factor scale up by 1e18
+    function getCollateralFactor() public view returns (uint){
+        IComet icomet = IComet(comet);
+        AssetInfo memory info = icomet.getAssetInfoByAddress(asset);
+        return info.borrowCollateralFactor;
+    }
+
+    // Gets max amount that can be borrowed by current user's supplied asset
+    function getUserBorrowable(address _user) public view returns (uint){
+        BorrowInfo storage userBorrowInfo = borrowInfoMap[_user];
+        if(userBorrowInfo.supplied > 0) {
+            return 0;
+        }
+        uint assetSupplyAmount = userBorrowInfo.supplied;
+        uint maxUsdc = getBorrowableUsdc(assetSupplyAmount);
+        uint maxUsd = getBorrowable(maxUsdc);
+        return maxUsd;
+    }
     // Gets max amount that can be borrowed by supplied asset
     function getBorrowable(uint supplyAmount) public view returns (uint){
         uint maxBorrow = getBorrowableUsdc(supplyAmount);
 
-        // Get the amount of TUSD the user is allowed to mint for the given asset
-        (uint mintable,) = ITUSDEngine(engine).getMintableTUSD(baseAsset, address(this), maxBorrow);
+        // Get the amount of USD the user is allowed to mint for the given asset
+        (uint mintable,) = IUSDEngine(engine).getMintableTUSD(baseAsset, msg.sender, maxBorrow);
         return mintable;
     }
     // Gets max amount that can be borrowed by supplied asset
@@ -224,7 +256,7 @@ abstract contract BorrowAbstract is UUPSUpgradeable, OwnableUpgradeable, Reentra
     receive() external payable {
     }
 
-    function buildBorrowAction() pure public returns(bytes32[] memory) {
+    function buildBorrowAction() pure virtual public returns(bytes32[] memory) {
         bytes32[] memory actions = new bytes32[](2);
         actions[0] = ACTION_SUPPLY_ASSET;
         actions[1] = ACTION_WITHDRAW_ASSET;
@@ -235,7 +267,7 @@ abstract contract BorrowAbstract is UUPSUpgradeable, OwnableUpgradeable, Reentra
         actions[0] = ACTION_WITHDRAW_ASSET;
         return actions;
     }
-    function buildRepay() pure public returns(bytes32[] memory) {
+    function buildRepay() pure virtual public returns(bytes32[] memory) {
         bytes32[] memory actions = new bytes32[](2);
 
         actions[0] = ACTION_SUPPLY_ASSET;

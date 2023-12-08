@@ -14,14 +14,10 @@ import "./BorrowAbstract.sol";
 contract ETHBorrow is BorrowAbstract {
     using SafeMath for uint256;
 
-    // Allows a user to borrow Torque USD
-    function borrow(uint borrowAmount, uint tusdBorrowAmount) public payable nonReentrant {
-        // Get the amount of TUSD the user is allowed to mint for the given asset
-        (uint mintable, bool canMint) = ITUSDEngine(engine).getMintableTUSD(
-            baseAsset,
-            address(this),
-            borrowAmount
-        );
+     // Allows a user to borrow Torque USD
+    function borrow(uint borrowAmount, uint usdBorrowAmount) public payable nonReentrant(){
+        // Get the amount of USD the user is allowed to mint for the given asset
+	    (uint mintable, bool canMint) = IUSDEngine(engine).getMintableTUSD(baseAsset, msg.sender, borrowAmount);
         // Ensure user is allowed to mint and doesn't exceed mintable limit
         require(canMint, "User can not mint more TUSD");
         require(mintable > tusdBorrowAmount, "Exceeds borrow amount");
@@ -37,12 +33,6 @@ contract ETHBorrow is BorrowAbstract {
 
         // Ensure the user isn't trying to borrow more than what's allowed
         require(borrowable >= borrowAmount, "Borrow cap exceeded");
-
-        // Transfer the asset from the user to this contract as collateral
-        require(
-            ERC20(asset).transferFrom(msg.sender, address(this), supplyAmount),
-            "Transfer asset failed"
-        );
 
         // If user has borrowed before, calculate accrued interest and reward
         uint accruedInterest = 0;
@@ -85,12 +75,8 @@ contract ETHBorrow is BorrowAbstract {
         // Check the balance of TUSD before the minting operation
         uint tusdBefore = ERC20(tusd).balanceOf(address(this));
 
-        // Mint the TUSD equivalent of the borrowed asset
-        ITUSDEngine(engine).depositCollateralAndMintTusd{ value: 0 }(
-            baseAsset,
-            borrowAmount,
-            tusdBorrowAmount
-        );
+        // Mint the USD equivalent of the borrowed asset
+        IUSDEngine(engine).depositCollateralAndMintTusd{value:0}(baseAsset, borrowAmount, usdBorrowAmount, msg.sender);
 
         // Ensure the expected TUSD amount was minted
         uint expectedTusd = tusdBefore.add(tusdBorrowAmount);
@@ -105,30 +91,17 @@ contract ETHBorrow is BorrowAbstract {
     function repay(uint tusdRepayAmount) public nonReentrant {
         BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
 
-        (uint withdrawUsdcAmountFromEngine, bool burnable) = ITUSDEngine(engine).getBurnableTUSD(
-            baseAsset,
-            address(this),
-            tusdRepayAmount
-        );
+        (uint withdrawUsdcAmountFromEngine, bool burnable) = IUSDEngine(engine).getBurnableTUSD(baseAsset, msg.sender, usdRepayAmount);
         require(burnable, "Not burnable");
-        require(
-            userBorrowInfo.borrowed >= withdrawUsdcAmountFromEngine,
-            "Exceeds current borrowed amount"
-        );
-        require(
-            ERC20(tusd).transferFrom(msg.sender, address(this), tusdRepayAmount),
-            "Transfer asset failed"
-        );
+        withdrawUsdcAmountFromEngine = withdrawUsdcAmountFromEngine.mul(100 - repaySlippage).div(100);
+        require(userBorrowInfo.borrowed >= withdrawUsdcAmountFromEngine, "Exceeds current borrowed amount");
+        require(ERC20(usd).transferFrom(msg.sender,address(this), usdRepayAmount), "Transfer asset failed");
 
         uint baseAssetBalanceBefore = ERC20(baseAsset).balanceOf(address(this));
 
         ERC20(tusd).approve(address(engine), tusdRepayAmount);
 
-        ITUSDEngine(engine).redeemCollateralForTusd(
-            baseAsset,
-            withdrawUsdcAmountFromEngine,
-            tusdRepayAmount
-        );
+        IUSDEngine(engine).redeemCollateralForTusd(baseAsset, withdrawUsdcAmountFromEngine, usdRepayAmount, msg.sender);
 
         uint baseAssetBalanceExpected = baseAssetBalanceBefore.add(withdrawUsdcAmountFromEngine);
         require(
@@ -203,5 +176,19 @@ contract ETHBorrow is BorrowAbstract {
     function getTotalAmountBorrowed(address user) public view returns (uint) {
         BorrowInfo storage userInfo = borrowInfoMap[user];
         return userInfo.borrowed;
+    }
+
+    function buildBorrowAction() pure override public returns(bytes32[] memory) {
+        bytes32[] memory actions = new bytes32[](2);
+        actions[0] = ACTION_SUPPLY_ETH;
+        actions[1] = ACTION_WITHDRAW_ASSET;
+        return actions;
+    }
+    function buildRepay() pure override public returns(bytes32[] memory) {
+        bytes32[] memory actions = new bytes32[](2);
+
+        actions[0] = ACTION_SUPPLY_ASSET;
+        actions[1] = ACTION_WITHDRAW_ETH;
+        return actions;
     }
 }
