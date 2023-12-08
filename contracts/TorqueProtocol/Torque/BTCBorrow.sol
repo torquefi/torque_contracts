@@ -16,10 +16,10 @@ contract BTCBorrow is BorrowAbstract{
 
     // Allows a user to borrow Torque USD
 
-    function borrow(uint supplyAmount, uint borrowAmount, uint usdBorrowAmount) public nonReentrant(){
+    function borrow(uint supplyAmount, uint borrowAmount, uint tusdBorrowAmount) public nonReentrant(){
         
         // Get the amount of USD the user is allowed to mint for the given asset
-        (uint mintable, bool canMint) = IUSDEngine(engine).getMintableTUSD(baseAsset, msg.sender, borrowAmount);
+        (uint mintable, bool canMint) = ITUSDEngine(engine).getMintableTUSD(baseAsset, msg.sender, borrowAmount);
 
         // Ensure user is allowed to mint and doesn't exceed mintable limit
         require(canMint, "User can not mint more TUSD");
@@ -86,17 +86,17 @@ contract BTCBorrow is BorrowAbstract{
         ERC20(baseAsset).approve(address(engine), borrowAmount);
 
         // Check the balance of TUSD before the minting operation
-        uint tusdBefore = ERC20(tusd).balanceOf(address(this));
+        uint tusdBefore = ERC20(usd).balanceOf(address(this));
 
         // Mint the USD equivalent of the borrowed asset
-        IUSDEngine(engine).depositCollateralAndMintTusd(baseAsset, borrowAmount, usdBorrowAmount, msg.sender);
+        ITUSDEngine(engine).depositCollateralAndMintTusd(baseAsset, borrowAmount, tusdBorrowAmount, msg.sender);
 
         // Ensure the expected TUSD amount was minted
         uint expectedTusd = tusdBefore.add(tusdBorrowAmount);
 
-        require(expectedTusd == ERC20(tusd).balanceOf(address(this)), "Invalid amount");
+        require(expectedTusd == ERC20(usd).balanceOf(address(this)), "Invalid amount");
 
-        require(ERC20(tusd).transfer(msg.sender, tusdBorrowAmount), "Transfer token failed");
+        require(ERC20(usd).transfer(msg.sender, tusdBorrowAmount), "Transfer token failed");
         totalBorrow = totalBorrow.add(tusdBorrowAmount);
         totalSupplied = totalSupplied.add(supplyAmount);
     }
@@ -105,17 +105,17 @@ contract BTCBorrow is BorrowAbstract{
     function repay(uint tusdRepayAmount) public nonReentrant {
         BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
 
-        (uint withdrawUsdcAmountFromEngine, bool burnable) = IUSDEngine(engine).getBurnableTUSD(baseAsset, msg.sender, usdRepayAmount);
+        (uint withdrawUsdcAmountFromEngine, bool burnable) = ITUSDEngine(engine).getBurnableTUSD(baseAsset, msg.sender, tusdRepayAmount);
         require(burnable, "Not burnable");
 
         withdrawUsdcAmountFromEngine = withdrawUsdcAmountFromEngine.mul(100 - repaySlippage).div(100);
         require(userBorrowInfo.borrowed >= withdrawUsdcAmountFromEngine, "Exceeds current borrowed amount");
-        require(ERC20(usd).transferFrom(msg.sender,address(this), usdRepayAmount), "Transfer assets failed");
+        require(ERC20(usd).transferFrom(msg.sender,address(this), tusdRepayAmount), "Transfer assets failed");
 
         uint baseAssetBalanceBefore = ERC20(baseAsset).balanceOf(address(this));
 
-        ERC20(usd).approve(address(engine), usdRepayAmount);
-        IUSDEngine(engine).redeemCollateralForTusd(baseAsset, withdrawUsdcAmountFromEngine, usdRepayAmount, msg.sender);
+        ERC20(usd).approve(address(engine), tusdRepayAmount);
+        ITUSDEngine(engine).redeemCollateralForTusd(baseAsset, withdrawUsdcAmountFromEngine, tusdRepayAmount, msg.sender);
 
         uint baseAssetBalanceExpected = baseAssetBalanceBefore.add(withdrawUsdcAmountFromEngine);
         require(
