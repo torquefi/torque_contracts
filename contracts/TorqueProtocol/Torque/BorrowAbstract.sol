@@ -157,15 +157,15 @@ abstract contract BorrowAbstract is UUPSUpgradeable, OwnableUpgradeable, Reentra
         }
         uint assetSupplyAmount = userBorrowInfo.supplied;
         uint maxUsdc = getBorrowableUsdc(assetSupplyAmount);
-        uint maxUsd = getBorrowable(maxUsdc);
+        uint maxUsd = getBorrowable(maxUsdc, _user);
         return maxUsd;
     }
     // Gets max amount that can be borrowed by supplied asset
-    function getBorrowable(uint supplyAmount) public view returns (uint){
+    function getBorrowable(uint supplyAmount, address _user) public view returns (uint){
         uint maxBorrow = getBorrowableUsdc(supplyAmount);
 
         // Get the amount of USD the user is allowed to mint for the given asset
-        (uint mintable,) = ITUSDEngine(engine).getMintableTUSD(baseAsset, msg.sender, maxBorrow);
+        (uint mintable,) = ITUSDEngine(engine).getMintableTUSD(baseAsset, _user, maxBorrow);
         return mintable;
     }
     // Gets max amount that can be borrowed by supplied asset
