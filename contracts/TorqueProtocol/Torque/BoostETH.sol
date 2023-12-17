@@ -13,7 +13,6 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "./interfaces/IStargateLPStaking.sol";
-// import "../Interfaces/ISwapRouter.sol"; // upgrade to Uniswap V3
 import "./interfaces/ISwapRouterV3.sol";
 import "./interfaces/IWETH.sol";
 
@@ -216,25 +215,5 @@ contract BoostETH is Ownable, GMXV2ETH, StargateETH {
     function updateTreasuryProportion(uint256 _treasuryProportion) public onlyOwner {
         require(_treasuryProportion < DENOMINATOR, "Invalid treasury proportion");
         treasuryProportion = _treasuryProportion;
-    }
-
-    // For test
-    function swapETHToSTG() public payable {
-        // IWETH weth = IWETH(WETH);
-        uint256 _amount = msg.value;
-        // weth.deposit{ value: _amount }();
-        IERC20 tokenInterface = IERC20(WETH);
-        tokenInterface.approve(address(swapRouter), _amount);
-        ISwapRouterV3.ExactInputSingleParams memory params = ISwapRouterV3.ExactInputSingleParams({
-            tokenIn: WETH,
-            tokenOut: address(stargateInterface),
-            fee: 10000,
-            recipient: msg.sender,
-            deadline: block.timestamp + 1000000,
-            amountIn: _amount,
-            amountOutMinimum: 0,
-            sqrtPriceLimitX96: 0
-        });
-        swapRouter.exactInputSingle(params);
     }
 }
