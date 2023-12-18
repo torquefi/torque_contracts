@@ -15,14 +15,15 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-// import "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 
 import "./../vToken.sol";
 
-contract UniswapUSD is Ownable, ReentrancyGuard {
+contract UniswapCOMP is ERC4626, Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
-    // Logic to supply 25% of deposit as USDC and 25% of deposit as Torque USD to Uniswap V3 0.01 pool
-    // Logic for auto-compounding USDC and Torque USD fees to grow the liquidity provider's position
-    // Logic to direct performance fee to treasury with 12 hr min duration between calls
+    // Logic to supply COMP deposits to Uniswap V3 pool
+    // Logic for auto-compounding fees to grow LPs position
+    // Logic to direct performance fee to treasury
+
 }

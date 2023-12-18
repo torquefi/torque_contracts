@@ -21,7 +21,7 @@ import "./../interfaces/IExchangeRouter.sol";
 // import "./..interfaces/IWithdrawCallback.sol";
 import "./../interfaces/IGMXV2ETH.sol";
 
-// @dev I imported all GMX interfaces that should be needed to be implemented.
+// @dev should implement the above GMX interfaces
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
