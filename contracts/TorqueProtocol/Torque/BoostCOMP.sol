@@ -11,20 +11,23 @@ pragma solidity ^0.8.15;
 
 import "./interfaces/ISwapRouterV3.sol";
 import "./interfaces/INonfungiblePositionManager.sol";
-import "./interfaces/IComet.sol";
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-import "./TorqueUSD.sol"; // Need to implement mint and burn tETH logic
+import "./vaults/SushiCOMP.sol";
+import "./vaults/UniswapCOMP.sol";
 
-// import "./RewardUtil"; // Need to implement reward distribution setup
+import "./tToken.sol";
+import "./RewardUtil";
 
-contract BoostTUSD is Ownable, ReentrancyGuard {
+contract BoostCOMP is Ownable, ReentrancyGuard {
     using SafeMath for uint256;
 
-    // Logic handling dynamically-allocated deposits to and withdrawals from child vaults
-    // Logic to swap 75% of deposited Torque USD to USDC for further child vault routing
+    // Logic to mint and burn receipt token
+    // Logic to split deposits between child vaults
+    // Logic to manage fees and rewards
+
 }
