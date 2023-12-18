@@ -21,6 +21,9 @@ import "./interfaces/IGMX.sol";
 import "./vaults/StargateETH.sol";
 import "./vaults/GMXV2ETH.sol";
 
+import "./tToken.sol"; // need to implement
+import "./RewardUtil"; // need to implement
+
 contract BoostETH is Ownable, GMXV2ETH, StargateETH {
     using SafeMath for uint256;
     // variables and mapping
