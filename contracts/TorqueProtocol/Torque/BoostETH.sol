@@ -161,7 +161,6 @@ contract BoostETH is Ownable, GMXV2ETH, StargateETH {
         }
     }
 
-    // internal functions
     function calculateTotalProduct(uint256 _pid) internal view returns (uint256) {
         address[] memory stakes = stakeHolders;
         uint256 totalProduct = 0;
