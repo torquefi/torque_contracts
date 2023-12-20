@@ -53,11 +53,7 @@ contract BoostTORQ is Ownable, ReentrancyGuard {
     
     function deposit(uint256 amount) external nonReentrant {
         require(amount > 0, "BoostTORQ: Deposit amount must be greater than zero");
-
-        // Split 50/50 between RedactedTORQ and UniswapTORQ
         uint256 half = amount.div(2);
-
-        // Transfer funds to children
         require(
             IERC20(tTokenContract).transferFrom(msg.sender, address(redactedTORQ), half),
             "BoostTORQ: Transfer to RedactedTORQ failed"
@@ -66,42 +62,25 @@ contract BoostTORQ is Ownable, ReentrancyGuard {
             IERC20(tTokenContract).transferFrom(msg.sender, address(uniswapTORQ), amount.sub(half)),
             "BoostTORQ: Transfer to UniswapTORQ failed"
         );
-
-        // Mint tToken to the user
         tTokenContract.mint(msg.sender, amount);
-
         emit Deposit(msg.sender, amount);
     }
     
     function withdraw(uint256 amount) external nonReentrant {
         require(amount > 0, "Amount must be greater than zero");
         require(tTokenContract.balanceOf(msg.sender) >= amount, "Insufficient balance");
-
-        // Calculate the proportion of funds to withdraw from each child vault
         uint256 half = amount.div(2);
-
-        // Withdraw from child vaults and receive assets in BoostTORQ
-        redactedTORQ.withdraw(half); // Assumes RedactedTORQ sends funds to BoostTORQ
-        uniswapTORQ.withdraw(amount.sub(half)); // Assumes UniswapTORQ sends funds to BoostTORQ
-
-        // Process and convert assets received
+        redactedTORQ.withdraw(half);
+        uniswapTORQ.withdraw(amount.sub(half)); 
         uint256 totalTorqAmount = processAndConvertAssets();
-
         uint256 fee = 0;
             if (block.timestamp < lastDepositTime[msg.sender] + 7 days) {
-            // Apply a 10% early exit fee
             fee = amount / 10;
-            amount -= fee;
-            // Transfer the fee to the treasury
+            amount -= fee; 
             torqToken.safeTransfer(treasury, fee);
         }
-
-        // Distribute TORQ to the user
         torqToken.safeTransfer(msg.sender, totalTorqAmount);
-
-        // Burn tTokens to reflect the withdrawal
         tTokenContract.burn(msg.sender, amount);
-
         emit Withdrawal(msg.sender, amount);
     }
 
@@ -131,14 +110,12 @@ contract BoostTORQ is Ownable, ReentrancyGuard {
     function compoundFees() external onlyOwner nonReentrant {
         // Logic for auto-compounding fees
         // 12 hr minimum duration between calls
-
         emit FeesCompounded();
     }
 
     function collectFees() external onlyOwner nonReentrant {
         // Logic for collecting performance fees
         // 12 hr minimum duration between calls
-
         emit FeesCollected();
     }
 
@@ -154,9 +131,7 @@ contract BoostTORQ is Ownable, ReentrancyGuard {
     function collectFeesFromChildVaults() internal returns (uint256 torqFees, uint256 wethFees) {
         // Collect fees from each child vault (e.g., redactedTORQ, uniswapTORQ)
         // Each child vault should have a function that returns the amount of fees in TORQ and WETH
-
         return (torqFees, wethFees);
-    }
         // Execute the swap and return the amount of TORQ received
         uint256 torqReceived = uniswapRouter.exactInputSingle(params);
         return torqReceived;
@@ -164,52 +139,34 @@ contract BoostTORQ is Ownable, ReentrancyGuard {
 
     function redepositTORQ(uint256 torqAmount) internal {
         require(torqAmount > 0, "No TORQ to redeposit");
-
-        // Assuming your strategy involves multiple child vaults,
-        // you might want to split the TORQ amount and redeposit into each.
-        // For simplicity, let's assume an equal split between two child vaults.
         uint256 half = torqAmount / 2;
-
-        // Ensure the BoostTORQ contract has enough TORQ balance to redeposit
         uint256 torqBalance = torqToken.balanceOf(address(this));
         require(torqBalance >= torqAmount, "Insufficient TORQ balance");
-
-        // Approve child vaults to take the TORQ tokens
         require(torqToken.approve(address(redactedTORQ), half), "TORQ approval failed for RedactedTORQ");
         require(torqToken.approve(address(uniswapTORQ), half), "TORQ approval failed for UniswapTORQ");
-
-        // Redeposit into child vaults
-        redactedTORQ.depositTORQ(half); // Assuming a depositTORQ function exists in RedactedTORQ
-        uniswapTORQ.depositTORQ(half); // Assuming a depositTORQ function exists in UniswapTORQ
-
-        // Emit an event if necessary, e.g., RedepositCompleted
+        redactedTORQ.depositTORQ(half);
+        uniswapTORQ.depositTORQ(half); 
         emit RedepositCompleted(torqAmount);
     }
 
-    // Process and convert assets received from child vaults
     function processAndConvertAssets() internal returns (uint256) {
-        // Retrieve balances of TORQ and WETH in BoostTORQ
         uint256 torqBalance = torqToken.balanceOf(address(this));
         uint256 wethBalance = wethToken.balanceOf(address(this));
-
-        // Convert WETH to TORQ (implement this logic based on your swapping mechanism)
         uint256 convertedTorq = convertWETHtoTORQ(wethBalance);
-
         return torqBalance.add(convertedTorq);
     }
 
     function convertWETHtoTORQ(uint256 wethAmount) internal returns (uint256) {
-        // Approve the Uniswap router to spend WETH
         require(wethToken.approve(address(uniswapRouter), wethAmount), "WETH approval failed");
 
         ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
             tokenIn: address(wethToken),
             tokenOut: address(torqToken),
-            fee: 3000, // Assuming a 0.3% pool fee tier
+            fee: 3000, // 0.3% pool fee tier
             recipient: address(this),
-            deadline: block.timestamp + 15 minutes, // 15 minute deadline
+            deadline: block.timestamp + 15 minutes,
             amountIn: wethAmount,
-            amountOutMinimum: 99.5, // Replace with a reasonable minimum amount based on slippage tolerance
+            amountOutMinimum: 99.5, // Rasonable minimum amount based on slippage tolerance
             sqrtPriceLimitX96: 0
         });
 
@@ -219,32 +176,16 @@ contract BoostTORQ is Ownable, ReentrancyGuard {
 
     function calculateMinimumAmountOut(uint256 wethAmount) internal view returns (uint256) {
         uint256 currentPrice = getLatestPrice(); // Price of 1 WETH in terms of TORQ
-
-        // Calculate the expected amount of TORQ
         uint256 expectedTorq = wethAmount * currentPrice;
-
-        // Define slippage tolerance, e.g., 0.5%
         uint256 slippageTolerance = 5; // Representing 0.5%
-
-        // Calculate minimum amount of TORQ after slippage
         uint256 amountOutMinimum = expectedTorq * (1000 - slippageTolerance) / 1000;
-
         return amountOutMinimum;
     }
 
     function getLatestPrice() internal view returns (uint256) {
         (uint160 sqrtPriceX96,,,,,,) = uniswapV3Pool.slot0();
         // Convert the sqrt price to a regular price
-        // This example assumes the pool consists of WETH and TORQ, and WETH is token0
+        // Assumes pool consists of WETH and TORQ, WETH is token0
         return uint256(sqrtPriceX96) * uint256(sqrtPriceX96) * 1e18 >> (96 * 2);
-    }
-
-    function distributeFee(uint256 fee) internal {
-        // Distribute the fee proportionally to all depositors
-        for (address user : allUsers) { // Assume you have a list of all users
-            uint256 userShare = userShares[user];
-            uint256 userFee = fee * userShare / totalShares;
-            torqToken.safeTransfer(user, userFee);
-        }  
     }
 }
