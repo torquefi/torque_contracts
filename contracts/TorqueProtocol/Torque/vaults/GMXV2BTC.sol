@@ -21,17 +21,14 @@ import "./../interfaces/IExchangeRouter.sol";
 // import "./..interfaces/IWithdrawCallback.sol";
 import "./../interfaces/IGMXV2ETH.sol";
 
-// @dev should implement the above GMX interfaces
-
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 
 import "./../vToken.sol";
 
-contract GMXV2BTC is ERC4626, Ownable, ReentrancyGuard, IGMXV2ETH {
+contract GMXV2BTC is Ownable, ReentrancyGuard, IGMXV2ETH {
     using SafeERC20 for IERC20;
 
     // Logic to supply WBTC deposits to GMX V2 pool

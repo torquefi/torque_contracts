@@ -12,9 +12,6 @@ pragma solidity 0.8.19;
 import "./TUSDEngineAbstract.sol";
 
 contract TUSDEngine is TUSDEngineAbstract {
-    ///////////////////
-    // Functions
-    ///////////////////
 
     constructor(
         address[] memory tokenAddresses,
@@ -32,10 +29,7 @@ contract TUSDEngine is TUSDEngineAbstract {
         )
     {}
 
-    ///////////////////
-    // External Functions
-    ///////////////////
-    /*
+     /*
      * @param tokenCollateralAddress: The ERC20 token address of the collateral you're depositing
      * @param amountCollateral: The amount of collateral you're depositing
      * @param amountUSD;ToMint: The amount of TUSD you want to mint

@@ -13,7 +13,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-// This contract represents a vault receipt token minted to vehicles and burned from them to fetch assets from child vaults.
+// This represents a liquid token for increased child-vault visbility
 
 contract vToken is ERC20, Ownable, ReentrancyGuard {
     // Token supply cap
@@ -75,8 +75,9 @@ contract vToken is ERC20, Ownable, ReentrancyGuard {
     // Sets a new cap, restricted to contract owner
     function setCap(uint256 newCap) public virtual onlyOwner {
         require(newCap > totalSupply(), "vToken: new cap must be greater than total supply");
-        emit CapChanged(_cap, newCap);
         _cap = newCap;
+
+        emit CapChanged(_cap, newCap);
     }
 
     // Delegate managerial responsibility to a new address, restricted to contract owner
@@ -95,8 +96,8 @@ contract vToken is ERC20, Ownable, ReentrancyGuard {
     // Sets a new cap, restricted to the manager
     function setCapByManager(uint256 newCap) public virtual onlyManager {
         require(newCap > totalSupply(), "vToken: new cap must be greater than total supply");
-        emit CapChanged(_cap, newCap);
         _cap = newCap;
+        emit CapChanged(_cap, newCap);
     }
 
     // Approve a contract address, restricted to contract owner
