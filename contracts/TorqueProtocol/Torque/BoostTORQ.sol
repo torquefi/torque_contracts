@@ -22,33 +22,82 @@ import "./vaults/UniswapTORQ.sol";
 
 import "./tToken.sol";
 import "./RewardUtil";
+import "./RewardUtilConfig.sol";
+
+interface IUniswapV3Pool {
+    function slot0() external view returns (
+        uint160 sqrtPriceX96,
+        int24 tick,
+        uint16 observationIndex,
+        uint16 observationCardinality,
+        uint16 observationCardinalityNext,
+        uint8 feeProtocol,
+        bool unlocked
+    );
+}
 
 contract BoostTORQ is Ownable, ReentrancyGuard {
     using SafeMath for uint256;
+
+    address public treasury;
+    address public rewardDistributionConfig;
+    ISwapRouter public immutable uniswapRouter;
+    IERC20 public immutable wethToken;
+    IERC20 public immutable torqToken;
+    Allocation public currentAllocation;
+    RewardUtil public rewardUtil;
+    RewardUtilConfig public rewardUtilConfig;
+    ISwapRouter.ExactInputSingleParams public params;
+    IUniswapV3Pool public uniswapV3Pool;
+    RedactedTORQ public redactedTORQ;
+    UniswapTORQ public uniswapTORQ;
 
     struct Allocation {
         uint256 redactedTORQPercent;
         uint256 uniswapTORQPercent;
     }
-    
-    ISwapRouter public immutable uniswapRouter;
-    IERC20 public immutable wethToken;
-    IERC20 public immutable torqToken;
-    Allocation public currentAllocation;
 
     event Deposit(address indexed user, uint256 amount);
     event Withdrawal(address indexed user, uint256 amount);
     event EtherSwept(address indexed treasury, uint256 amount);
     event TokensSwept(address indexed token, address indexed treasury, uint256 amount);
+    event UpdatedAllocation(uint256 redactedTORQPercent, uint256 uniswapTORQPercent);
+    event RedepositCompleted(uint256 amount);
     event FeesCompounded();
     event FeesCollected();
 
-    constructor(address _uniswapRouter, address _wethToken, address _torqToken) {
+    mapping(address => uint256) public lastDepositTime;
+
+    constructor(
+        address _treasury,
+        address _uniswapRouter,
+        address _wethToken,
+        address _torqToken,
+        address _uniswapV3PoolAddress,
+        address _rewardUtil,
+        address _rewardUtilConfig,
+        address _redactedTORQAddress,
+        address _uniswapTORQAddress) {
+        treasury = _treasury;
         uniswapRouter = ISwapRouter(_uniswapRouter);
         wethToken = IERC20(_wethToken);
         torqToken = IERC20(_torqToken);
-        currentAllocation = Allocation(50, 50);
         uniswapV3Pool = IUniswapV3Pool(_uniswapV3PoolAddress);
+        rewardUtil = RewardUtil(_rewardUtil);
+        rewardUtilConfig = RewardUtilConfig(_rewardUtilConfig);
+        redactedTORQ = RedactedTORQ(_redactedTORQAddress);
+        uniswapTORQ = UniswapTORQ(_uniswapTORQAddress);
+        currentAllocation = Allocation(50, 50);
+        params = ISwapRouter.ExactInputSingleParams(
+            address(wethToken),
+            address(torqToken),
+            3000, // Fee
+            address(this),
+            block.timestamp + 15 minutes,
+            0, // amountIn can set later
+            99.5, // amountOutMinimum
+            0 // sqrtPriceLimitX96
+        );
     }
     
     function deposit(uint256 amount) external nonReentrant {
@@ -62,6 +111,7 @@ contract BoostTORQ is Ownable, ReentrancyGuard {
             IERC20(tTokenContract).transferFrom(msg.sender, address(uniswapTORQ), amount.sub(half)),
             "BoostTORQ: Transfer to UniswapTORQ failed"
         );
+        lastDepositTime[msg.sender] = block.timestamp;
         tTokenContract.mint(msg.sender, amount);
         emit Deposit(msg.sender, amount);
     }
@@ -69,31 +119,29 @@ contract BoostTORQ is Ownable, ReentrancyGuard {
     function withdraw(uint256 amount) external nonReentrant {
         require(amount > 0, "Amount must be greater than zero");
         require(tTokenContract.balanceOf(msg.sender) >= amount, "Insufficient balance");
-        uint256 half = amount.div(2);
-        redactedTORQ.withdraw(half);
-        uniswapTORQ.withdraw(amount.sub(half)); 
-        uint256 totalTorqAmount = processAndConvertAssets();
         uint256 fee = 0;
             if (block.timestamp < lastDepositTime[msg.sender] + 7 days) {
             fee = amount / 10;
             amount -= fee; 
             torqToken.safeTransfer(treasury, fee);
         }
-        torqToken.safeTransfer(msg.sender, totalTorqAmount);
+        uint256 half = amount.div(2);
+        redactedTORQ.withdraw(half);
+        uniswapTORQ.withdraw(amount.sub(half));
+        uint256 totalTorqAmount = processAndConvertAssets();
         tTokenContract.burn(msg.sender, amount);
+        torqToken.safeTransfer(msg.sender, totalTorqAmount);
         emit Withdrawal(msg.sender, amount);
     }
 
     function sweep(address[] memory _tokens, address _treasury) external onlyOwner {
         for (uint256 i = 0; i < _tokens.length; i++) {
             IERC20 token = IERC20(_tokens[i]);
-            // Check if it's ETH (address 0x0)
             if (tokenAddress == address(0)) {
                 uint256 balance = address(this).balance;
                 _treasury.transfer(balance);
                 emit EtherSwept(_treasury, balance);
             } else {
-                // Handle ERC-20 token transfer as before
                 IERC20 token = IERC20(tokenAddress);
                 uint256 balance = token.balanceOf(address(this));
                 token.transfer(_treasury, balance);
@@ -126,6 +174,15 @@ contract BoostTORQ is Ownable, ReentrancyGuard {
     function setPerformanceFee(uint256 _performanceFee) external onlyOwner {
         require(_performanceFee <= 1000, "Invalid performance fee");
         performanceFee = _performanceFee;
+    }
+
+    function setRewardUtil(address _rewardUtil) external onlyOwner {
+        rewardUtil = RewardUtil(_rewardUtil);
+    }
+
+    function setRewardUtilConfig(address _config) external {
+        require(msg.sender == treasury, "Only treasury can set config");
+        rewardUtilConfig = _config;
     }
 
     function collectFeesFromChildVaults() internal returns (uint256 torqFees, uint256 wethFees) {
