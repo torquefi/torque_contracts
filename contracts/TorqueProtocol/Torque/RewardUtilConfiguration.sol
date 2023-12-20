@@ -11,24 +11,22 @@ pragma solidity ^0.8.15;
 
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "./RewardUtilConfiguration.sol";
 
-contract RewardUtil is Ownable {
+contract RewardUtilConfiguration is Ownable {
     using SafeMath for uint256;
+    
+    address public rewardToken;
+    uint256 public distributionRate;
+    uint256 public vestingPeriod;
 
-    RewardUtilConfiguration public rewardUtilConfig;
-
-    constructor(address _rewardDistributionConfig) {
-        rewardUtilConfig = RewardUtilConfiguration(_rewardUtilConfig);
+    constructor(address _rewardToken, uint256 _distributionRate, uint256 _vestingPeriod) {
+        rewardToken = _rewardToken;
+        distributionRate = _distributionRate;
+        vestingPeriod = _vestingPeriod;
     }
 
-    function calculateReward(uint _amount, uint _from) external view returns (uint) {
-        // Implement logic
-    }
-
-    function distributeReward(address user) external nonReentrant {
-        // Implement reward distribution logic here based on the configuration
-        // Use rewardDistributionConfig parameters for calculations
+    function updateConfiguration(uint256 _distributionRate, uint256 _vestingPeriod) external onlyOwner {
+        distributionRate = _distributionRate;
+        vestingPeriod = _vestingPeriod;
     }
 }
