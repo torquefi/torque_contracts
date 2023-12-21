@@ -11,7 +11,6 @@ pragma solidity ^0.8.15;
 
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./RewardUtilConfiguration.sol";
 
 contract RewardUtil is Ownable {
@@ -27,7 +26,7 @@ contract RewardUtil is Ownable {
         // Implement logic
     }
 
-    function distributeReward(address user) external nonReentrant {
+    function distributeReward(address user) external onlyOwner {
         // Implement reward distribution logic here based on the configuration
         // Use rewardDistributionConfig parameters for calculations
     }
