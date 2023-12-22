@@ -12,11 +12,7 @@ import "./IExchangeRouter.sol";
 //        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
 
 interface IGMXV2ETH {
-    function deposit(
-        IExchangeRouter.CreateWithdrawalParams calldata params
-    ) external returns (uint256 gmTokenAmount);
+    function deposit(IExchangeRouter.CreateDepositParams calldata params) external returns (uint256 gmTokenAmount);
 
-    function withdraw(
-        IExchangeRouter.CreateWithdrawalParams calldata params
-    ) external returns (uint256 wethAmount, uint256 usdcAmount);
+    function withdraw(IExchangeRouter.CreateWithdrawalParams calldata params) external returns (uint256 wethAmount, uint256 usdcAmount);
 }

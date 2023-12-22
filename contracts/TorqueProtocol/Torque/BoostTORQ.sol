@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.15;
+pragma solidity ^0.8.9;
 
 //  _________  ________  ________  ________  ___  ___  _______
 // |\___   ___\\   __  \|\   __  \|\   __  \|\  \|\  \|\  ___ \
@@ -22,7 +22,6 @@ import "./vaults/UniswapTORQ.sol";
 
 import "./tToken.sol";
 import "./RewardUtil";
-import "./RewardUtilConfig.sol";
 
 interface IUniswapV3Pool {
     function slot0() external view returns (
@@ -38,6 +37,7 @@ interface IUniswapV3Pool {
 
 contract BoostTORQ is Ownable, ReentrancyGuard {
     using SafeMath for uint256;
+    using SafeERC20 for IERC20;
 
     struct Config {
         address treasury;
