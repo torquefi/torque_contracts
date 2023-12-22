@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.15;
+pragma solidity ^0.8.9;
 
 //  _________  ________  ________  ________  ___  ___  _______
 // |\___   ___\\   __  \|\   __  \|\   __  \|\  \|\  \|\  ___ \
@@ -12,210 +12,105 @@ pragma solidity ^0.8.15;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+
 import "./interfaces/IStargateLPStaking.sol";
 import "./interfaces/ISwapRouterV3.sol";
 import "./interfaces/IWETH.sol";
-
 import "./interfaces/IGMX.sol";
 
-import "./vaults/StargateETH.sol";
-import "./vaults/GMXV2ETH.sol";
+import "./strategies/StargateETH.sol";
+import "./strategies/GMXV2ETH.sol";
 
-import "./tToken.sol"; // need to implement
-import "./RewardUtil"; // need to implement
+import "./tToken.sol";
+// import "./RewardUtil";
 
-contract BoostETH is Ownable, GMXV2ETH, StargateETH {
+contract BoostETH is Ownable, ReentrancyGuard {
     using SafeMath for uint256;
-    // variables and mapping
-    // IStargateLPStaking lpStaking;
-    IERC20 public stargateInterface;
-    ISwapRouterV3 public swapRouter;
-    IGMX public gmxInterface;
-    address constant WETH = 0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6;
-    address public Stargate;
-    mapping(address => uint256) public totalStack;
-    address treasuryWallet;
-    uint256 treasuryProportion;
-    uint256 constant DENOMINATOR = 10000;
-    address[] public stakeHolders;
+    using SafeERC20 for IERC20;
 
-    mapping(address => UserInfo) public userInfo;
-    mapping(address => mapping(uint256 => bool)) public isStakeHolder;
-
-    // structs and events
-    struct UserInfo {
-        uint256 amount;
-        uint256 amountToSTG;
-        uint256 amountFromGMX;
-        uint256 lastProcess;
+    struct Config {
+        address treasury;
+        uint256 gmxV2EthPercent;
+        uint256 stargateEthPercent;
+        uint256 performanceFee;
     }
 
-    // constructor and functions
+    struct Addresses {
+        // address rewardUtil;
+        address tTokenContract;
+        address wethTokenAddress;
+        address gmxV2EthVaultAddress;
+        address stargateEthVaultAddress;
+    }
+
+    Config public config;
+    Addresses public addresses;
+    IWETH public wethToken;
+    tToken public tTokenContract;
+    GMXV2ETH public gmxV2EthVault;
+    StargateETH public stargateEthVault;
+
+    event Deposited(address indexed user, uint256 amount);
+    event Withdrawal(address indexed user, uint256 amount);
+    event EtherSwept(address indexed treasury, uint256 amount);
+    event TokensSwept(address indexed token, address indexed treasury, uint256 amount);
+    event AllocationUpdated(uint256 redactedTORQPercent, uint256 uniswapTORQPercent);
+    event PerformanceFeesDistributed(address indexed treasury, uint256 amount);
+    event FeesCompounded();
+
     constructor(
-        address _stargateAddress,
-        address _swapRouter,
-        address _gmxAddress,
-        address _treasuryWallet,
-        uint256 _treasuryProportion,
-        address _weth,
-        address _vTokenAddress,
-        address _gmToken,
-        address _usdcToken,
-        address _depositVault,
-        address _withdrawalVault,
-        address _lpStaking
-    )
-        GMXV2ETH(
-            _weth,
-            _gmxAddress,
-            _vTokenAddress,
-            _gmToken,
-            _usdcToken,
-            _depositVault,
-            _withdrawalVault
-        )
-        StargateETH(_weth, _lpStaking)
-    {
-        stargateInterface = IERC20(_stargateAddress);
-        swapRouter = ISwapRouterV3(_swapRouter);
-        gmxInterface = IGMX(_gmxAddress);
-        treasuryWallet = _treasuryWallet;
-        treasuryProportion = _treasuryProportion;
+        address _wethTokenAddress,
+        address _tTokenContract,
+        address _gmxV2EthVaultAddress,
+        address _stargateEthVaultAddress,
+        address _treasury,
+        // address _rewardUtil
+    ) {
+        wethToken = IWETH(_wethTokenAddress);
+        tTokenContract = tToken(_tTokenContract);
+        gmxV2EthVault = GMXV2ETH(_gmxV2EthVaultAddress);
+        stargateEthVault = StargateETH(_stargateEthVaultAddress);
+        addresses.treasury = _treasury;
+        // addresses.rewardUtil = _rewardUtil;
+        config.gmxV2EthPercent = 50;
+        config.stargateEthPercent = 50;
+        config.performanceFee = 1000; // 10% performance fee
     }
 
-    function changeConfigAddress(address _stargateAddress, address _swapRouter) public onlyOwner {
-        stargateInterface = IERC20(_stargateAddress);
-        swapRouter = ISwapRouterV3(_swapRouter);
+    function deposit() external payable nonReentrant {
+        require(msg.value > 0, "Deposit amount must be greater than zero");
+        wethToken.deposit{value: msg.value}();
+        uint256 half = msg.value.div(2);
+        wethToken.approve(address(gmxV2EthVault), half);
+        gmxV2EthVault.deposit(half);
+        wethToken.approve(address(stargateEthVault), half);
+        stargateEthVault.deposit(half);
+        tTokenContract.mint(msg.sender, msg.value);
+        emit Deposited(msg.sender, msg.value, msg.value);
     }
 
-    function deposit(address _token, uint256 _amount) public payable {
-        IERC20 tokenInterface = IERC20(_token);
-        if (_token == WETH) {
-            require(msg.value >= _amount, "Not enough ETH");
-            // weth.{ value: _amount / 2 }();
-        } else {
-            tokenInterface.transferFrom(_msgSender(), address(this), _amount);
-        }
-
-        uint256 gmTokenAmount = this._depositGMX{ value: _amount / 2 }(_amount / 2);
-        this._depositStargate(_token, _amount / 2);
-        UserInfo storage _userInfo = userInfo[_msgSender()];
-        if (_userInfo.lastProcess == 0) {
-            address[] storage stakes = stakeHolders;
-            stakes.push(_msgSender());
-        }
-        _userInfo.amount = _userInfo.amount.add(_amount);
-        _userInfo.amountToSTG = _userInfo.amountToSTG.add(_amount / 2);
-        _userInfo.amountFromGMX = _userInfo.amountFromGMX.add(gmTokenAmount);
-        _userInfo.lastProcess = block.timestamp;
-        totalStack[_token] = totalStack[_token].add(_amount);
+    function withdraw(uint256 tTokenAmount) external nonReentrant {
+        require(tTokenAmount > 0, "Withdraw amount must be greater than zero");
+        require(tTokenContract.balanceOf(msg.sender) >= tTokenAmount, "Insufficient tToken balance");
+        uint256 ethAmount = calculateEthAmount(tTokenAmount);
+        require(ethAmount <= address(this).balance, "Insufficient ETH balance in contract");
+        gmxV2EthVault.withdraw(tTokenAmount.div(2));
+        stargateEthVault.withdraw(tTokenAmount.div(2));
+        tTokenContract.burn(msg.sender, tTokenAmount);
+        wethToken.withdraw(ethAmount);
+        (bool success, ) = msg.sender.call{value: ethAmount}("");
+        require(success, "ETH transfer failed");
+        emit Withdrawn(msg.sender, tTokenAmount, ethAmount);
     }
 
-    function withdraw(address _token, uint256 _amount) public payable {
-        UserInfo storage _userInfo = userInfo[_msgSender()];
-        uint256 currentAmount = _userInfo.amount;
-        _userInfo.amount = currentAmount.sub(_amount);
-        uint256 amountFromSTG = _userInfo.amountToSTG.mul(_amount).div(currentAmount);
-        uint256 amountToGMX = _userInfo.amountFromGMX.mul(_amount).div(currentAmount);
-        _userInfo.lastProcess = block.timestamp;
-        totalStack[_token] = totalStack[_token].sub(_amount);
-
-        IERC20 tokenInterface = IERC20(_token);
-        this._withdrawStargate(_token, amountFromSTG);
-        (uint256 wethAmount, uint256 usdcAmount) = this._withdrawGMX(amountToGMX);
-        uint256 usdcToWethAmount = swapUsdcToWeth(usdcAmount);
-        uint256 tokenFromGMX = wethAmount + usdcToWethAmount;
-
-        uint256 totalTokenReturn = tokenFromGMX + amountFromSTG;
-        if (_token == WETH) {
-            // weth.withdraw(amountFromSTG);
-            (bool success, ) = msg.sender.call{ value: totalTokenReturn }("");
-            require(success, "Transfer ETH failed");
-        } else {
-            tokenInterface.transfer(_msgSender(), _amount);
-        }
+    function calculateEthAmount(uint256 tTokenAmount) public view returns (uint256) {
+        uint256 totalSupply = tTokenContract.totalSupply();
+        if (totalSupply == 0) return 0;
+        uint256 ethBalance = address(this).balance;
+        return tTokenAmount.mul(ethBalance).div(totalSupply);
     }
 
-    function autoCompound(address _token) public {
-        IERC20 tokenInterface = IERC20(_token);
-        // TO-DO: modify the pid for this function
-        uint256 pid = 0;
-        uint256 totalProduction = calculateTotalProduct(pid);
-        lpStaking.withdraw(pid, totalStack[_token]);
-        uint256 rewardSTG = stargateInterface.balanceOf(address(this));
-        if (rewardSTG > 0) {
-            uint256 tokenReward = swapRewardSTGToToken(_token, rewardSTG);
-            uint256 treasuryReserved = tokenReward.mul(treasuryProportion).div(DENOMINATOR);
-            uint256 remainReward = tokenReward.sub(treasuryReserved);
-            tokenInterface.transfer(treasuryWallet, treasuryReserved);
-            address[] memory stakes = stakeHolders;
-            for (uint256 i = 0; i < stakes.length; i++) {
-                UserInfo storage _userInfo = userInfo[stakes[i]];
-                uint256 userProduct = calculateUserProduct(pid, stakes[i]);
-                uint256 reward = remainReward.mul(userProduct).div(totalProduction);
-                _userInfo.amount = _userInfo.amount.add(reward);
-            }
-            totalStack[_token] = totalStack[_token].add(remainReward);
-            tokenInterface.approve(address(lpStaking), totalStack[_token]);
-            lpStaking.deposit(pid, totalStack[_token]);
-        }
-    }
+    // Other functions
 
-    function calculateTotalProduct(uint256 _pid) internal view returns (uint256) {
-        address[] memory stakes = stakeHolders;
-        uint256 totalProduct = 0;
-        for (uint256 i = 0; i < stakes.length; i++) {
-            uint256 userProduct = calculateUserProduct(_pid, stakes[i]);
-            totalProduct = totalProduct.add(userProduct);
-        }
-        return totalProduct;
-    }
-
-    function calculateUserProduct(uint256 _pid, address _staker) internal view returns (uint256) {
-        UserInfo memory _userInfo = userInfo[_staker];
-        uint256 interval = block.timestamp.sub(_userInfo.lastProcess);
-        return interval.mul(_userInfo.amount);
-    }
-
-    function swapRewardSTGToToken(
-        address _token,
-        uint256 _stgAmount
-    ) internal returns (uint256 amountOut) {
-        stargateInterface.approve(address(swapRouter), _stgAmount);
-        ISwapRouterV3.ExactInputSingleParams memory params = ISwapRouterV3.ExactInputSingleParams({
-            tokenIn: address(stargateInterface),
-            tokenOut: _token,
-            fee: 10000,
-            recipient: address(this),
-            deadline: block.timestamp + 1000000,
-            amountIn: _stgAmount,
-            amountOutMinimum: 0,
-            sqrtPriceLimitX96: 0
-        });
-        amountOut = swapRouter.exactInputSingle(params);
-    }
-
-    function swapUsdcToWeth(uint256 _usdcAmountIn) internal returns (uint256 amountOut) {
-        stargateInterface.approve(address(swapRouter), _usdcAmountIn);
-        ISwapRouterV3.ExactInputSingleParams memory params = ISwapRouterV3.ExactInputSingleParams({
-            tokenIn: address(usdcToken),
-            tokenOut: WETH,
-            fee: 10000,
-            recipient: address(this),
-            deadline: block.timestamp + 1000000,
-            amountIn: _usdcAmountIn,
-            amountOutMinimum: 0,
-            sqrtPriceLimitX96: 0
-        });
-        amountOut = swapRouter.exactInputSingle(params);
-    }
-
-    function updateTreasury(address _treasuryWallet) public onlyOwner {
-        treasuryWallet = _treasuryWallet;
-    }
-
-    function updateTreasuryProportion(uint256 _treasuryProportion) public onlyOwner {
-        require(_treasuryProportion < DENOMINATOR, "Invalid treasury proportion");
-        treasuryProportion = _treasuryProportion;
-    }
+    receive() external payable {}
 }
