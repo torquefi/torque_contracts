@@ -11,28 +11,13 @@ pragma solidity ^0.8.0;
 
 import "./../interfaces/IGMX.sol";
 import "./../interfaces/IExchangeRouter.sol";
-// import "./..interfaces/IDeposit.sol";
-// import "./..interfaces/IDepositCallback.sol";
-// import "./..interfaces/IDepositHandler.sol";
-// import "./..interfaces/IEvent.sol";
-// import "./..interfaces/IRouter.sol";
-// import "./..interfaces/IWETH.sol";
-// import "./..interfaces/IWithdraw.sol";
-// import "./..interfaces/IWithdrawCallback.sol";
 import "./../interfaces/IGMXV2ETH.sol";
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-import "./../vToken.sol";
-
 contract GMXV2BTC is Ownable, ReentrancyGuard, IGMXV2ETH {
-    using SafeERC20 for IERC20;
-
     // Logic to supply WBTC deposits to GMX V2 pool
-    // Logic for auto-compounding fees to grow LPs position
+    // Logic for auto-compounding rewards if necessary
     // Logic to direct performance fee to treasury
-
 }
