@@ -9,17 +9,12 @@ pragma solidity ^0.8.0;
 //       \ \__\ \ \_______\ \__\\ _\\ \_____  \ \_______\ \_______\
 //        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 import "@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
 
-import "../vToken.sol";
-
 contract UniswapTORQ is Ownable, ReentrancyGuard {
-    using SafeERC20 for IERC20;
 
     struct Config {
         address torqToken;
@@ -55,7 +50,6 @@ contract UniswapTORQ is Ownable, ReentrancyGuard {
         address _torqToken,
         address _wethToken,
         address _positionManager,
-        address _vTokenAddress,
         address _treasury,
         uint256 _performanceFee,
         uint24 _poolFee
@@ -63,7 +57,6 @@ contract UniswapTORQ is Ownable, ReentrancyGuard {
         torqToken = IERC20(_torqToken);
         wethToken = IERC20(_wethToken);
         positionManager = INonfungiblePositionManager(_positionManager);
-        vaultToken = UniswapTORQ(_vTokenAddress);
         treasury = _treasury;
         performanceFee = _performanceFee;
         poolFee = _poolFee;
@@ -96,13 +89,12 @@ contract UniswapTORQ is Ownable, ReentrancyGuard {
             deadline: block.timestamp + 2 minutes
         });
         (tokenId, liquidity,,) = positionManager.mint(params);
-        vaultToken.mint(msg.sender, calculateVTokenMintAmount(torqToKeep, wethAmount));
         emit Deposited(torqToKeep, wethAmount);
     }
 
     function withdraw(uint256 amount) external nonReentrant {
-        require(amount > 0, "UniswapTORQ: Invalid amount");
-        require(liquidity >= amount, "UniswapTORQ: Insufficient liquidity");
+        require(amount > 0, "Invalid amount");
+        require(liquidity >= amount, "Insufficient liquidity");
         (uint256 expectedTorqAmount, uint256 expectedWethAmount) = calculateExpectedTokenAmounts(amount);
         uint256 amount0Min = expectedTorqAmount * (10000 - slippage) / 10000;
         uint256 amount1Min = expectedWethAmount * (10000 - slippage) / 10000;
@@ -125,8 +117,6 @@ contract UniswapTORQ is Ownable, ReentrancyGuard {
         });
         positionManager.collect(collectParams);
         liquidity -= amount;
-        uint256 burnAmount = calculateVTokenBurnAmount(amount);
-        vaultToken.burn(address(this), burnAmount);
         uint256 convertedTorqAmount = convertWETHtoTORQ(amount1);
         amount0 = amount0.add(convertedTorqAmount);
         uint256 remainingWeth = amount1 - /* Amount of WETH converted to TORQ */;
@@ -160,16 +150,6 @@ contract UniswapTORQ is Ownable, ReentrancyGuard {
     function calculateExpectedTokenAmounts(uint256 liquidityAmount) internal view returns (uint256 expectedTorqAmount, uint256 expectedWethAmount) {
         // Calculate the expected amount of TORQ and WETH tokens to receive
         return (calculatedTorqAmount, calculatedWethAmount);
-    }
-
-    function calculateVTokenMintAmount(uint256 torqAmount, uint256 wethAmount) internal view returns (uint256) {
-        // Calculate the amount of vUNITORQ tokens to mint
-        return vTokenAmount;
-    }
-
-    function calculateVTokenBurnAmount(uint256 liquidityAmount) internal view returns (uint256) {
-        // Calculate the amount of vUNITORQ tokens to burn
-        return vTokenAmount;
     }
 
     function convertTORQtoWETH(uint256 torqAmount) internal returns (uint256) {

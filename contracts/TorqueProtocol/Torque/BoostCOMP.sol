@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.15;
+pragma solidity ^0.8.9;
 
 //  _________  ________  ________  ________  ___  ___  _______
 // |\___   ___\\   __  \|\   __  \|\   __  \|\  \|\  \|\  ___ \
@@ -17,14 +17,15 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-import "./vaults/SushiCOMP.sol";
-import "./vaults/UniswapCOMP.sol";
+import "./strategies/SushiCOMP.sol";
+import "./strategies/UniswapCOMP.sol";
 
 import "./tToken.sol";
 import "./RewardUtil";
 
 contract BoostCOMP is Ownable, ReentrancyGuard {
     using SafeMath for uint256;
+    using SafeERC20 for IERC20;
 
     // Logic to mint and burn receipt token
     // Logic to split deposits between child vaults
