@@ -23,10 +23,8 @@ import "@uniswap/v3-core/contracts/interfaces/IERC20Minimal.sol";
 import "@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
 import "@uniswap/v3-periphery/contracts/base/Multicall.sol";
 
-// Already deployed on Arbitrum: 0xe34139463bA50bD61336E0c446Bd8C0867c6fE65
+// Deployed on Arbitrum: 0xe34139463bA50bD61336E0c446Bd8C0867c6fE65
 
-/// @title Canonical staking interface for Uniswap V3 LP
-/// @dev Should deploy instances for each liquidity pool
 contract USDFarm is IUniswapV3Staker, Multicall {
     /// @notice Represents a staking incentive
     struct Incentive {
