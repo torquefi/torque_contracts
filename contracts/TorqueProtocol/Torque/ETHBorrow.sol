@@ -14,165 +14,111 @@ import "./BorrowAbstract.sol";
 contract ETHBorrow is BorrowAbstract {
     using SafeMath for uint256;
 
-     // Allows a user to borrow Torque USD
-    function borrow(uint borrowAmount, uint tusdBorrowAmount) public payable nonReentrant(){
-        // Get the amount of USD the user is allowed to mint for the given asset
-	    (uint mintable, bool canMint) = ITUSDEngine(engine).getMintableTUSD(baseAsset, msg.sender, borrowAmount);
-        // Ensure user is allowed to mint and doesn't exceed mintable limit
+    function borrow(uint borrowAmount, uint tusdBorrowAmount) public payable nonReentrant() {
+        // Checks
+        require(msg.value > 0, "Supply amount must be greater than 0");
+        (uint mintable, bool canMint) = ITUSDEngine(engine).getMintableTUSD(baseAsset, msg.sender, borrowAmount);
         require(canMint, "User can not mint more TUSD");
         require(mintable > tusdBorrowAmount, "Exceeds borrow amount");
-
         uint supplyAmount = msg.value;
         BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
-
-        // Calculate the maximum borrowable amount for the user based on collateral
         uint maxBorrow = getBorrowableUsdc(supplyAmount.add(userBorrowInfo.supplied));
-
-        // Calculate the amount user can still borrow.
         uint borrowable = maxBorrow.sub(userBorrowInfo.borrowed);
-
-        // Ensure the user isn't trying to borrow more than what's allowed
         require(borrowable >= borrowAmount, "Borrow cap exceeded");
 
-        // If user has borrowed before, calculate accrued interest and reward
-        uint accruedInterest = 0;
-        uint reward = 0;
-        if (userBorrowInfo.borrowed > 0) {
-            accruedInterest = calculateInterest(userBorrowInfo.borrowed, userBorrowInfo.borrowTime);
-            reward = RewardUtil(rewardUtil).calculateReward(
-                userBorrowInfo.baseBorrowed,
-                userBorrowInfo.borrowTime
-            );
-        }
+        // Effects
+        uint accruedInterest = userBorrowInfo.borrowed > 0 ? calculateInterest(userBorrowInfo.borrowed, userBorrowInfo.borrowTime) : 0;
+        uint reward = userBorrowInfo.borrowed > 0 ? RewardUtil(rewardUtil).calculateReward(userBorrowInfo.baseBorrowed, userBorrowInfo.borrowTime) : 0;
 
-        // Update the user's borrowing information
         userBorrowInfo.baseBorrowed = userBorrowInfo.baseBorrowed.add(tusdBorrowAmount);
         userBorrowInfo.borrowed = userBorrowInfo.borrowed.add(borrowAmount).add(accruedInterest);
-        if (reward > 0) {
-            userBorrowInfo.reward = userBorrowInfo.reward.add(reward);
-        }
+        userBorrowInfo.reward = reward > 0 ? userBorrowInfo.reward.add(reward) : userBorrowInfo.reward;
         userBorrowInfo.supplied = userBorrowInfo.supplied.add(supplyAmount);
         userBorrowInfo.borrowTime = block.timestamp;
 
+        // Pre-Interactions
         bytes[] memory callData = new bytes[](2);
-
         bytes memory supplyAssetCalldata = abi.encode(comet, address(this), supplyAmount);
         callData[0] = supplyAssetCalldata;
-
-        bytes memory withdrawAssetCalldata = abi.encode(
-            comet,
-            address(this),
-            baseAsset,
-            borrowAmount
-        );
+        bytes memory withdrawAssetCalldata = abi.encode(comet, address(this), baseAsset, borrowAmount);
         callData[1] = withdrawAssetCalldata;
 
-        // Invoke actions in the Bulker for optimization
+        // Interactions
         IBulker(bulker).invoke{ value: supplyAmount }(buildBorrowAction(), callData);
-
         ERC20(baseAsset).approve(address(engine), borrowAmount);
-
-        // Check the balance of TUSD before the minting operation
-        uint tusdBefore = ERC20(usd).balanceOf(address(this));
-
-        // Mint the USD equivalent of the borrowed asset
         ITUSDEngine(engine).depositCollateralAndMintTusd{value:0}(baseAsset, borrowAmount, tusdBorrowAmount, msg.sender);
 
-        // Ensure the expected TUSD amount was minted
-        uint expectedTusd = tusdBefore.add(tusdBorrowAmount);
-        require(expectedTusd == ERC20(usd).balanceOf(address(this)), "Invalid amount");
+        // Post-Interaction Checks
+        uint expectedTusd = ERC20(tusd).balanceOf(address(this)).add(tusdBorrowAmount);
+        require(expectedTusd == ERC20(tusd).balanceOf(address(this)), "Invalid amount");
+        require(ERC20(tusd).transfer(msg.sender, tusdBorrowAmount), "Transfer token failed");
 
-        require(ERC20(usd).transfer(msg.sender, tusdBorrowAmount), "Transfer token failed");
+        // Final State Update
         totalBorrow = totalBorrow.add(tusdBorrowAmount);
         totalSupplied = totalSupplied.add(supplyAmount);
     }
 
-    // Allows users to repay their borrowed assets
-    function repay(uint tusdRepayAmount) public nonReentrant {
+function repay(uint tusdRepayAmount) public nonReentrant {
+        // Checks
+        require(tusdRepayAmount > 0, "Repay amount must be greater than 0");
         BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
-
         (uint withdrawUsdcAmountFromEngine, bool burnable) = ITUSDEngine(engine).getBurnableTUSD(baseAsset, msg.sender, tusdRepayAmount);
         require(burnable, "Not burnable");
         withdrawUsdcAmountFromEngine = withdrawUsdcAmountFromEngine.mul(100 - repaySlippage).div(100);
         require(userBorrowInfo.borrowed >= withdrawUsdcAmountFromEngine, "Exceeds current borrowed amount");
-        require(ERC20(usd).transferFrom(msg.sender,address(this), tusdRepayAmount), "Transfer asset failed");
+        require(ERC20(tusd).transferFrom(msg.sender, address(this), tusdRepayAmount), "Transfer asset failed");
 
+        // Effects
         uint baseAssetBalanceBefore = ERC20(baseAsset).balanceOf(address(this));
-
-        ERC20(usd).approve(address(engine), tusdRepayAmount);
-
-        ITUSDEngine(engine).redeemCollateralForTusd(baseAsset, withdrawUsdcAmountFromEngine, tusdRepayAmount, msg.sender);
-
-        uint baseAssetBalanceExpected = baseAssetBalanceBefore.add(withdrawUsdcAmountFromEngine);
-        require(
-            baseAssetBalanceExpected == ERC20(baseAsset).balanceOf(address(this)),
-            "Invalid USDC claim to Engine"
-        );
-
-        uint accruedInterest = calculateInterest(
-            userBorrowInfo.borrowed,
-            userBorrowInfo.borrowTime
-        );
-        uint reward = RewardUtil(rewardUtil).calculateReward(
-            userBorrowInfo.baseBorrowed,
-            userBorrowInfo.borrowTime
-        ) + userBorrowInfo.reward;
+        uint accruedInterest = calculateInterest(userBorrowInfo.borrowed, userBorrowInfo.borrowTime);
+        uint reward = RewardUtil(rewardUtil).calculateReward(userBorrowInfo.baseBorrowed, userBorrowInfo.borrowTime) + userBorrowInfo.reward;
         userBorrowInfo.borrowed = userBorrowInfo.borrowed.add(accruedInterest);
-
-        uint repayUsdcAmount = withdrawUsdcAmountFromEngine;
-        if (repayUsdcAmount > userBorrowInfo.borrowed) {
-            repayUsdcAmount = userBorrowInfo.borrowed;
-        }
-        uint repayTusd = userBorrowInfo.baseBorrowed.mul(repayUsdcAmount).div(
-            userBorrowInfo.borrowed
-        );
-
-        uint withdrawAssetAmount = userBorrowInfo.supplied.mul(repayUsdcAmount).div(
-            userBorrowInfo.borrowed
-        );
-
+        uint repayUsdcAmount = min(withdrawUsdcAmountFromEngine, userBorrowInfo.borrowed);
+        uint repayTusd = userBorrowInfo.baseBorrowed.mul(repayUsdcAmount).div(userBorrowInfo.borrowed);
+        uint withdrawAssetAmount = userBorrowInfo.supplied.mul(repayUsdcAmount).div(userBorrowInfo.borrowed);
+        
+        // Pre-Interactions
         bytes[] memory callData = new bytes[](2);
-
-        bytes memory supplyAssetCalldata = abi.encode(
-            comet,
-            address(this),
-            baseAsset,
-            repayUsdcAmount
-        );
+        bytes memory supplyAssetCalldata = abi.encode(comet, address(this), baseAsset, repayUsdcAmount);
         callData[0] = supplyAssetCalldata;
-
         bytes memory withdrawAssetCalldata = abi.encode(comet, address(this), withdrawAssetAmount);
         callData[1] = withdrawAssetCalldata;
 
+        // Interactions
         ERC20(baseAsset).approve(comet, repayUsdcAmount);
         IBulker(bulker).invoke(buildRepay(), callData);
+        ERC20(tusd).approve(address(engine), tusdRepayAmount);
+        ITUSDEngine(engine).redeemCollateralForTusd(baseAsset, withdrawUsdcAmountFromEngine, tusdRepayAmount, msg.sender);
 
+        // Post-Interaction Checks
+        uint baseAssetBalanceExpected = baseAssetBalanceBefore.add(withdrawUsdcAmountFromEngine);
+        require(baseAssetBalanceExpected == ERC20(baseAsset).balanceOf(address(this)), "Invalid USDC claim to Engine");
+
+        // Final State Updates
         userBorrowInfo.baseBorrowed = userBorrowInfo.baseBorrowed.sub(repayTusd);
         userBorrowInfo.borrowed = userBorrowInfo.borrowed.sub(repayUsdcAmount);
         userBorrowInfo.supplied = userBorrowInfo.supplied.sub(withdrawAssetAmount);
         userBorrowInfo.borrowTime = block.timestamp;
         userBorrowInfo.reward = 0;
+
+        // Transfer rewards and assets
         if (reward > 0) {
-            require(
-                ERC20(rewardToken).balanceOf(address(this)) >= reward,
-                "Insuffient balance to pay reward"
-            );
+            require(ERC20(rewardToken).balanceOf(address(this)) >= reward, "Insufficient balance to pay reward");
             require(ERC20(rewardToken).transfer(msg.sender, reward), "Transfer reward failed");
         }
-
         (bool success, ) = msg.sender.call{ value: withdrawAssetAmount }("");
         require(success, "Transfer ETH failed");
+
+        // Final State Update
         totalBorrow = totalBorrow.sub(repayTusd);
         totalSupplied = totalSupplied.sub(withdrawAssetAmount);
     }
 
-    // View function to get the total amount supplied by a user
     function getTotalAmountSupplied(address user) public view returns (uint) {
         BorrowInfo storage userInfo = borrowInfoMap[user];
         return userInfo.supplied;
     }
 
-    // View function to get the total amount borrowed by a user
     function getTotalAmountBorrowed(address user) public view returns (uint) {
         BorrowInfo storage userInfo = borrowInfoMap[user];
         return userInfo.borrowed;
@@ -190,5 +136,9 @@ contract ETHBorrow is BorrowAbstract {
         actions[0] = ACTION_SUPPLY_ASSET;
         actions[1] = ACTION_WITHDRAW_ETH;
         return actions;
+    }
+
+    function min(uint a, uint b) private pure returns (uint) {
+        return a < b ? a : b;
     }
 }
