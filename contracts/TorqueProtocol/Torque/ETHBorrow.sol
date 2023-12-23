@@ -69,13 +69,16 @@ function repay(uint tusdRepayAmount) public nonReentrant {
         require(ERC20(tusd).transferFrom(msg.sender, address(this), tusdRepayAmount), "Transfer asset failed");
 
         // Effects
-        uint baseAssetBalanceBefore = ERC20(baseAsset).balanceOf(address(this));
         uint accruedInterest = calculateInterest(userBorrowInfo.borrowed, userBorrowInfo.borrowTime);
-        uint reward = RewardUtil(rewardUtil).calculateReward(userBorrowInfo.baseBorrowed, userBorrowInfo.borrowTime) + userBorrowInfo.reward;
         userBorrowInfo.borrowed = userBorrowInfo.borrowed.add(accruedInterest);
         uint repayUsdcAmount = min(withdrawUsdcAmountFromEngine, userBorrowInfo.borrowed);
         uint repayTusd = userBorrowInfo.baseBorrowed.mul(repayUsdcAmount).div(userBorrowInfo.borrowed);
         uint withdrawAssetAmount = userBorrowInfo.supplied.mul(repayUsdcAmount).div(userBorrowInfo.borrowed);
+        uint reward = RewardUtil(rewardUtil).calculateReward(userBorrowInfo.baseBorrowed, userBorrowInfo.borrowTime) + userBorrowInfo.reward;
+        userBorrowInfo.baseBorrowed = userBorrowInfo.baseBorrowed.sub(repayTusd);
+        userBorrowInfo.supplied = userBorrowInfo.supplied.sub(withdrawAssetAmount);
+        userBorrowInfo.borrowTime = block.timestamp;
+        userBorrowInfo.reward = 0; // Reset after calculation
         
         // Pre-Interactions
         bytes[] memory callData = new bytes[](2);
@@ -94,14 +97,7 @@ function repay(uint tusdRepayAmount) public nonReentrant {
         uint baseAssetBalanceExpected = baseAssetBalanceBefore.add(withdrawUsdcAmountFromEngine);
         require(baseAssetBalanceExpected == ERC20(baseAsset).balanceOf(address(this)), "Invalid USDC claim to Engine");
 
-        // Final State Updates
-        userBorrowInfo.baseBorrowed = userBorrowInfo.baseBorrowed.sub(repayTusd);
-        userBorrowInfo.borrowed = userBorrowInfo.borrowed.sub(repayUsdcAmount);
-        userBorrowInfo.supplied = userBorrowInfo.supplied.sub(withdrawAssetAmount);
-        userBorrowInfo.borrowTime = block.timestamp;
-        userBorrowInfo.reward = 0;
-
-        // Transfer rewards and assets
+        // Transfer Assets
         if (reward > 0) {
             require(ERC20(rewardToken).balanceOf(address(this)) >= reward, "Insufficient balance to pay reward");
             require(ERC20(rewardToken).transfer(msg.sender, reward), "Transfer reward failed");
