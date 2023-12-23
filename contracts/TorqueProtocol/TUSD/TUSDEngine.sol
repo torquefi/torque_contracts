@@ -1,293 +1,247 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-//  _________  ________  ________  ________  ___  ___  _______
-// |\___   ___\\   __  \|\   __  \|\   __  \|\  \|\  \|\  ___ \
-// \|___ \  \_\ \  \|\  \ \  \|\  \ \  \|\  \ \  \\\  \ \   __/|
-//     \ \  \ \ \  \\\  \ \   _  _\ \  \\\  \ \  \\\  \ \  \_|/__
-//      \ \  \ \ \  \\\  \ \  \\  \\ \  \\\  \ \  \\\  \ \  \_|\ \
+//  _________  ________  ________  ________  ___  ___  _______      
+// |\___   ___\\   __  \|\   __  \|\   __  \|\  \|\  \|\  ___ \     
+// \|___ \  \_\ \  \|\  \ \  \|\  \ \  \|\  \ \  \\\  \ \   __/|    
+//     \ \  \ \ \  \\\  \ \   _  _\ \  \\\  \ \  \\\  \ \  \_|/__  
+//      \ \  \ \ \  \\\  \ \  \\  \\ \  \\\  \ \  \\\  \ \  \_|\ \ 
 //       \ \__\ \ \_______\ \__\\ _\\ \_____  \ \_______\ \_______\
 //        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
 
-import "./TUSDEngineAbstract.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import {OracleLib, AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {TUSD} from "./TUSD.sol";
 
-contract TUSDEngine is TUSDEngineAbstract {
+contract TUSDEngine is Ownable, ReentrancyGuard {
 
-    constructor(
-        address[] memory tokenAddresses,
-        address[] memory priceFeedAddresses,
-        uint256[] memory liquidationThresholds,
-        uint256[] memory collateralDecimals,
-        address tusdAddress
-    )
-        TUSDEngineAbstract(
-            tokenAddresses,
-            priceFeedAddresses,
-            liquidationThresholds,
-            collateralDecimals,
-            tusdAddress
-        )
-    {}
+    error TUSDEngine__TokenAddressesAndPriceFeedAddressesAmountsDontMatch();
+    error TUSDEngine__NeedsMoreThanZero();
+    error TUSDEngine__TokenNotAllowed(address token);
+    error TUSDEngine__TransferFailed();
+    error TUSDEngine__BreaksHealthFactor(uint256 healthFactorValue);
+    error TUSDEngine__MintFailed();
+    error TUSDEngine__HealthFactorOk();
+    error TUSDEngine__HealthFactorNotImproved();
 
-     /*
-     * @param tokenCollateralAddress: The ERC20 token address of the collateral you're depositing
-     * @param amountCollateral: The amount of collateral you're depositing
-     * @param amountTUSDToMint: The amount of TUSD you want to mint
-     * @notice This function will deposit your collateral and mint TUSD in one transaction
-     */
-    function depositCollateralAndMintTusd(
-        address tokenCollateralAddress,
-        uint256 amountCollateral,
-        uint256 amountTUSDToMint
-    ) external payable override(TUSDEngineAbstract) {
+    using OracleLib for AggregatorV3Interface;
+
+    TUSD private immutable i_tusd;
+
+    uint256 private constant LIQUIDATION_THRESHOLD = 90; // will set later
+    uint256 private constant LIQUIDATION_BONUS = 10;
+    uint256 private constant LIQUIDATION_PRECISION = 100;
+    uint256 private constant MIN_HEALTH_FACTOR = 1e18;
+    uint256 private constant PRECISION = 1e18;
+    uint256 private constant ADDITIONAL_FEED_PRECISION = 1e10;
+    uint256 private constant FEED_PRECISION = 1e8;
+
+    mapping(address collateralToken => address priceFeed) private s_priceFeeds;
+    mapping(address user => mapping(address collateralToken => uint256 amount)) private s_collateralDeposited;
+    mapping(address user => uint256 amount) private s_TUSDMinted;
+    
+    address[] private s_collateralTokens;
+
+    event CollateralDeposited(address indexed user, address indexed token, uint256 indexed amount);
+    event CollateralRedeemed(address indexed redeemFrom, address indexed redeemTo, address token, uint256 amount);
+
+    modifier moreThanZero(uint256 amount) {
+        if (amount == 0) {
+            revert TUSDEngine__NeedsMoreThanZero();
+        }
+        _;
+    }
+
+    modifier isAllowedToken(address token) {
+        if (s_priceFeeds[token] == address(0)) {
+            revert TUSDEngine__TokenNotAllowed(token);
+        }
+        _;
+    }
+    
+    constructor(address[] memory tokenAddresses, address[] memory priceFeedAddresses, address tusdAddress) {
+        if (tokenAddresses.length != priceFeedAddresses.length) {
+            revert TUSDEngine__TokenAddressesAndPriceFeedAddressesAmountsDontMatch();
+        }
+        for (uint256 i = 0; i < tokenAddresses.length; i++) {
+            s_priceFeeds[tokenAddresses[i]] = priceFeedAddresses[i];
+            s_collateralTokens.push(tokenAddresses[i]);
+        }
+        i_tusd = TUSD(tusdAddress);
+    }
+
+    function depositCollateralAndMintTusd(address tokenCollateralAddress, uint256 amountCollateral, uint256 amountTusdToMint) external {
         depositCollateral(tokenCollateralAddress, amountCollateral);
-        mintTusd(amountTUSDToMint, tokenCollateralAddress);
+        mintTusd(amountTusdToMint);
     }
 
-    /*
-     * @param tokenCollateralAddress: The ERC20 token address of the collateral you're depositing
-     * @param amountCollateral: The amount of collateral you're depositing
-     * @param amountUSD;ToBurn: The amount of TUSD you want to burn
-     * @notice This function will withdraw your collateral and burn TUSD in one transaction
-     */
-    function redeemCollateralForTusd(
-        address tokenCollateralAddress,
-        uint256 amountCollateral,
-        uint256 amountTusdToBurn
-    ) external payable override(TUSDEngineAbstract) moreThanZero(amountCollateral) {
-        _burnTusd(amountTusdToBurn, msg.sender, msg.sender, tokenCollateralAddress);
+    function redeemCollateralForTusd(address tokenCollateralAddress, uint256 amountCollateral, uint256 amountTusdToBurn) external moreThanZero(amountCollateral) {
+        _burnTusd(amountTusdToBurn, msg.sender, msg.sender);
         _redeemCollateral(tokenCollateralAddress, amountCollateral, msg.sender, msg.sender);
-        revertIfHealthFactorIsBroken(msg.sender, tokenCollateralAddress);
+        revertIfHealthFactorIsBroken(msg.sender);
     }
 
-    /*
-     * @param tokenCollateralAddress: The ERC20 token address of the collateral you're redeeming
-     * @param amountCollateral: The amount of collateral you're redeeming
-     * @notice This function will redeem your collateral.
-     * @notice If you have TUSD minted, you'll not be able to redeem until you burn your TUSD
-     */
-    function redeemCollateral(
-        address tokenCollateralAddress,
-        uint256 amountCollateral
-    ) external payable override(TUSDEngineAbstract) moreThanZero(amountCollateral) nonReentrant {
+    function redeemCollateral(address tokenCollateralAddress, uint256 amountCollateral) external moreThanZero(amountCollateral) nonReentrant {
         _redeemCollateral(tokenCollateralAddress, amountCollateral, msg.sender, msg.sender);
-        revertIfHealthFactorIsBroken(msg.sender, tokenCollateralAddress);
+        revertIfHealthFactorIsBroken(msg.sender);
     }
 
-    /*
-     * @notice You'll burn your TUSD here! Make sure you want to do this..
-     * @dev You might want to use this to just to move away from liquidation.
-     */
-    function burnTusd(
-        uint256 amount,
-        address collateral
-    ) external override(TUSDEngineAbstract) moreThanZero(amount) {
-        _burnTusd(amount, msg.sender, msg.sender, collateral);
-        revertIfHealthFactorIsBroken(msg.sender, collateral);
+    function burnTusd(uint256 amount) external moreThanZero(amount) {
+        _burnTusd(amount, msg.sender, msg.sender);
+        revertIfHealthFactorIsBroken(msg.sender);
     }
 
-    /*
-     * @param collateral: The ERC20 token address of the collateral you're using to make the protocol solvent again.
-     * This is collateral that you're going to take from the user who is insolvent.
-     * In return, you have to burn your TUSD to pay off their debt, but you don't pay off your own.
-     * @param user: The user who is insolvent. They have to have a _healthFactor below MIN_HEALTH_FACTOR
-     * @param debtToCover: The amount of TUSD you want to burn to cover the user's debt.
-     *
-     * @notice: You can partially liquidate a user.
-     * @notice: You will get a 10% LIQUIDATION_BONUS for taking the users funds.
-     * @notice: This function working assumes that the protocol will be roughly 150% overcollateralized in order for this to work.
-     * @notice: A known bug would be if the protocol was only 100% collateralized, we wouldn't be able to liquidate anyone.
-     * For example, if the price of the collateral plummeted before anyone could be liquidated.
-     */
-    function liquidate(
-        address collateral,
-        address user,
-        uint256 debtToCover
-    ) external payable override(TUSDEngineAbstract) moreThanZero(debtToCover) nonReentrant {
-        uint256 startingUserHealthFactor = _healthFactor(user, collateral);
+    function liquidate(address collateral, address user, uint256 debtToCover) external moreThanZero(debtToCover) nonReentrant {
+        uint256 startingUserHealthFactor = _healthFactor(user);
         if (startingUserHealthFactor >= MIN_HEALTH_FACTOR) {
             revert TUSDEngine__HealthFactorOk();
         }
-        // If covering 100 TUSD, we need to $100 of collateral
-        (uint256 tokenAmountFromDebtCovered, bool isLatestPrice) = getTokenAmountFromTusd(
-            collateral,
-            debtToCover
-        );
-        if (!isLatestPrice) {
-            revert TUSDEngine__NotLatestPrice();
-        }
-        // And give them a 10% bonus
-        // So we are giving the liquidator $110 of WETH for 100 TUSD
-        // We should implement a feature to liquidate in the event the protocol is insolvent
-        // And sweep extra amounts into a treasury
+        uint256 tokenAmountFromDebtCovered = getTokenAmountFromUsd(collateral, debtToCover);
         uint256 bonusCollateral = (tokenAmountFromDebtCovered * LIQUIDATION_BONUS) / 100;
-        // Burn TUSD equal to debtToCover
-        // Figure out how much collateral to recover based on how much burnt
-        _redeemCollateral(
-            collateral,
-            tokenAmountFromDebtCovered + bonusCollateral,
-            user,
-            msg.sender
-        );
-        _burnTusd(debtToCover, user, msg.sender, collateral);
-
-        uint256 endingUserHealthFactor = _healthFactor(user, collateral);
-        // This conditional should never hit, but just in case
+        _redeemCollateral(collateral, tokenAmountFromDebtCovered + bonusCollateral, user, msg.sender);
+        _burnTusd(debtToCover, user, msg.sender);
+        uint256 endingUserHealthFactor = _healthFactor(user);
         if (endingUserHealthFactor <= startingUserHealthFactor) {
             revert TUSDEngine__HealthFactorNotImproved();
         }
-        revertIfHealthFactorIsBroken(msg.sender, collateral);
+        revertIfHealthFactorIsBroken(msg.sender);
     }
 
-    ///////////////////
-    // Public Functions
-    ///////////////////
-    /*
-     * @param amountTUSDToMint: The amount of TUSD you want to mint
-     * You can only mint TUSD if you have enough collateral
-     */
-    function mintTusd(
-        uint256 amountTUSDToMint,
-        address collateral
-    ) public override(TUSDEngineAbstract) moreThanZero(amountTUSDToMint) nonReentrant {
-        s_TUSDMinted[msg.sender][collateral] += amountTUSDToMint;
+    function mintTusd(uint256 amountTUSDToMint) public moreThanZero(amountTusdToMint) nonReentrant {
+        s_TUSDMinted[msg.sender] += amountTusdToMint;
         revertIfHealthFactorIsBroken(msg.sender, collateral);
-        bool minted = i_tusd.mint(msg.sender, amountTUSDToMint);
-
+        bool minted = i_tusd.mint(msg.sender, amountTusdToMint);
         if (minted != true) {
             revert TUSDEngine__MintFailed();
         }
     }
 
-    function getMintableTUSD(
-        address tokenCollateralAddress,
-        address user,
-        uint256 amountCollateral
-    ) public view override(TUSDEngineAbstract) returns (uint256, bool) {
-        uint256 amount = s_collateralDeposited[user][tokenCollateralAddress];
-        uint256 normalizedAmount = normalizeTokenAmount(amountCollateral, tokenCollateralAddress);
-        (uint256 tusdValue, bool isLatestPrice) = _getTusdValue(
-            tokenCollateralAddress,
-            amount + normalizedAmount
-        );
-        uint256 totalTusdMintableAmount = (tusdValue *
-            liquidationThreshold[tokenCollateralAddress]) / 100;
-
-        (uint256 totalTusdMinted, , ) = _getAccountInformation(user, tokenCollateralAddress);
-
-        if (totalTusdMintableAmount <= totalTusdMinted) {
-            uint256 debtTusdAmount = totalTusdMinted - totalTusdMintableAmount;
-            return (debtTusdAmount, false); // cannot mint tusd anymore
-        } else {
-            uint256 mintableTusdAmount = totalTusdMintableAmount - totalTusdMinted;
-            return (convertToSafetyValue(mintableTusdAmount), isLatestPrice);
+    function depositCollateral(address tokenCollateralAddress, uint256 amountCollateral) public moreThanZero(amountCollateral) nonReentrant isAllowedToken(tokenCollateralAddress) {
+        s_collateralDeposited[msg.sender][tokenCollateralAddress] += amountCollateral;
+        emit CollateralDeposited(msg.sender, tokenCollateralAddress, amountCollateral);
+        bool success = IERC20(tokenCollateralAddress).transferFrom(msg.sender, address(this), amountCollateral);
+        if (!success) {
+            revert TUSDEngine__TransferFailed();
         }
     }
 
-    function getBurnableTUSD(
-        address tokenCollateralAddress,
-        address user,
-        uint256 amountTusd
-    ) public view override(TUSDEngineAbstract) returns (uint256, bool) {
-        (uint256 totalTusdMinted, uint256 totalCollateralInTusd, ) = _getAccountInformation(
-            user,
-            tokenCollateralAddress
-        );
-        uint256 totalTusdAfterBurn = 0;
-        uint256 tokenAmountInTusd = 0;
-        if (amountTusd < totalTusdMinted) {
-            totalTusdAfterBurn = totalTusdMinted - amountTusd;
+    function _redeemCollateral(address tokenCollateralAddress, uint256 amountCollateral, address from, address to) private {
+        s_collateralDeposited[from][tokenCollateralAddress] -= amountCollateral;
+        emit CollateralRedeemed(from, to, tokenCollateralAddress, amountCollateral);
+        bool success = IERC20(tokenCollateralAddress).transfer(to, amountCollateral);
+        if (!success) {
+            revert TUSDEngine__TransferFailed();
         }
-        uint256 inneedTusdAmount = 0;
-        inneedTusdAmount +=
-            (totalCollateralInTusd * liquidationThreshold[tokenCollateralAddress]) /
-            100;
+    }
 
-        if (inneedTusdAmount >= totalTusdAfterBurn) {
-            tokenAmountInTusd = totalCollateralInTusd;
-        } else {
-            uint256 backupTokenInTusd = ((totalTusdAfterBurn - inneedTusdAmount) * 100) /
-                liquidationThreshold[tokenCollateralAddress];
-            tokenAmountInTusd = totalCollateralInTusd >= backupTokenInTusd
-                ? totalCollateralInTusd - backupTokenInTusd
-                : 0;
+    function _burnTusd(uint256 amountTusdToBurn, address onBehalfOf, address tusdFrom) private {
+        s_TUSDMinted[onBehalfOf] -= amountTusdToBurn;
+        bool success = i_tusd.transferFrom(tusdFrom, address(this), amountTusdToBurn);
+        if (!success) {
+            revert TUSDEngine__TransferFailed();
         }
-
-        return getTokenAmountFromTusd(tokenCollateralAddress, tokenAmountInTusd);
+        i_tusd.burn(amountTusdToBurn);
     }
 
-    //////////////////////////////
-    // Private & Internal View & Pure Functions
-    //////////////////////////////
-    function _getAccountInformation(
-        address user,
-        address collateral
-    )
-        internal
-        view
-        override(TUSDEngineAbstract)
-        returns (uint256 totalTusdMinted, uint256 collateralValueInTusd, bool isLatestPrice)
-    {
-        totalTusdMinted = s_TusdMinted[user][collateral];
-        (uint256 _collateralValueInTusd, bool _isLatestPrice) = getAccountCollateralValue(
-            user,
-            collateral
-        );
-        collateralValueInTusd = _collateralValueInTusd;
-        _isLatestPrice = isLatestPrice;
+    function _getAccountInformation(address user) private view returns (uint256 totalTusdMinted, uint256 collateralValueInUsd) {
+        totalTusdMinted = s_TUSDMinted[user];
+        collateralValueInUsd = getAccountCollateralValue(user);
     }
 
-    function _healthFactor(
-        address user,
-        address collateral
-    ) internal view override(TUSDEngineAbstract) returns (uint256) {
-        (
-            uint256 totalTusdMinted,
-            uint256 collateralValueInTusd,
-            bool isLatestPrice
-        ) = _getAccountInformation(user, collateral);
-        return _calculateHealthFactor(totalTusdMinted, collateralValueInTusd, collateral);
+    function _healthFactor(address user) private view returns (uint256) {
+        (uint256 totalTusdMinted, uint256 collateralValueInUsd) = _getAccountInformation(user);
+        return _calculateHealthFactor(totalTusdMinted, collateralValueInUsd);
     }
 
-    ////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////
-    // External & Public View & Pure Functions
-    ////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////
-
-    function getAccountCollateralValue(
-        address user,
-        address collateral
-    ) public view override(TUSDEngineAbstract) returns (uint256, bool) {
-        uint256 amount = s_collateralDeposited[user][collateral];
-        return _getTusdValue(collateral, amount);
+    function _getUsdValue(address token, uint256 amount) private view returns (uint256) {
+        AggregatorV3Interface priceFeed = AggregatorV3Interface(s_priceFeeds[token]);
+        (, int256 price,,,) = priceFeed.staleCheckLatestRoundData();
+        return ((uint256(price) * ADDITIONAL_FEED_PRECISION) * amount) / PRECISION;
     }
 
-    function getTokenAmountFromTusd(
-        address token,
-        uint256 tusdAmountInWei
-    ) public view override(TUSDEngineAbstract) returns (uint256, bool) {
-        uint256 tokenAmount;
-        bool isLatestPrice;
-        if (s_priceFeeds[token] == WSTETHPriceFeed) {
-            (uint256 wstETHToEthPrice, bool isLatestPrice1) = validatePriceFeedAndReturnValue(
-                WSTETHPriceFeed
-            );
-            (uint256 ethToTusdPrice, bool isLatestPrice2) = validatePriceFeedAndReturnValue(
-                ETHPriceFeed
-            );
-            isLatestPrice = isLatestPrice1 && isLatestPrice2;
-            tokenAmount =
-                (tusdAmountInWei * PRECISION ** 2) /
-                (ADDITIONAL_FEED_PRECISION ** 2 * wstETHToEthPrice * ethToTusdPrice);
-        } else {
-            (uint256 price, bool _isLatestPrice) = validatePriceFeedAndReturnValue(
-                s_priceFeeds[token]
-            );
-            isLatestPrice = _isLatestPrice;
-            tokenAmount = ((tusdAmountInWei * PRECISION) / (price * ADDITIONAL_FEED_PRECISION));
+    function _calculateHealthFactor(uint256 totalTusdMinted, uint256 collateralValueInUsd) internal pure returns (uint256) {
+        if (totalTusdMinted == 0) return type(uint256).max;
+        uint256 collateralAdjustedForThreshold = (collateralValueInUsd * LIQUIDATION_THRESHOLD) / LIQUIDATION_PRECISION;
+        return (collateralAdjustedForThreshold * PRECISION) / totalTusdMinted;
+    }
+
+    function revertIfHealthFactorIsBroken(address user) internal view {
+        uint256 userHealthFactor = _healthFactor(user);
+        if (userHealthFactor < MIN_HEALTH_FACTOR) {
+            revert TUSDEngine__BreaksHealthFactor(userHealthFactor);
         }
-        uint256 finalAmount = (tokenAmount * 10 ** s_collateralDecimal[token]) / 10 ** 18;
-        return (finalAmount, isLatestPrice);
+    }
+
+    function calculateHealthFactor(uint256 totalTusdMinted, uint256 collateralValueInUsd) external pure returns (uint256) {
+        return _calculateHealthFactor(totalTusdMinted, collateralValueInUsd);
+    }
+
+    function getAccountInformation(address user) external view returns (uint256 totalTusdMinted, uint256 collateralValueInUsd) {
+        return _getAccountInformation(user);
+    }
+
+    function getUsdValue(address token, uint256 amount) external view returns (uint256) {
+        return _getUsdValue(token, amount);
+    }
+
+    function getCollateralBalanceOfUser(address user, address token) external view returns (uint256) {
+        return s_collateralDeposited[user][token];
+    }
+
+    function getAccountCollateralValue(address user) public view returns (uint256 totalCollateralValueInUsd) {
+        for (uint256 index = 0; index < s_collateralTokens.length; index++) {
+            address token = s_collateralTokens[index];
+            uint256 amount = s_collateralDeposited[user][token];
+            totalCollateralValueInUsd += _getUsdValue(token, amount);
+        }
+        return totalCollateralValueInUsd;
+    }
+
+    function getTokenAmountFromUsd(address token, uint256 usdAmountInWei) public view returns (uint256) {
+        AggregatorV3Interface priceFeed = AggregatorV3Interface(s_priceFeeds[token]);
+        (, int256 price,,,) = priceFeed.staleCheckLatestRoundData();
+        return ((usdAmountInWei * PRECISION) / (uint256(price) * ADDITIONAL_FEED_PRECISION));
+    }
+
+    function getPrecision() external pure returns (uint256) {
+        return PRECISION;
+    }
+
+    function getAdditionalFeedPrecision() external pure returns (uint256) {
+        return ADDITIONAL_FEED_PRECISION;
+    }
+
+    function getLiquidationThreshold() external pure returns (uint256) {
+        return LIQUIDATION_THRESHOLD;
+    }
+
+    function getLiquidationBonus() external pure returns (uint256) {
+        return LIQUIDATION_BONUS;
+    }
+
+    function getLiquidationPrecision() external pure returns (uint256) {
+        return LIQUIDATION_PRECISION;
+    }
+
+    function getMinHealthFactor() external pure returns (uint256) {
+        return MIN_HEALTH_FACTOR;
+    }
+
+    function getCollateralTokens() external view returns (address[] memory) {
+        return s_collateralTokens;
+    }
+
+    function getTusd() external view returns (address) {
+        return address(i_tusd);
+    }
+
+    function getCollateralTokenPriceFeed(address token) external view returns (address) {
+        return s_priceFeeds[token];
+    }
+
+    function getHealthFactor(address user) external view returns (uint256) {
+        return _healthFactor(user);
     }
 }
