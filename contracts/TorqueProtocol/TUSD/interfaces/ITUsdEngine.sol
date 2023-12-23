@@ -10,9 +10,7 @@ pragma solidity ^0.8.15;
 //        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
 
 interface ITUSDEngine {
-    ///////////////////
-    // Errors
-    ///////////////////
+    
     error TUSDEngine__TokenAddressesAndPriceFeedAddressesAmountsDontMatch();
     error TUSDEngine__NeedsMoreThanZero();
     error TUSDEngine__TokenNotAllowed(address token);
@@ -24,14 +22,6 @@ interface ITUSDEngine {
     error TUSDEngine__NotLatestPrice();
     error OracleLib__StalePrice();
 
-    ///////////////////
-    // Events
-    ///////////////////
     event CollateralDeposited(address indexed user, address indexed token, uint256 indexed amount);
-    event CollateralRedeemed(
-        address indexed redeemedFrom,
-        uint256 indexed amountCollateral,
-        address from,
-        address to
-    ); // if from != to, then it was liquidated
+    event CollateralRedeemed(address indexed redeemedFrom, uint256 indexed amountCollateral, address from, address to); // if from != to, then it was liquidated
 }

@@ -2,14 +2,6 @@
 pragma solidity 0.8.15;
 pragma abicoder v2;
 
-//  _________  ________  ________  ________  ___  ___  _______
-// |\___   ___\\   __  \|\   __  \|\   __  \|\  \|\  \|\  ___ \
-// \|___ \  \_\ \  \|\  \ \  \|\  \ \  \|\  \ \  \\\  \ \   __/|
-//     \ \  \ \ \  \\\  \ \   _  _\ \  \\\  \ \  \\\  \ \  \_|/__
-//      \ \  \ \ \  \\\  \ \  \\  \\ \  \\\  \ \  \\\  \ \  \_|\ \
-//       \ \__\ \ \_______\ \__\\ _\\ \_____  \ \_______\ \_______\
-//        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
-
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
