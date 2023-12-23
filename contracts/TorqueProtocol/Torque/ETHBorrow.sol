@@ -17,11 +17,11 @@ contract ETHBorrow is BorrowAbstract {
     function borrow(uint borrowAmount, uint tusdBorrowAmount) public payable nonReentrant() {
         // Checks
         require(msg.value > 0, "Supply amount must be greater than 0");
+        BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
         (uint mintable, bool canMint) = ITUSDEngine(engine).getMintableTUSD(baseAsset, msg.sender, borrowAmount);
         require(canMint, "User can not mint more TUSD");
         require(mintable > tusdBorrowAmount, "Exceeds borrow amount");
         uint supplyAmount = msg.value;
-        BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
         uint maxBorrow = getBorrowableUsdc(supplyAmount.add(userBorrowInfo.supplied));
         uint borrowable = maxBorrow.sub(userBorrowInfo.borrowed);
         require(borrowable >= borrowAmount, "Borrow cap exceeded");
