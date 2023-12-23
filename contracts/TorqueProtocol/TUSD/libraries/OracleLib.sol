@@ -11,13 +11,6 @@ pragma solidity 0.8.19;
 
 import { AggregatorV3Interface } from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 
-/*
- * @title OracleLib
- * @author Torque Inc.
- * @notice This is used to check the Chainlink Oracle for data.
- * We want the USDEngine to freeze if data becomes stale.
- */
-
 library OracleLib {
     error OracleLib__StalePrice();
 
