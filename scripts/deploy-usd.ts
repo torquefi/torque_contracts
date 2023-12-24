@@ -1,15 +1,13 @@
 import { ethers } from "hardhat";
 
 async function main() {
-  const usd = await ethers.deployContract("USD", []);
+  const tusd = await ethers.deployContract("TUSD", []);
 
-  await usd.deployed();
+  await tusd.deployed();
 
-  console.log(`usd deployed at ${usd.target}`);
+  console.log(`tusd deployed at ${tusd.target}`);
 }
 
-// We recommend this pattern to be able to use async/await everywhere
-// and properly handle errors.
 main().catch((error) => {
   console.error(error);
   process.exitCode = 1;
