@@ -56,6 +56,7 @@ contract ETHBorrow is BorrowAbstract {
         // Final State Update
         totalBorrow = totalBorrow.add(tusdBorrowAmount);
         totalSupplied = totalSupplied.add(supplyAmount);
+        RewardUtil(rewardUtil).updateReward(msg.sender);
     }
 
 function repay(uint tusdRepayAmount) public nonReentrant {
@@ -108,6 +109,7 @@ function repay(uint tusdRepayAmount) public nonReentrant {
         // Final State Update
         totalBorrow = totalBorrow.sub(repayTusd);
         totalSupplied = totalSupplied.sub(withdrawAssetAmount);
+        RewardUtil(rewardUtil).updateReward(msg.sender);
     }
 
     function getTotalAmountSupplied(address user) public view returns (uint) {
