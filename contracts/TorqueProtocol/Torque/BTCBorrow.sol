@@ -11,7 +11,7 @@ pragma solidity ^0.8.6;
 
 import "./BorrowAbstract.sol";
 
-contract BTCBorrow is BorrowAbstract{
+contract BTCBorrow is BorrowAbstract {
     using SafeMath for uint256;
 
     function borrow(uint supplyAmount, uint borrowAmount, uint tusdBorrowAmount) public nonReentrant(){
@@ -69,6 +69,7 @@ contract BTCBorrow is BorrowAbstract{
         // Final State Update
         totalBorrow = totalBorrow.add(tusdBorrowAmount);
         totalSupplied = totalSupplied.add(supplyAmount);
+        RewardUtil(rewardUtil).updateReward(msg.sender);
     }
 
     function repay(uint tusdRepayAmount) public nonReentrant {
@@ -120,6 +121,7 @@ contract BTCBorrow is BorrowAbstract{
         // Final State Update
         totalBorrow = totalBorrow.sub(repayTusd);
         totalSupplied = totalSupplied.sub(withdrawAssetAmount);
+        RewardUtil(rewardUtil).updateReward(msg.sender);
     }
 
     function getTotalAmountSupplied(address user) public view returns (uint) {
