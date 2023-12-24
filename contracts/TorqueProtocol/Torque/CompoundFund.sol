@@ -23,6 +23,9 @@ contract CompoundFund is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpg
 
     mapping(address => bool) private _governor;
 
+    event Deposit(address indexed user, uint256 amount);
+    event Withdraw(address indexed user, uint256 amount);
+
     modifier onlyGovernor() {
         require(
             owner() == msg.sender || _governor[msg.sender] == true,
@@ -50,17 +53,16 @@ contract CompoundFund is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpg
             "transfer token fail"
         );
         ERC20(baseAsset).approve(comet, amount);
-        // TO-DO: Implement the correct interface
-        // IComet(comet).supply(baseAsset, amount);
+        IComet(comet).supply(baseAsset, amount);
+        emit Deposit(msg.sender, amount);
     }
 
     function withdraw(uint withdrawAmount) public nonReentrant onlyGovernor {
-        // require(withdrawAmount <= IComet(comet).balanceOf(address(this)), "exceed fund's balance");
-        // IComet(comet).withdraw(baseAsset, withdrawAmount);
         require(ERC20(baseAsset).transfer(msg.sender, withdrawAmount), "transfer token fail");
+        emit Withdraw(msg.sender, withdrawAmount);
     }
 
     function totalAsset() public view returns (uint256) {
-        // return IComet(comet).balanceOf(address(this));
+        return IComet(comet).balanceOf(address(this));
     }
 }
