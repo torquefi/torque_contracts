@@ -20,15 +20,6 @@ import "./strategies/UniswapCOMP.sol";
 import "./tToken.sol";
 
 contract BoostCOMP is Ownable, ReentrancyGuard {
-    using SafeMath for uint256;
-    using SafeERC20 for IERC20;
-
-    RewardUtil public rewardUtil;
-
-    constructor(address _torqTokenAddress, uint256 _torqPerBlock) {
-        rewardUtil = new RewardUtil(_torqTokenAddress);
-        // Other variables and setup
-    }
 
     // Logic to mint and burn receipt token
     // Logic to split deposits between child vaults
