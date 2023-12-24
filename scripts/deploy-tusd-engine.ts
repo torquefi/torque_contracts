@@ -1,7 +1,7 @@
 import { ethers } from "hardhat";
 
 async function main() {
-  const USDEngine = await ethers.deployContract("USDEngine", [
+  const TusdEngine = await ethers.deployContract("TusdEngine", [
     [
       "0x25A4f6d1A02b31e5E1EB7ca37da31c911a9A8c69", //  BTC
       "0xEe01c0CD76354C383B8c7B4e65EA88D00B06f36f", //  WETH
@@ -22,9 +22,9 @@ async function main() {
     "0xf740359877183aD9647fa2924597B9112877Cb2d",
   ]);
 
-  await USDEngine.deployed();
+  await TusdEngine.deployed();
 
-  console.log(`usd engine deployed at ${USDEngine.address}`);
+  console.log(`tusd engine deployed at ${TusdEngine.address}`);
 }
 
 // We recommend this pattern to be able to use async/await everywhere
