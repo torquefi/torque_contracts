@@ -9,10 +9,14 @@ pragma solidity ^0.8.9;
 //       \ \__\ \ \_______\ \__\\ _\\ \_____  \ \_______\ \_______\
 //        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
 
+import "./BoostAbstract.sol";
+
 import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 import "@uniswap/v3-periphery/contracts/INonfungiblePositionManager.sol";
+
 import "./strategies/redactedTORQ.sol";
 import "./strategies/UniswapTORQ.sol";
+
 import "./tToken.sol";
 
 interface IUniswapV3Pool {
