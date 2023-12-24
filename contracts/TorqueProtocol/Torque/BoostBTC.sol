@@ -9,12 +9,15 @@ pragma solidity ^0.8.9;
 //       \ \__\ \ \_______\ \__\\ _\\ \_____  \ \_______\ \_______\
 //        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
 
+import "./BoostAbstract.sol";
+
 import "./interfaces/ISwapRouterV3.sol";
 import "./interfaces/INonfungiblePositionManager.sol";
+
 import "./strategies/GMXV2BTC.sol";
 import "./strategies/UniswapBTC.sol";
+
 import "./tToken.sol";
-import "./RewardUtil";
 
 contract BoostBTC is BoostAbstract {
 
