@@ -11,12 +11,9 @@ pragma solidity ^0.8.9;
 
 import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 import "@uniswap/v3-periphery/contracts/INonfungiblePositionManager.sol";
-
-import "./vaults/redactedTORQ.sol";
-import "./vaults/UniswapTORQ.sol";
-
+import "./strategies/redactedTORQ.sol";
+import "./strategies/UniswapTORQ.sol";
 import "./tToken.sol";
-import "./RewardUtil";
 
 interface IUniswapV3Pool {
     function slot0() external view returns (
