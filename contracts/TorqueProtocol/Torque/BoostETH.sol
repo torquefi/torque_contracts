@@ -50,14 +50,6 @@ contract BoostETH is BoostAbstract {
     uint public totalSupplied;
     uint256 public lastCompoundTimestamp;
 
-    event Deposited(address indexed user, uint256 amount);
-    event Withdrawal(address indexed user, uint256 amount);
-    event EtherSwept(address indexed treasury, uint256 amount);
-    event TokensSwept(address indexed token, address indexed treasury, uint256 amount);
-    event AllocationUpdated(uint256 redactedTORQPercent, uint256 uniswapTORQPercent);
-    event PerformanceFeesDistributed(address indexed treasury, uint256 amount);
-    event FeesCompounded();
-
     constructor(
         address _wethTokenAddress,
         address _tTokenContract,
@@ -98,7 +90,7 @@ contract BoostETH is BoostAbstract {
         tTokenContract.mint(msg.sender, amount);
         totalSupplied = totalSupplied.add(amount);
         RewardUtil(rewardUtil).updateReward(msg.sender);
-        emit Deposited(msg.sender, amount, amount);
+        emit Deposit(msg.sender, amount, amount);
     }
 
     function _withdraw(uint256 tTokenAmount) internal {
@@ -113,7 +105,7 @@ contract BoostETH is BoostAbstract {
         require(success, "ETH transfer failed");
         totalSupplied = totalSupplied.sub(ethAmount);
         RewardUtil(rewardUtil).updateReward(msg.sender);
-        emit Withdrawn(msg.sender, tTokenAmount, ethAmount);
+        emit Withdraw(msg.sender, tTokenAmount, ethAmount);
     }
 
     function _compoundFees() internal {
@@ -134,7 +126,7 @@ contract BoostETH is BoostAbstract {
         gmxV2EthVault.deposit();
         stargateEthVault.deposit();
         lastCompoundTimestamp = block.timestamp;
-        emit FeesCompounded(gmxV2EthFeeActualPercent, stargateEthFeeActualPercent);
+        emit Compound(gmxV2EthFeeActualPercent, stargateEthFeeActualPercent);
     }
     
     function calculateEthAmount(uint256 tTokenAmount) public view returns (uint256) {
