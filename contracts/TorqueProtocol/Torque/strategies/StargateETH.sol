@@ -9,8 +9,8 @@ pragma solidity ^0.8.0;
 //       \ \__\ \ \_______\ \__\\ _\\ \_____  \ \_______\ \_______\
 //        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
 
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 import "./../interfaces/ISwapRouterV3.sol";
 import "./../interfaces/IStargateLPStaking.sol";
@@ -26,20 +26,20 @@ contract StargateETH is Ownable, ReentrancyGuard {
         lpStaking = IStargateLPStaking(_stargateStakingAddress);
     }
 
-    function setPid(address _token, uint256 _pid) public onlyOwner {
-        addressToPid[_token] = _pid;
-    }
-
-    function _depositStargate(address _token, uint256 _amount) external nonReentrant {
+    function _deposit(address _token, uint256 _amount) internal payable {
         uint256 pid = addressToPid[_token];
         wethSTG.safeTransferFrom(msg.sender, address(this), _amount);
         wethSTG.approve(address(lpStaking), _amount);
         lpStaking.deposit(pid, _amount);
     }
 
-    function _withdrawStargate(address _token, uint256 _amount) external nonReentrant {
+    function _withdraw(address _token, uint256 _amount) internal {
         uint256 pid = addressToPid[_token];
-        wethSTG.safeTransfer(msg.sender, _amount);
         lpStaking.withdraw(pid, _amount);
+        wethSTG.safeTransfer(msg.sender, _amount);
+    }
+
+    function setPid(address _token, uint256 _pid) public onlyOwner {
+        addressToPid[_token] = _pid;
     }
 }

@@ -9,11 +9,6 @@ pragma solidity ^0.8.9;
 //       \ \__\ \ \_______\ \__\\ _\\ \_____  \ \_______\ \_______\
 //        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
 
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-
 import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 import "@uniswap/v3-periphery/contracts/INonfungiblePositionManager.sol";
 
@@ -35,7 +30,7 @@ interface IUniswapV3Pool {
     );
 }
 
-contract BoostTORQ is Ownable, ReentrancyGuard {
+contract BoostTORQ is BoostAbstract {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
 
@@ -75,6 +70,7 @@ contract BoostTORQ is Ownable, ReentrancyGuard {
     Addresses public addresses;
     ImmutableAddresses public immutableAddresses;
     State public state;
+    uint public totalSupplied;
 
     event Deposited(address indexed user, uint256 amount);
     event Withdrawal(address indexed user, uint256 amount);
@@ -116,6 +112,8 @@ contract BoostTORQ is Ownable, ReentrancyGuard {
             0 // sqrtPriceLimitX96
         );
     }
+
+    mapping(address => uint256) public minDepositDuration;
     
     function deposit(uint256 amount) external nonReentrant {
         require(amount > 0, "Deposit amount must be greater than zero");
@@ -129,6 +127,7 @@ contract BoostTORQ is Ownable, ReentrancyGuard {
             "Transfer to UniswapTORQ failed"
         );
         lastDepositTime[msg.sender] = block.timestamp;
+        minDepositDuration[msg.sender] = block.timestamp;
         tTokenContract.mint(msg.sender, amount);
         emit Deposited(msg.sender, amount);
     }
@@ -136,6 +135,11 @@ contract BoostTORQ is Ownable, ReentrancyGuard {
     function withdraw(uint256 amount) external nonReentrant {
         require(amount > 0, "Amount must be greater than zero");
         require(tTokenContract.balanceOf(msg.sender) >= amount, "Insufficient balance");
+        uint256 minimumDuration = 7 days;
+        require(
+            block.timestamp >= minDepositDuration[msg.sender] + minimumDuration,
+            "Minimum duration not reached, but you may withdraw."
+        );
         uint256 half = amount.div(2);
         redactedTORQ.withdraw(half);
         uniswapTORQ.withdraw(amount.sub(half));

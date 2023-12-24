@@ -9,12 +9,12 @@ pragma solidity ^0.8.0;
 //       \ \__\ \ \_______\ \__\\ _\\ \_____  \ \_______\ \_______\
 //        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
 
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+
 import "./../interfaces/IGMX.sol";
 import "./../interfaces/IExchangeRouter.sol";
 import "./../interfaces/IGMXV2ETH.sol";
-
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract GMXV2ETH is Ownable, ReentrancyGuard, IGMXV2ETH {
     IERC20 public wethGMX;
@@ -42,7 +42,7 @@ contract GMXV2ETH is Ownable, ReentrancyGuard, IGMXV2ETH {
         withdrawalVault = _withdrawalVault;
     }
 
-    function _depositGMX(uint256 _amount) external payable nonReentrant returns (uint256 gmTokenAmount) {
+    function _deposit(uint256 _amount) internal payable returns (uint256 gmTokenAmount) {
         gmxExchange.sendWnt(depositVault, _amount);
         IExchangeRouter.CreateDepositParams memory params = createDepositParams();
         wethGMX.safeTransferFrom(msg.sender, address(this), _amount);
@@ -51,15 +51,17 @@ contract GMXV2ETH is Ownable, ReentrancyGuard, IGMXV2ETH {
         gmTokenAmount = gmToken.balanceOf(address(this));
     }
 
-    function _withdrawGMX(uint256 _amount) external payable nonReentrant returns (uint256 wethAmount, uint256 usdcAmount) {
+    function _withdraw(uint256 _amount) internal returns (uint256 wethAmount, uint256 usdcAmount) {
         gmxExchange.sendTokens(address(gmToken), withdrawalVault, _amount);
         IExchangeRouter.CreateWithdrawalParams memory params = createWithdrawParams();
         gmToken.safeTransferFrom(msg.sender, address(this), _amount);
         gmToken.approve(withdrawalVault, _amount);
         gmxExchange.createWithdrawal(params);
-        wethGMX.safeTransfer(msg.sender, _amount);
         wethAmount = wethGMX.balanceOf(address(this));
         usdcAmount = usdcToken.balanceOf(address(this));
+        wethGMX.safeTransfer(msg.sender, wethAmount);
+        // usdcToken.safeTransfer(msg.sender, usdcAmount); // user is expecting ETH
+        // Convert USDC to WETH before process continues
     }
 
     function _sendWnt(address _receiver, uint256 _amount) private {
