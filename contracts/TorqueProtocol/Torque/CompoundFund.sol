@@ -62,7 +62,7 @@ contract CompoundFund is UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpg
         emit Withdraw(msg.sender, withdrawAmount);
     }
 
-    function totalAsset() public view returns (uint256) {
+    function totalAssets() public view returns (uint256) {
         return IComet(comet).balanceOf(address(this));
     }
 }
