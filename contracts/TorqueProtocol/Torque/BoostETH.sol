@@ -11,6 +11,8 @@ pragma solidity ^0.8.9;
 
 import "./BoostAbstract.sol";
 
+import "@chainlink/contracts/src/v0.8/automation/AutomationCompatible.sol";
+
 import "./interfaces/IStargateLPStaking.sol";
 import "./interfaces/ISwapRouterV3.sol";
 import "./interfaces/IWETH.sol";
@@ -21,7 +23,7 @@ import "./strategies/GMXV2ETH.sol";
 
 import "./tToken.sol";
 
-contract BoostETH is BoostAbstract {
+contract BoostETH is BoostAbstract, AutomationCompatibleInterface {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
 
@@ -79,6 +81,16 @@ contract BoostETH is BoostAbstract {
         _compoundFees();
     }
 
+    function checkUpkeep(bytes calldata) external view override returns (bool upkeepNeeded, bytes memory) {
+        upkeepNeeded = (block.timestamp >= lastCompoundTimestamp + 12 hours);
+    }
+
+    function performUpkeep(bytes calldata) external override {
+        if ((block.timestamp >= lastCompoundTimestamp + 12 hours)) {
+            _compoundFees();
+        }
+    }
+
     function _deposit(uint256 amount) internal {
         require(amount > 0, "Deposit amount must be greater than zero");
         wethToken.deposit{value: amount}();
@@ -109,7 +121,6 @@ contract BoostETH is BoostAbstract {
     }
 
     function _compoundFees() internal {
-        require(block.timestamp >= lastCompoundTimestamp + 12 hours, "Minimum duration not met");
         uint256 gmxV2EthBalanceBefore = gmxV2EthVault.balanceOf(address(this));
         uint256 stargateEthBalanceBefore = stargateEthVault.balanceOf(address(this));
         uint256 totalBalanceBefore = gmxV2EthBalanceBefore.add(stargateEthBalanceBefore);
