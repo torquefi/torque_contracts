@@ -9,22 +9,17 @@ pragma solidity ^0.8.9;
 //       \ \__\ \ \_______\ \__\\ _\\ \_____  \ \_______\ \_______\
 //        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
 
-contract MinDuration {
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+contract MinDuration is Ownable {
     uint256 public unlockBlock;
-    address payable public owner;
-    uint256 public earlyExitFeePercentage = 10;
+    uint256 public earlyExitFeePercentage = 20;
 
     event MinDurationVerified(uint256 amount, uint256 when);
 
     constructor(uint256 _unlockBlock) payable {
         require(block.number < _unlockBlock, "Unlock block should be in the future");
         unlockBlock = _unlockBlock;
-        owner = payable(msg.sender);
-    }
-
-    modifier onlyOwner() {
-        require(msg.sender == owner, "You aren't the owner");
-        _;
     }
 
     function isDurationMet() external {
