@@ -29,7 +29,7 @@ contract MinDuration is Ownable {
             uint256 earlyExitFee = (balanceToTransfer * earlyExitFeePercentage) / 100;
             balanceToTransfer -= earlyExitFee;
         }
-        owner.transfer(balanceToTransfer);
+        owner().transfer(balanceToTransfer);
         emit MinDurationVerified(balanceToTransfer, block.number);
     }
 
