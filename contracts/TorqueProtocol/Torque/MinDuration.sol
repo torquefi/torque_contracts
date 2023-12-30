@@ -9,10 +9,13 @@ pragma solidity ^0.8.9;
 //       \ \__\ \ \_______\ \__\\ _\\ \_____  \ \_______\ \_______\
 //        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
 
-contract MinDuration {
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+
+contract MinDuration is Ownable, ReentrancyGuard {
     uint256 public unlockBlock;
     address payable public owner;
-    uint256 public earlyExitFeePercentage = 10;
+    uint256 public earlyExitFeePercentage = 20;
 
     event MinDurationVerified(uint256 amount, uint256 when);
 
