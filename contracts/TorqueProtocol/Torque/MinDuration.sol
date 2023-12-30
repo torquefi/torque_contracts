@@ -14,7 +14,6 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 contract MinDuration is Ownable, ReentrancyGuard {
     uint256 public unlockBlock;
-    address payable public owner;
     uint256 public earlyExitFeePercentage = 20;
 
     event MinDurationVerified(uint256 amount, uint256 when);
@@ -22,12 +21,6 @@ contract MinDuration is Ownable, ReentrancyGuard {
     constructor(uint256 _unlockBlock) payable {
         require(block.number < _unlockBlock, "Unlock block should be in the future");
         unlockBlock = _unlockBlock;
-        owner = payable(msg.sender);
-    }
-
-    modifier onlyOwner() {
-        require(msg.sender == owner, "You aren't the owner");
-        _;
     }
 
     function isDurationMet() external {
