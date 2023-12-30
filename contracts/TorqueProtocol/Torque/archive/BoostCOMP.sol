@@ -11,11 +11,10 @@ pragma solidity ^0.8.9;
 
 import "./BoostAbstract.sol";
 
-import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
-import "@uniswap/v3-periphery/contracts/INonfungiblePositionManager.sol";
+import "@chainlink/contracts/src/v0.8/automation/AutomationCompatible.sol";
 
-import "./strategies/redactedTORQ.sol";
-import "./strategies/UniswapTORQ.sol";
+// import "./strategies/SushiCOMP.sol";
+import "./strategies/UniswapCOMP.sol";
 
 import "./tToken.sol";
 
@@ -31,14 +30,14 @@ interface IUniswapV3Pool {
     );
 }
 
-contract BoostTORQ is BoostAbstract {
+contract BoostCOMP is BoostAbstract, AutomationCompatible {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
 
     struct Config {
         address treasury;
-        uint256 redactedTORQPercent;
-        uint256 uniswapTORQPercent;
+        uint256 redactedcompPercent;
+        uint256 uniswapcompPercent;
         uint256 performanceFee;
     }
 
@@ -49,15 +48,15 @@ contract BoostTORQ is BoostAbstract {
         address uniswapV3PoolAddress;
         address uniswapRouterAddress;
         address wethTokenAddress;
-        address torqTokenAddress;
-        address redactedTORQAddress;
-        address uniswapTORQAddress;
+        address compTokenAddress;
+        address redactedcompAddress;
+        address uniswapcompAddress;
     }
 
     struct ImmutableAddresses {
         ISwapRouter uniswapRouter;
         IERC20 wethToken;
-        IERC20 torqToken;
+        IERC20 compToken;
         IUniswapV3Pool uniswapV3Pool;
     }
 
@@ -77,7 +76,7 @@ contract BoostTORQ is BoostAbstract {
     event Withdrawal(address indexed user, uint256 amount);
     event EtherSwept(address indexed treasury, uint256 amount);
     event TokensSwept(address indexed token, address indexed treasury, uint256 amount);
-    event AllocationUpdated(uint256 redactedTORQPercent, uint256 uniswapTORQPercent);
+    event AllocationUpdated(uint256 redactedcompPercent, uint256 uniswapcompPercent);
     event PerformanceFeesDistributed(address indexed treasury, uint256 amount);
     event FeesCompounded();
 
@@ -85,26 +84,25 @@ contract BoostTORQ is BoostAbstract {
         address _treasury,
         address _uniswapRouter,
         address _wethToken,
-        address _torqToken,
+        address _compToken,
         address _uniswapV3PoolAddress,
         address _rewardUtil,
-        address _rewardUtilConfig,
-        address _redactedTORQAddress,
-        address _uniswapTORQAddress) {
+        address _redactedcompAddress,
+        address _uniswapcompAddress) {
         treasury = _treasury;
         uniswapRouter = ISwapRouter(_uniswapRouter);
         wethToken = IERC20(_wethToken);
-        torqToken = IERC20(_torqToken);
+        compToken = IERC20(_compToken);
         uniswapV3Pool = IUniswapV3Pool(_uniswapV3PoolAddress);
         rewardUtil = RewardUtil(_rewardUtil);
         rewardUtilConfig = RewardUtilConfig(_rewardUtilConfig);
-        redactedTORQAddress = _redactedTORQAddress;
-        uniswapTORQAddress = _uniswapTORQAddress;
-        redactedTORQPercent = 50;
-        uniswapTORQPercent = 50;
+        redactedcompAddress = _redactedcompAddress;
+        uniswapcompAddress = _uniswapcompAddress;
+        redactedcompPercent = 50;
+        uniswapcompPercent = 50;
         params = ISwapRouter.ExactInputSingleParams(
             address(wethToken),
-            address(torqToken),
+            address(compToken),
             3000, // Fee
             address(this),
             block.timestamp + 2 minutes,
@@ -120,12 +118,12 @@ contract BoostTORQ is BoostAbstract {
         require(amount > 0, "Deposit amount must be greater than zero");
         uint256 half = amount.div(2);
         require(
-            IERC20(tTokenContract).transferFrom(msg.sender, address(redactedTORQ), half),
-            "Transfer to RedactedTORQ failed"
+            IERC20(tTokenContract).transferFrom(msg.sender, address(redactedcomp), half),
+            "Transfer to Redactedcomp failed"
         );
         require(
-            IERC20(tTokenContract).transferFrom(msg.sender, address(uniswapTORQ), amount.sub(half)),
-            "Transfer to UniswapTORQ failed"
+            IERC20(tTokenContract).transferFrom(msg.sender, address(uniswapcomp), amount.sub(half)),
+            "Transfer to Uniswapcomp failed"
         );
         lastDepositTime[msg.sender] = block.timestamp;
         minDepositDuration[msg.sender] = block.timestamp;
@@ -142,23 +140,22 @@ contract BoostTORQ is BoostAbstract {
             "Minimum duration not reached, but you may withdraw."
         );
         uint256 half = amount.div(2);
-        redactedTORQ.withdraw(half);
-        uniswapTORQ.withdraw(amount.sub(half));
-        uint256 totalTorqAmount = calculateTotalTorqAmount(amount);
+        redactedcomp.withdraw(half);
+        uniswapcomp.withdraw(amount.sub(half));
+        uint256 totalcompAmount = calculateTotalcompAmount(amount);
         tTokenContract.burn(msg.sender, amount);
-        torqToken.safeTransfer(msg.sender, totalTorqAmount);
+        compToken.safeTransfer(msg.sender, totalcompAmount);
         emit Withdrawal(msg.sender, amount);
     }
 
-    function compoundFees() external onlyOwner nonReentrant {
-        require(block.timestamp >= lastCalledTime[msg.sender] + 12 hours, "Minimum 12 hours not reached");
-        (uint256 torqFees, uint256 wethFees) = collectFeesFromChildVaults();
-        uint256 convertedTorqFromWeth = convertWETHtoTORQ(wethFees);
-        uint256 totalTorqFees = torqFees.add(convertedTorqFromWeth);
-        uint256 performanceFees = totalTorqFees * performanceFee / 1000;
-        torqToken.transfer(treasury, performanceFees);
-        uint256 remainingTorqFees = totalTorqFees.sub(performanceFees);
-        redepositTORQ(remainingTorqFees);
+    function compoundFees() internal {
+        (uint256 compFees, uint256 wethFees) = collectFeesFromChildVaults();
+        uint256 convertedcompFromWeth = convertWETHtocomp(wethFees);
+        uint256 totalcompFees = compFees.add(convertedcompFromWeth);
+        uint256 performanceFees = totalcompFees * performanceFee / 1000;
+        compToken.transfer(treasury, performanceFees);
+        uint256 remainingcompFees = totalcompFees.sub(performanceFees);
+        redepositcomp(remainingcompFees);
         lastCalledTime[msg.sender] = block.timestamp;
         emit FeesCompounded();
     }
@@ -184,6 +181,16 @@ contract BoostTORQ is BoostAbstract {
         }
     }
 
+    function checkUpkeep(bytes calldata) external view override returns (bool upkeepNeeded, bytes memory) {
+        upkeepNeeded = (block.timestamp >= lastCompoundTimestamp + 12 hours);
+    }
+
+    function performUpkeep(bytes calldata) external override {
+        if ((block.timestamp >= lastCompoundTimestamp + 12 hours)) {
+            _compoundFees();
+        }
+    }
+
     function setTreasury(address _treasury) external onlyOwner {
         treasury = _treasury;
     }
@@ -200,37 +207,37 @@ contract BoostTORQ is BoostAbstract {
         rewardUtilConfig = _config;
     }
 
-    function setAllocation(uint256 _redactedTORQPercent, uint256 _uniswapTORQPercent) external onlyOwner {
-        require(_redactedTORQPercent + _uniswapTORQPercent == 100, "Total allocation must be 100%");
-        redactedTORQPercent = _redactedTORQPercent;
-        uniswapTORQPercent = _uniswapTORQPercent;
-        emit AllocationUpdated(_redactedTORQPercent, _uniswapTORQPercent);
+    function setAllocation(uint256 _redactedcompPercent, uint256 _uniswapcompPercent) external onlyOwner {
+        require(_redactedcompPercent + _uniswapcompPercent == 100, "Total allocation must be 100%");
+        redactedcompPercent = _redactedcompPercent;
+        uniswapcompPercent = _uniswapcompPercent;
+        emit AllocationUpdated(_redactedcompPercent, _uniswapcompPercent);
     }
 
-    function collectFeesFromChildVaults() internal returns (uint256 torqFees, uint256 wethFees) {
-        (uint256 torqFeeFromRedacted, uint256 wethFeeFromRedacted) = redactedTORQ.collectFees();
-        torqFees = torqFees.add(torqFeeFromRedacted);
+    function collectFeesFromChildVaults() internal returns (uint256 compFees, uint256 wethFees) {
+        (uint256 compFeeFromRedacted, uint256 wethFeeFromRedacted) = redactedcomp.collectFees();
+        compFees = compFees.add(compFeeFromRedacted);
         wethFees = wethFees.add(wethFeeFromRedacted);
-        (uint256 torqFeeFromUniswap, uint256 wethFeeFromUniswap) = uniswapTORQ.collectFees();
-        torqFees = torqFees.add(torqFeeFromUniswap);
+        (uint256 compFeeFromUniswap, uint256 wethFeeFromUniswap) = uniswapcomp.collectFees();
+        compFees = compFees.add(compFeeFromUniswap);
         wethFees = wethFees.add(wethFeeFromUniswap);
-        return (torqFees, wethFees);
+        return (compFees, wethFees);
     }
 
-    function calculateTotalTorqAmount(uint256 withdrawAmount) internal view returns (uint256) {
-        uint256 torqBalance = torqToken.balanceOf(address(this));
+    function calculateTotalcompAmount(uint256 withdrawAmount) internal view returns (uint256) {
+        uint256 compBalance = compToken.balanceOf(address(this));
         uint256 wethBalance = wethToken.balanceOf(address(this));
-        uint256 convertedTorq = convertWETHtoTORQ(wethBalance);
-        uint256 totalTorqAmount = torqBalance.add(convertedTorq);
+        uint256 convertedcomp = convertWETHtocomp(wethBalance);
+        uint256 totalcompAmount = compBalance.add(convertedcomp);
         uint256 totalSupply = tTokenContract.totalSupply();
-        return totalTorqAmount.mul(withdrawAmount).div(totalSupply);
+        return totalcompAmount.mul(withdrawAmount).div(totalSupply);
     }
 
-    function convertWETHtoTORQ(uint256 wethAmount) internal returns (uint256) {
+    function convertWETHtocomp(uint256 wethAmount) internal returns (uint256) {
         require(wethToken.approve(address(uniswapRouter), wethAmount), "WETH approval failed");
         ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
             tokenIn: address(wethToken),
-            tokenOut: address(torqToken),
+            tokenOut: address(compToken),
             fee: 3000, // 0.3% pool fee tier
             recipient: address(this),
             deadline: block.timestamp + 15 minutes,
@@ -238,29 +245,30 @@ contract BoostTORQ is BoostAbstract {
             amountOutMinimum: 99.5, // Rasonable minimum amount based on slippage tolerance
             sqrtPriceLimitX96: 0
         });
-        // Execute the swap and return the amount of TORQ received
+        // Execute the swap and return the amount of comp received
         return uniswapRouter.exactInputSingle(params);
     }
 
     function calculateMinimumAmountOut(uint256 wethAmount) internal view returns (uint256) {
-        uint256 currentPrice = getLatestPrice(); // Price of 1 WETH in terms of TORQ
-        uint256 expectedTorq = wethAmount * currentPrice;
+        uint256 currentPrice = getLatestPrice(); // Price of 1 WETH in terms of comp
+        uint256 expectedcomp = wethAmount * currentPrice;
         uint256 slippageTolerance = 5; // Representing 0.5%
-        uint256 amountOutMinimum = expectedTorq * (1000 - slippageTolerance) / 1000;
+        uint256 amountOutMinimum = expectedcomp * (1000 - slippageTolerance) / 1000;
         return amountOutMinimum;
     }
 
     function getLatestPrice() internal view returns (uint256) {
         (uint160 sqrtPriceX96,,,,,,) = uniswapV3Pool.slot0();
         // Convert the sqrt price to a regular price
-        // Assumes pool consists of WETH and TORQ, WETH is token0
+        // Assumes pool consists of WETH and comp, WETH is token0
         return uint256(sqrtPriceX96) * uint256(sqrtPriceX96) * 1e18 >> (96 * 2);
     }
 
     function distributePerformanceFees(uint256 totalFees) internal {
-        torqToken.transfer(treasury, totalFees);
+        compToken.transfer(treasury, totalFees);
         emit PerformanceFeesDistributed(treasury, totalFees);
     }
 
     receive() external payable {}
 }
+

@@ -11,15 +11,16 @@ pragma solidity ^0.8.9;
 
 import "./BoostAbstract.sol";
 
-import "./interfaces/ISwapRouterV3.sol";
-import "./interfaces/INonfungiblePositionManager.sol";
+import "@chainlink/contracts/src/v0.8/automation/AutomationCompatible.sol";
+
+import "./interfaces/IGMX.sol";
 
 import "./strategies/GMXV2BTC.sol";
 import "./strategies/UniswapBTC.sol";
 
 import "./tToken.sol";
 
-contract BoostBTC is BoostAbstract {
+contract BoostBTC is BoostAbstract, AutomationCompatible {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
 
@@ -77,6 +78,37 @@ contract BoostBTC is BoostAbstract {
         _compoundFees();
     }
 
+    function checkUpkeep(bytes calldata) external view override returns (bool upkeepNeeded, bytes memory) {
+        upkeepNeeded = (block.timestamp >= lastCompoundTimestamp + 12 hours);
+    }
+
+    function performUpkeep(bytes calldata) external override {
+        if ((block.timestamp >= lastCompoundTimestamp + 12 hours)) {
+            _compoundFees();
+        }
+    }
+
+    function sweep(address[] memory _tokens, address _treasury) external onlyOwner {
+        for (uint256 i = 0; i < _tokens.length; i++) {
+            address tokenAddress = _tokens[i];
+            uint256 balance;
+            if (tokenAddress == address(0)) {
+                balance = address(this).balance;
+                if (balance > 0) {
+                    payable(_treasury).transfer(balance);
+                    emit EtherSwept(_treasury, balance);
+                }
+            } else {
+                IERC20 token = IERC20(tokenAddress);
+                balance = token.balanceOf(address(this));
+                if (balance > 0) {
+                    token.transfer(_treasury, balance);
+                    emit TokensSwept(tokenAddress, _treasury, balance);
+                }
+            }
+        }
+    }
+
     function _deposit(uint256 amount) internal {
         require(amount > 0, "Deposit amount must be greater than zero");
         wbtcToken.deposit{value: amount}();
@@ -107,7 +139,6 @@ contract BoostBTC is BoostAbstract {
     }
 
     function _compoundFees() internal {
-        require(block.timestamp >= lastCompoundTimestamp + 12 hours, "Minimum duration not met");
         uint256 gmxV2btcBalanceBefore = gmxV2btcVault.balanceOf(address(this));
         uint256 uniswapbtcBalanceBefore = uniswapbtcVault.balanceOf(address(this));
         uint256 totalBalanceBefore = gmxV2btcBalanceBefore.add(uniswapbtcBalanceBefore);
