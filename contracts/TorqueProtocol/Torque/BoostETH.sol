@@ -14,7 +14,6 @@ import "./BoostAbstract.sol";
 import "@chainlink/contracts/src/v0.8/automation/AutomationCompatible.sol";
 
 import "./interfaces/IStargateLPStaking.sol";
-import "./interfaces/ISwapRouterV3.sol";
 import "./interfaces/IWETH.sol";
 import "./interfaces/IGMX.sol";
 
@@ -23,7 +22,7 @@ import "./strategies/GMXV2ETH.sol";
 
 import "./tToken.sol";
 
-contract BoostETH is BoostAbstract, AutomationCompatibleInterface {
+contract BoostETH is BoostAbstract, AutomationCompatible {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
 
@@ -88,6 +87,27 @@ contract BoostETH is BoostAbstract, AutomationCompatibleInterface {
     function performUpkeep(bytes calldata) external override {
         if ((block.timestamp >= lastCompoundTimestamp + 12 hours)) {
             _compoundFees();
+        }
+    }
+
+    function sweep(address[] memory _tokens, address _treasury) external onlyOwner {
+        for (uint256 i = 0; i < _tokens.length; i++) {
+            address tokenAddress = _tokens[i];
+            uint256 balance;
+            if (tokenAddress == address(0)) {
+                balance = address(this).balance;
+                if (balance > 0) {
+                    payable(_treasury).transfer(balance);
+                    emit EtherSwept(_treasury, balance);
+                }
+            } else {
+                IERC20 token = IERC20(tokenAddress);
+                balance = token.balanceOf(address(this));
+                if (balance > 0) {
+                    token.transfer(_treasury, balance);
+                    emit TokensSwept(tokenAddress, _treasury, balance);
+                }
+            }
         }
     }
 
