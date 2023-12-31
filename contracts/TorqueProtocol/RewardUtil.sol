@@ -14,7 +14,7 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract RewardUtil is Ownable, ReentrancyGuard {
+contract RewardUtil is Ownable(msg.sender), ReentrancyGuard {
     using SafeMath for uint256;
 
     IERC20 public torqToken;
