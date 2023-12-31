@@ -29,8 +29,8 @@ contract TUSDEngine is Ownable, ReentrancyGuard {
     IERC20 private immutable usdcToken;
     AggregatorV3Interface private immutable usdcPriceFeed;
 
-    uint256 private constant LIQUIDATION_THRESHOLD = 90; // will set later
-    uint256 private constant LIQUIDATION_BONUS = 10;
+    uint256 private constant LIQUIDATION_THRESHOLD = 98;
+    uint256 private constant LIQUIDATION_BONUS = 20;
     uint256 private constant LIQUIDATION_PRECISION = 100;
     uint256 private constant MIN_HEALTH_FACTOR = 1e18;
     uint256 private constant PRECISION = 1e18;
