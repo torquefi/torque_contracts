@@ -119,8 +119,8 @@ contract TUSDEngine is Ownable, ReentrancyGuard {
         require(usdcToken.transfer(treasuryAddress, amount), "Transfer failed");
     }
 
-    function _redeemCollateral(uint256 amountCollateral, address to) private {
-        require(s_collateralDeposited[to] >= amountCollateral, "Insufficient collateral");
+    function _redeemCollateral(uint256 amountCollateral, address from, address to) private {
+        require(s_collateralDeposited[from] >= amountCollateral, "Insufficient collateral");
         s_collateralDeposited[from] -= amountCollateral;
         require(usdcToken.transfer(to, amountCollateral), "Transfer failed");
         emit CollateralRedeemed(address(this), to, amountCollateral);
