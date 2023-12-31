@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.20;
 
 //  _________  ________  ________  ________  ___  ___  _______      
 // |\___   ___\\   __  \|\   __  \|\   __  \|\  \|\  \|\  ___ \     
@@ -11,7 +11,7 @@ pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract MinDuration is Ownable {
+contract MinDuration is Ownable(msg.sender) {
     uint256 public unlockBlock;
     uint256 public earlyExitFeePercentage = 20;
 
@@ -29,7 +29,7 @@ contract MinDuration is Ownable {
             uint256 earlyExitFee = (balanceToTransfer * earlyExitFeePercentage) / 100;
             balanceToTransfer -= earlyExitFee;
         }
-        owner().transfer(balanceToTransfer);
+        payable(owner()).transfer(balanceToTransfer);
         emit MinDurationVerified(balanceToTransfer, block.number);
     }
 
