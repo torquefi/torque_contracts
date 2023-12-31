@@ -61,7 +61,7 @@ contract TUSDEngine is Ownable, ReentrancyGuard {
         _;
     }
     
-    constructor(address[] memory tokenAddresses, address[] memory priceFeedAddresses, address tusdAddress) {
+    constructor(address initialOwner, address[] memory tokenAddresses, address[] memory priceFeedAddresses, address tusdAddress) Ownable(initialOwner) {
         if (tokenAddresses.length != priceFeedAddresses.length) {
             revert TUSDEngine__TokenAddressesAndPriceFeedAddressesAmountsDontMatch();
         }
@@ -109,9 +109,9 @@ contract TUSDEngine is Ownable, ReentrancyGuard {
         revertIfHealthFactorIsBroken(msg.sender);
     }
 
-    function mintTusd(uint256 amountTUSDToMint) public moreThanZero(amountTusdToMint) nonReentrant {
+    function mintTusd(uint256 amountTusdToMint) public moreThanZero(amountTusdToMint) nonReentrant {
         s_TUSDMinted[msg.sender] += amountTusdToMint;
-        revertIfHealthFactorIsBroken(msg.sender, collateral);
+        revertIfHealthFactorIsBroken(msg.sender);
         bool minted = i_tusd.mint(msg.sender, amountTusdToMint);
         if (minted != true) {
             revert TUSDEngine__MintFailed();
