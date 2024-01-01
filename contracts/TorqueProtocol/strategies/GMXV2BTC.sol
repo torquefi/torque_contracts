@@ -12,6 +12,8 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
+import '@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol';
+
 import "./../interfaces/IGMX.sol";
 import "./../interfaces/IExchangeRouter.sol";
 import "./../interfaces/IGMXV2ETH.sol";
@@ -25,6 +27,9 @@ contract GMXV2BTC is Ownable, ReentrancyGuard, IGMXV2ETH {
     address withdrawalVault;
     
     IExchangeRouter public immutable gmxExchange;
+    ISwapRouter public immutable swapRouter;
+    
+    address private constant UNISWAP_V3_ROUTER = 0x2f5e87C9312fa29aed5c179E456625D79015299c;
 
     constructor(
         address _wbtc,
@@ -40,6 +45,7 @@ contract GMXV2BTC is Ownable, ReentrancyGuard, IGMXV2ETH {
         usdcToken = IERC20(_usdcToken);
         depositVault = _depositVault;
         withdrawalVault = _withdrawalVault;
+        swapRouter = ISwapRouter(UNISWAP_V3_ROUTER);
     }
 
     function _deposit(uint256 _amount) internal payable returns (uint256 gmTokenAmount) {
@@ -51,17 +57,18 @@ contract GMXV2BTC is Ownable, ReentrancyGuard, IGMXV2ETH {
         gmTokenAmount = gmToken.balanceOf(address(this));
     }
 
-    function _withdraw(uint256 _amount) internal returns (uint256 wbtcAmount, uint256 usdcAmount) {
+    function _withdraw(uint256 _amount) internal returns (uint256 initialWbtcBalance, uint256 usdcAmount, uint256 totalWbtcAmount) {
         gmxExchange.sendTokens(address(gmToken), withdrawalVault, _amount);
         IExchangeRouter.CreateWithdrawalParams memory params = createWithdrawParams();
         gmToken.safeTransferFrom(msg.sender, address(this), _amount);
         gmToken.approve(withdrawalVault, _amount);
         gmxExchange.createWithdrawal(params);
-        wbtcAmount = wbtcGMX.balanceOf(address(this));
+        initialWbtcBalance = wbtcGMX.balanceOf(address(this));
         usdcAmount = usdcToken.balanceOf(address(this));
-        wbtcGMX.safeTransfer(msg.sender, wbtcAmount);
-        // usdcToken.safeTransfer(msg.sender, usdcAmount); // user is expecting WBTC
-        // Convert USDC to WBTC before process continues
+        swapUSDCtoWBTC(usdcAmount);
+        uint256 postSwapWbtcBalance = wbtcGMX.balanceOf(address(this));
+        totalWbtcAmount = postSwapWbtcBalance;
+        wbtcGMX.safeTransfer(msg.sender, totalWbtcAmount);
     }
 
     function _sendWnt(address _receiver, uint256 _amount) private {
@@ -99,5 +106,22 @@ contract GMXV2BTC is Ownable, ReentrancyGuard, IGMXV2ETH {
         withdrawParams.minLongTokenAmount = 0;
         withdrawParams.minShortTokenAmount = 0;
         return withdrawParams;
+    }
+
+    function swapUSDCtoWBTC(uint256 usdcAmount) internal {
+        usdcToken.approve(address(swapRouter), usdcAmount);
+        ISwapRouter.ExactInputSingleParams memory params =
+            ISwapRouter.ExactInputSingleParams({
+                tokenIn: address(usdcToken),
+                tokenOut: address(wbtcGMX),
+                fee: 500, // Uniswap V3 0.05 WBTC/WETH pool
+                recipient: address(this),
+                deadline: block.timestamp,
+                amountIn: usdcAmount,
+                amountOutMinimum: 99.9,
+                sqrtPriceLimitX96: 0
+            });
+
+        swapRouter.exactInputSingle(params);
     }
 }
