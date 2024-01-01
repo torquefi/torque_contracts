@@ -12,6 +12,8 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
+import '@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol';
+
 import "./../interfaces/IGMX.sol";
 import "./../interfaces/IExchangeRouter.sol";
 import "./../interfaces/IGMXV2ETH.sol";
@@ -25,6 +27,9 @@ contract GMXV2ETH is Ownable, ReentrancyGuard, IGMXV2ETH {
     address withdrawalVault;
     
     IExchangeRouter public immutable gmxExchange;
+    ISwapRouter public immutable swapRouter;
+    
+    address private constant UNISWAP_V3_ROUTER = 0xc6962004f452be9203591991d15f6b388e09e8d0;
 
     constructor(
         address _weth,
@@ -51,17 +56,18 @@ contract GMXV2ETH is Ownable, ReentrancyGuard, IGMXV2ETH {
         gmTokenAmount = gmToken.balanceOf(address(this));
     }
 
-    function _withdraw(uint256 _amount) internal returns (uint256 wethAmount, uint256 usdcAmount) {
+    function _withdraw(uint256 _amount) internal returns (uint256 initialWethBalance, uint256 usdcAmount, uint256 totalWethAmount) {
         gmxExchange.sendTokens(address(gmToken), withdrawalVault, _amount);
         IExchangeRouter.CreateWithdrawalParams memory params = createWithdrawParams();
         gmToken.safeTransferFrom(msg.sender, address(this), _amount);
         gmToken.approve(withdrawalVault, _amount);
         gmxExchange.createWithdrawal(params);
-        wethAmount = wethGMX.balanceOf(address(this));
+        initialWethBalance = wethGMX.balanceOf(address(this));
         usdcAmount = usdcToken.balanceOf(address(this));
-        wethGMX.safeTransfer(msg.sender, wethAmount);
-        // usdcToken.safeTransfer(msg.sender, usdcAmount); // user is expecting ETH
-        // Convert USDC to WETH before process continues
+        swapUSDCtoWETH(usdcAmount);
+        uint256 postSwapWethBalance = wethGMX.balanceOf(address(this));
+        totalWethAmount = postSwapWethBalance;
+        wethGMX.safeTransfer(msg.sender, totalWethAmount);
     }
 
     function _sendWnt(address _receiver, uint256 _amount) private {
@@ -99,5 +105,22 @@ contract GMXV2ETH is Ownable, ReentrancyGuard, IGMXV2ETH {
         withdrawParams.minLongTokenAmount = 0;
         withdrawParams.minShortTokenAmount = 0;
         return withdrawParams;
+    }
+
+    function swapUSDCtoWETH(uint256 usdcAmount) internal {
+        usdcToken.approve(address(swapRouter), usdcAmount);
+        ISwapRouter.ExactInputSingleParams memory params =
+            ISwapRouter.ExactInputSingleParams({
+                tokenIn: address(usdcToken),
+                tokenOut: address(wethGMX),
+                fee: 500, // Uniswap V3 0.05 ETH/USDC pool
+                recipient: address(this),
+                deadline: block.timestamp,
+                amountIn: usdcAmount,
+                amountOutMinimum: 99.9,
+                sqrtPriceLimitX96: 0
+            });
+
+        swapRouter.exactInputSingle(params);
     }
 }
