@@ -59,102 +59,103 @@ const config: HardhatUserConfig = {
   },
   solidity: {
     compilers: [
-      {
-        version: "0.8.6",
-        settings: {
-          optimizer: process.env["OPTIMIZER_DISABLED"]
-            ? { enabled: false }
-            : {
-                enabled: true,
-                runs: 1,
-                details: {
-                  yulDetails: {
-                    optimizerSteps:
-                      "dhfoDgvulfnTUtnIf [xa[r]scLM cCTUtTOntnfDIul Lcul Vcul [j] Tpeul xa[rul] xa[r]cL gvif CTUca[r]LsTOtfDnca[r]Iulc] jmul[jul] VcTOcul jmul",
+        {
+          version: "0.8.6",
+          settings: {
+            optimizer: process.env["OPTIMIZER_DISABLED"]
+              ? { enabled: false }
+              : {
+                  enabled: true,
+                  runs: 1,
+                  details: {
+                    yulDetails: {
+                      optimizerSteps:
+                        "dhfoDgvulfnTUtnIf [xa[r]scLM cCTUtTOntnfDIul Lcul Vcul [j] Tpeul xa[rul] xa[r]cL gvif CTUca[r]LsTOtfDnca[r]Iulc] jmul[jul] VcTOcul jmul",
+                    },
                   },
                 },
+            outputSelection: {
+              "*": {
+                "*": ["evm.deployedBytecode.sourceMap"],
               },
-          outputSelection: {
-            "*": {
-              "*": ["evm.deployedBytecode.sourceMap"],
             },
+            viaIR: process.env["OPTIMIZER_DISABLED"] ? false : true,
           },
-          viaIR: process.env["OPTIMIZER_DISABLED"] ? false : true,
         },
-      },
-      {
-        version: "0.8.9",
-        settings: {
-          optimizer: process.env["OPTIMIZER_DISABLED"]
-            ? { enabled: false }
-            : {
-                enabled: true,
-                runs: 1,
-                details: {
-                  yulDetails: {
-                    optimizerSteps:
-                      "dhfoDgvulfnTUtnIf [xa[r]scLM cCTUtTOntnfDIul Lcul Vcul [j] Tpeul xa[rul] xa[r]cL gvif CTUca[r]LsTOtfDnca[r]Iulc] jmul[jul] VcTOcul jmul",
+        {
+          version: "0.8.9",
+          settings: {
+            optimizer: process.env["OPTIMIZER_DISABLED"]
+              ? { enabled: false }
+              : {
+                  enabled: true,
+                  runs: 1,
+                  details: {
+                    yulDetails: {
+                      optimizerSteps:
+                        "dhfoDgvulfnTUtnIf [xa[r]scLM cCTUtTOntnfDIul Lcul Vcul [j] Tpeul xa[rul] xa[r]cL gvif CTUca[r]LsTOtfDnca[r]Iulc] jmul[jul] VcTOcul jmul",
+                    },
                   },
                 },
+            outputSelection: {
+              "*": {
+                "*": ["evm.deployedBytecode.sourceMap"],
               },
-          outputSelection: {
-            "*": {
-              "*": ["evm.deployedBytecode.sourceMap"],
             },
+            viaIR: process.env["OPTIMIZER_DISABLED"] ? false : true,
           },
-          viaIR: process.env["OPTIMIZER_DISABLED"] ? false : true,
         },
-      },
-      {
-        version: "0.8.15",
-        settings: {
-          optimizer: process.env["OPTIMIZER_DISABLED"]
-            ? { enabled: false }
-            : {
-                enabled: true,
-                runs: 1,
-                details: {
-                  yulDetails: {
-                    optimizerSteps:
-                      "dhfoDgvulfnTUtnIf [xa[r]scLM cCTUtTOntnfDIul Lcul Vcul [j] Tpeul xa[rul] xa[r]cL gvif CTUca[r]LsTOtfDnca[r]Iulc] jmul[jul] VcTOcul jmul",
+        {
+          version: "0.8.15",
+          settings: {
+            optimizer: process.env["OPTIMIZER_DISABLED"]
+              ? { enabled: false }
+              : {
+                  enabled: true,
+                  runs: 1,
+                  details: {
+                    yulDetails: {
+                      optimizerSteps:
+                        "dhfoDgvulfnTUtnIf [xa[r]scLM cCTUtTOntnfDIul Lcul Vcul [j] Tpeul xa[rul] xa[r]cL gvif CTUca[r]LsTOtfDnca[r]Iulc] jmul[jul] VcTOcul jmul",
+                    },
                   },
                 },
+            outputSelection: {
+              "*": {
+                "*": ["evm.deployedBytecode.sourceMap"],
               },
-          outputSelection: {
-            "*": {
-              "*": ["evm.deployedBytecode.sourceMap"],
             },
+            viaIR: process.env["OPTIMIZER_DISABLED"] ? false : true,
           },
-          viaIR: process.env["OPTIMIZER_DISABLED"] ? false : true,
         },
-      },
-      {
-        version: "0.8.20",
-        settings: {
-          optimizer: process.env["OPTIMIZER_DISABLED"]
-            ? { enabled: false }
-            : {
-                enabled: true,
-                runs: 1,
-                details: {
-                  yulDetails: {
-                    optimizerSteps:
-                      "dhfoDgvulfnTUtnIf [xa[r]scLM cCTUtTOntnfDIul Lcul Vcul [j] Tpeul xa[rul] xa[r]cL gvif CTUca[r]LsTOtfDnca[r]Iulc] jmul[jul] VcTOcul jmul",
+        {
+          version: "0.8.20",
+          settings: {
+            optimizer: process.env["OPTIMIZER_DISABLED"]
+              ? { enabled: false }
+              : {
+                  enabled: true,
+                  runs: 1,
+                  details: {
+                    yulDetails: {
+                      optimizerSteps:
+                        "dhfoDgvulfnTUtnIf [xa[r]scLM cCTUtTOntnfDIul Lcul Vcul [j] Tpeul xa[rul] xa[r]cL gvif CTUca[r]LsTOtfDnca[r]Iulc] jmul[jul] VcTOcul jmul",
+                    },
                   },
                 },
+            outputSelection: {
+              "*": {
+                "*": ["evm.deployedBytecode.sourceMap"],
               },
-          outputSelection: {
-            "*": {
-              "*": ["evm.deployedBytecode.sourceMap"],
             },
+            viaIR: process.env["OPTIMIZER_DISABLED"] ? false : true,
           },
-          viaIR: process.env["OPTIMIZER_DISABLED"] ? false : true,
         },
-      },
-    ],
-  },
-  mocha: {
-    timeout: 20000,
+      ],
+    },
+    mocha: {
+      timeout: 20000,
+    },
   },
 };
 
