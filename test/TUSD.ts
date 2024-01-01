@@ -14,7 +14,7 @@ import {
       // Contracts are deployed using the first signer/account by default
       const [deployer, alice, bob, daniel, signer] = await ethers.getSigners();
   
-      const usd = await ethers.deployContract("USD", []);
+      const usd = await ethers.deployContract("TUSD", []);
   
       const usdcTest = await ethers.deployContract("USDCTest", []);
   
