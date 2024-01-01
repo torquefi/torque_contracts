@@ -7,16 +7,12 @@ import "@nomicfoundation/hardhat-toolbox";
 
 const {
   PRIVATE_KEY,
-  API_KEY_BSC_TESTNET,
-  API_KEY_GOERLI,
-  API_KEY_ETH,
-  API_KEY_BSC_MAINNET,
-  API_KEY_ARBI_GOERLI,
-  PROJECT_ID_GOERLI,
-  PROJECT_ID_ETH,
+  API_KEY_ARBITRUM_ONE,
+  API_KEY_ARBITRUM_GOERLI,
+  TENDERLY_PROJECT_NAME,
+  TENDERLY_USERNAME,
 } = process.env;
-// This is a sample Hardhat task. To learn how to create your own go to
-// https://hardhat.org/guides/create-task.html
+
 task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
   const accounts = await hre.ethers.getSigners();
 
@@ -25,21 +21,14 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
   }
 });
 
-// You need to export an object to set up your config
-// Go to https://hardhat.org/config/ to learn more
-
 const config: HardhatUserConfig = {
   paths: {
     sources: "./contracts/TorqueProtocol",
   },
   etherscan: {
     apiKey: {
-      bscTestnet: `${API_KEY_BSC_TESTNET}`,
-      goerli: `${API_KEY_GOERLI}`,
-      mainnet: `${API_KEY_ETH}`, //eth
-      bsc: `${API_KEY_BSC_MAINNET}`, //bsc
-      arbitrumGoerli: `${API_KEY_ARBI_GOERLI}`,
-      arbitrumOne: 'H46CBCJXWGF2UXTDYFQGYC5DBHW3VRYC5G'
+      arbitrumGoerli: `${API_KEY_ARBITRUM_GOERLI}`,
+      arbitrumOne: `${API_KEY_ARBITRUM_ONE}`,
     },
   },
   networks: {
@@ -47,55 +36,31 @@ const config: HardhatUserConfig = {
       url: "http://127.0.0.1:8545",
     },
     hardhat: {},
-    goerli: {
-      url: `https://goerli.infura.io/v3/${PROJECT_ID_GOERLI}`,
-      chainId: 5,
-      accounts: [`0x${PRIVATE_KEY}`],
-    },
-    testnet: {
-      url: "https://data-seed-prebsc-1-s1.binance.org:8545",
-      chainId: 97,
-      accounts: [`0x${PRIVATE_KEY}`],
-    },
-    mainnet: {
-      url: "https://bsc-dataseed.binance.org/",
-      chainId: 56,
-      accounts: [`0x${PRIVATE_KEY}`],
-    },
-    rinkeby: {
-      url: `https://rinkeby.infura.io/v3/${API_KEY_ETH}`,
-      accounts: [`0x${PRIVATE_KEY}`],
-    },
-    eth: {
-      url: `https://eth-mainnet.gateway.pokt.network/v1/${PROJECT_ID_ETH}`,
-      chainId: 1,
-      accounts: [`0x${PRIVATE_KEY}`],
-    },
-    arbi: {
+    arbitrumMainnet: {
       url: "https://arb1.arbitrum.io/rpc",
       chainId: 42161,
       accounts: [`0x${PRIVATE_KEY}`],
     },
-    testarbi: {
+    arbitrumGoerli: {
       url: "https://goerli-rollup.arbitrum.io/rpc",
       chainId: 421613,
       accounts: [`0x${PRIVATE_KEY}`],
     },
-    matic: {
-      url: "https://matic-mumbai.chainstacklabs.com/",
+    tenderlyFork: {
+      url: `https://rpc.tenderly.co/fork/b8cef826-3d88-42f1-bc3a-82d34962ab5a`,
+      chainId: 42161, // Arbitrum One fork
       accounts: [`0x${PRIVATE_KEY}`],
-    },
+      gasPrice: 0,
+      gas: 12000000,
+      headers: {
+        "x-tenderly-project": TENDERLY_PROJECT_NAME,
+        "x-tenderly-username": TENDERLY_USERNAME
+      }
   },
   solidity: {
     compilers: [
-      // {
-      //   version: "0.8.7",
-      // },
-      // {
-      //   version: "0.7.6",
-      // },
       {
-        version: "0.8.19",
+        version: "0.8.6",
         settings: {
           optimizer: process.env["OPTIMIZER_DISABLED"]
             ? { enabled: false }
@@ -118,7 +83,7 @@ const config: HardhatUserConfig = {
         },
       },
       {
-        version: "0.8.20",
+        version: "0.8.9",
         settings: {
           optimizer: process.env["OPTIMIZER_DISABLED"]
             ? { enabled: false }
@@ -142,6 +107,29 @@ const config: HardhatUserConfig = {
       },
       {
         version: "0.8.15",
+        settings: {
+          optimizer: process.env["OPTIMIZER_DISABLED"]
+            ? { enabled: false }
+            : {
+                enabled: true,
+                runs: 1,
+                details: {
+                  yulDetails: {
+                    optimizerSteps:
+                      "dhfoDgvulfnTUtnIf [xa[r]scLM cCTUtTOntnfDIul Lcul Vcul [j] Tpeul xa[rul] xa[r]cL gvif CTUca[r]LsTOtfDnca[r]Iulc] jmul[jul] VcTOcul jmul",
+                  },
+                },
+              },
+          outputSelection: {
+            "*": {
+              "*": ["evm.deployedBytecode.sourceMap"],
+            },
+          },
+          viaIR: process.env["OPTIMIZER_DISABLED"] ? false : true,
+        },
+      },
+      {
+        version: "0.8.20",
         settings: {
           optimizer: process.env["OPTIMIZER_DISABLED"]
             ? { enabled: false }
