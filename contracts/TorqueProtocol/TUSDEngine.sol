@@ -25,9 +25,9 @@ contract TUSDEngine is Ownable, ReentrancyGuard {
 
     using OracleLib for AggregatorV3Interface;
 
-    TUSD private immutable i_tusd;
-    IERC20 private immutable usdcToken;
-    AggregatorV3Interface private immutable usdcPriceFeed;
+    TUSD private immutable i_tusd; // 0xa0985c4e6f2a1e694f58b93df3e5f4ba8a09b239
+    IERC20 private immutable usdcToken; // 0xaf88d065e77c8cC2239327C5EDb3A432268e5831
+    AggregatorV3Interface private immutable usdcPriceFeed; // 0x50834f3163758fcc1df9973b6e91f0f0f0434ad3
 
     uint256 private constant LIQUIDATION_THRESHOLD = 98;
     uint256 private constant LIQUIDATION_BONUS = 20;
