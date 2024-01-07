@@ -49,7 +49,7 @@ contract RewardUtil {
         emit RewardSpeedUpdated(torqueContract, _speed);
     }
 
-    function claimReward(address torqueContract, address user) external nonReentrant {
+    function claimReward(address torqueContract, address user) external {
         if (rewardConfig[torqueContract].rewardSpeed == 0) revert InvalidTorqueContract(torqueContract);
         updateReward(torqueContract, user);
         uint256 rewardAmount = rewardsClaimed[torqueContract][user];
