@@ -11,8 +11,9 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-contract RewardUtil {
+contract RewardUtil is ReentrancyGuard {
     using SafeMath for uint256;
 
     struct RewardConfig {
@@ -49,7 +50,11 @@ contract RewardUtil {
         emit RewardSpeedUpdated(torqueContract, _speed);
     }
 
-    function claimReward(address torqueContract, address user) external {
+    function updateReward(address torqueContract, address user) public nonReentrant {
+        _calculateReward(torqueContract, user);
+    }
+
+    function claimReward(address torqueContract, address user) external nonReentrant {
         if (rewardConfig[torqueContract].rewardSpeed == 0) revert InvalidTorqueContract(torqueContract);
         updateReward(torqueContract, user);
         uint256 rewardAmount = rewardsClaimed[torqueContract][user];
@@ -59,7 +64,7 @@ contract RewardUtil {
         emit RewardClaimed(user, torqueContract, rewardAmount);
     }
 
-    function updateReward(address torqueContract, address user) internal {
+    function _calculateReward(address torqueContract, address user) internal {
         uint256 blocks = block.number - rewardConfig[torqueContract].lastRewardBlock;
         uint256 userReward = blocks.mul(rewardConfig[torqueContract].rewardSpeed);
         rewardConfig[torqueContract].lastRewardBlock = block.number;
