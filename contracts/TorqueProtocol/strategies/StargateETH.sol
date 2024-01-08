@@ -10,23 +10,29 @@ pragma solidity ^0.8.20;
 //        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import "./../interfaces/ISwapRouterV3.sol";
 import "./../interfaces/IStargateLPStaking.sol";
 
 contract StargateETH is Ownable, ReentrancyGuard {
+    using SafeMath for uint256;
+    using SafeERC20 for IERC20;
+
     IERC20 public immutable wethSTG;
     IStargateLPStaking lpStaking;
 
     mapping(address => uint256) public addressToPid;
 
-    constructor(address _weth, address _stargateStakingAddress) {
+    constructor(address _weth, address _stargateStakingAddress, address initialOwner) Ownable(initialOwner) {
         wethSTG = IERC20(_weth);
         lpStaking = IStargateLPStaking(_stargateStakingAddress);
     }
 
-    function _deposit(address _token, uint256 _amount) internal payable {
+    function _deposit(address _token, uint256 _amount) internal {
         uint256 pid = addressToPid[_token];
         wethSTG.safeTransferFrom(msg.sender, address(this), _amount);
         wethSTG.approve(address(lpStaking), _amount);
