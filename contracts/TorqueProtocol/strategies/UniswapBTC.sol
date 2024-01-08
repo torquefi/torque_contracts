@@ -16,7 +16,7 @@ import "@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.s
 
 contract UniswapBTC is Ownable, ReentrancyGuard {
     
-    struct Config {
+    struct PoolConfig {
         address wbtcToken;
         address wethToken;
         address positionManager;
@@ -43,7 +43,7 @@ contract UniswapBTC is Ownable, ReentrancyGuard {
     event Deposited(uint256 amount);
     event Withdrawal(uint256 amount);
 
-    Config public config;
+    PoolConfig public poolConfig;
     State public state;
 
     constructor(
