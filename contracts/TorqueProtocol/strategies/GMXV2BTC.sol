@@ -48,7 +48,7 @@ contract GMXV2BTC is Ownable, ReentrancyGuard, IGMXV2ETH {
         swapRouter = ISwapRouter(UNISWAP_V3_ROUTER);
     }
 
-    function _deposit(uint256 _amount) internal payable returns (uint256 gmTokenAmount) {
+    function _deposit(uint256 _amount) internal returns (uint256 gmTokenAmount) {
         gmxExchange.sendWnt(depositVault, _amount);
         IExchangeRouter.CreateDepositParams memory params = createDepositParams();
         wbtcGMX.safeTransferFrom(msg.sender, address(this), _amount);
@@ -118,7 +118,7 @@ contract GMXV2BTC is Ownable, ReentrancyGuard, IGMXV2ETH {
                 recipient: address(this),
                 deadline: block.timestamp,
                 amountIn: usdcAmount,
-                amountOutMinimum: 99.9,
+                amountOutMinimum: 99,
                 sqrtPriceLimitX96: 0
             });
 

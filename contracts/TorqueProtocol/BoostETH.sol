@@ -10,46 +10,18 @@ pragma solidity ^0.8.9;
 //        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
 
 import "./BoostAbstract.sol";
-
 import "@chainlink/contracts/src/v0.8/automation/AutomationCompatible.sol";
-
 import "./interfaces/IStargateLPStaking.sol";
 import "./interfaces/IWETH.sol";
 import "./interfaces/IGMX.sol";
-
 import "./strategies/StargateETH.sol";
 import "./strategies/GMXV2ETH.sol";
-
 import "./tToken.sol";
 
 contract BoostETH is BoostAbstract, AutomationCompatible {
-    using SafeMath for uint256;
-    using SafeERC20 for IERC20;
-
-    struct Config {
-        address treasury;
-        uint256 gmxV2EthPercent;
-        uint256 stargateEthPercent;
-        uint256 performanceFee;
-    }
-
-    struct Addresses {
-        address tTokenContract;
-        address wethTokenAddress;
-        address gmxV2EthVaultAddress;
-        address stargateEthVaultAddress;
-        address treasury;
-    }
-
-    Config public config;
-    Addresses public addresses;
     IWETH public wethToken;
-    tToken public tTokenContract;
     GMXV2ETH public gmxV2EthVault;
     StargateETH public stargateEthVault;
-    RewardUtil public rewardUtil;
-    uint public totalSupplied;
-    uint256 public lastCompoundTimestamp;
 
     constructor(
         address _wethTokenAddress,
@@ -57,26 +29,23 @@ contract BoostETH is BoostAbstract, AutomationCompatible {
         address _gmxV2EthVaultAddress,
         address _stargateEthVaultAddress,
         address _treasury
-    ) {
+    ) BoostAbstract(_tTokenContract, _treasury) {
         wethToken = IWETH(_wethTokenAddress);
-        tTokenContract = tToken(_tTokenContract);
         gmxV2EthVault = GMXV2ETH(_gmxV2EthVaultAddress);
         stargateEthVault = StargateETH(_stargateEthVaultAddress);
-        addresses.treasury = _treasury;
         config.gmxV2EthPercent = 50;
         config.stargateEthPercent = 50;
-        config.performanceFee = 2000;
     }
 
-    function deposit() external payable nonReentrant {
+    function deposit() external payable override nonReentrant {
         _deposit(msg.value);
     }
 
-    function withdraw(uint256 tTokenAmount) external nonReentrant {
+    function withdraw(uint256 tTokenAmount) external override nonReentrant {
         _withdraw(tTokenAmount);
     }
 
-    function compoundFees() external nonReentrant {
+    function compoundFees() external override nonReentrant {
         _compoundFees();
     }
 
@@ -90,27 +59,6 @@ contract BoostETH is BoostAbstract, AutomationCompatible {
         }
     }
 
-    function sweep(address[] memory _tokens, address _treasury) external onlyOwner {
-        for (uint256 i = 0; i < _tokens.length; i++) {
-            address tokenAddress = _tokens[i];
-            uint256 balance;
-            if (tokenAddress == address(0)) {
-                balance = address(this).balance;
-                if (balance > 0) {
-                    payable(_treasury).transfer(balance);
-                    emit EtherSwept(_treasury, balance);
-                }
-            } else {
-                IERC20 token = IERC20(tokenAddress);
-                balance = token.balanceOf(address(this));
-                if (balance > 0) {
-                    token.transfer(_treasury, balance);
-                    emit TokensSwept(tokenAddress, _treasury, balance);
-                }
-            }
-        }
-    }
-
     function _deposit(uint256 amount) internal {
         require(amount > 0, "Deposit amount must be greater than zero");
         wethToken.deposit{value: amount}();
@@ -120,27 +68,24 @@ contract BoostETH is BoostAbstract, AutomationCompatible {
         wethToken.approve(address(stargateEthVault), half);
         stargateEthVault.deposit(half);
         tTokenContract.mint(msg.sender, amount);
-        totalSupplied = totalSupplied.add(amount);
-        RewardUtil(rewardUtil).updateReward(msg.sender);
-        emit Deposit(msg.sender, amount, amount);
+        _updateTotalSupplied(amount, true);
+        emit Deposit(msg.sender, amount);
     }
 
     function _withdraw(uint256 tTokenAmount) internal {
-        _checkWithdraw(tTokenAmount);
+        require(tTokenAmount > 0, "Withdraw amount must be greater than zero");
+        require(tTokenContract.balanceOf(msg.sender) >= tTokenAmount, "Insufficient tToken balance");
         uint256 ethAmount = calculateEthAmount(tTokenAmount);
-        require(ethAmount <= address(this).balance, "Insufficient ETH balance in contract");
         gmxV2EthVault.withdraw(tTokenAmount.div(2));
         stargateEthVault.withdraw(tTokenAmount.div(2));
         tTokenContract.burn(msg.sender, tTokenAmount);
         wethToken.withdraw(ethAmount);
-        (bool success, ) = msg.sender.call{value: ethAmount}("");
-        require(success, "ETH transfer failed");
-        totalSupplied = totalSupplied.sub(ethAmount);
-        RewardUtil(rewardUtil).updateReward(msg.sender);
-        emit Withdraw(msg.sender, tTokenAmount, ethAmount);
+        payable(msg.sender).transfer(ethAmount);
+        _updateTotalSupplied(ethAmount, false);
+        emit Withdraw(msg.sender, tTokenAmount);
     }
 
-    function _compoundFees() internal {
+    function _compoundFees() internal override {
         uint256 gmxV2EthBalanceBefore = gmxV2EthVault.balanceOf(address(this));
         uint256 stargateEthBalanceBefore = stargateEthVault.balanceOf(address(this));
         uint256 totalBalanceBefore = gmxV2EthBalanceBefore.add(stargateEthBalanceBefore);
