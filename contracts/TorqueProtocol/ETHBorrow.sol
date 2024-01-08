@@ -14,6 +14,30 @@ import "./BorrowAbstract.sol";
 contract ETHBorrow is BorrowAbstract {
     using SafeMath for uint256;
 
+    constructor(
+        address _initialOwner,
+        address _comet, 
+        address _cometReward, 
+        address _asset, 
+        address _baseAsset, 
+        address _bulker, 
+        address _engine, 
+        address _tusd, 
+        address _treasury, 
+        uint _repaySlippage
+    ) BorrowAbstract(
+       _initialOwner,
+        _comet,
+        _cometReward,
+        _asset,
+        _baseAsset,
+        _bulker,
+        _engine,
+        _tusd,
+        _treasury,
+        _repaySlippage
+    ) {}
+
     function borrow(uint borrowAmount, uint tusdBorrowAmount) public payable nonReentrant() {
         // Checks
         require(msg.value > 0, "Supply amount must be greater than 0");
@@ -30,9 +54,6 @@ contract ETHBorrow is BorrowAbstract {
         uint accruedInterest = 0;
         if (userBorrowInfo.borrowed > 0) {
             accruedInterest = calculateInterest(userBorrowInfo.borrowed, userBorrowInfo.borrowTime);
-            RewardUtil(rewardUtil).updateReward(address(this), msg.sender);
-            uint reward = RewardUtil(rewardUtil).rewardsClaimed(address(this), msg.sender);
-            userBorrowInfo.reward = userBorrowInfo.reward.add(reward);
         }
         userBorrowInfo.baseBorrowed = userBorrowInfo.baseBorrowed.add(tusdBorrowAmount);
         userBorrowInfo.borrowed = userBorrowInfo.borrowed.add(borrowAmount).add(accruedInterest);
@@ -59,14 +80,13 @@ contract ETHBorrow is BorrowAbstract {
         // Final State Update
         totalBorrow = totalBorrow.add(tusdBorrowAmount);
         totalSupplied = totalSupplied.add(supplyAmount);
-        RewardUtil(rewardUtil).updateReward(address(this), msg.sender);
     }
 
 function repay(uint tusdRepayAmount) public nonReentrant {
         // Checks
         require(tusdRepayAmount > 0, "Repay amount must be greater than 0");
         BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
-        (uint withdrawUsdcAmountFromEngine, bool burnable) = ITUSDEngine(engine).getBurnableTUSD(baseAsset, msg.sender, tusdRepayAmount);
+        (uint withdrawUsdcAmountFromEngine, bool burnable) = ITUSDEngine(engine).getBurnableTUSD(msg.sender, tusdRepayAmount);
         require(burnable, "Not burnable");
         withdrawUsdcAmountFromEngine = withdrawUsdcAmountFromEngine.mul(100 - repaySlippage).div(100);
         require(userBorrowInfo.borrowed >= withdrawUsdcAmountFromEngine, "Exceeds current borrowed amount");
@@ -78,11 +98,9 @@ function repay(uint tusdRepayAmount) public nonReentrant {
         uint repayUsdcAmount = min(withdrawUsdcAmountFromEngine, userBorrowInfo.borrowed);
         uint repayTusd = userBorrowInfo.baseBorrowed.mul(repayUsdcAmount).div(userBorrowInfo.borrowed);
         uint withdrawAssetAmount = userBorrowInfo.supplied.mul(repayUsdcAmount).div(userBorrowInfo.borrowed);
-        uint reward = RewardUtil(rewardUtil).updateReward(address(this), msg.sender);
         userBorrowInfo.baseBorrowed = userBorrowInfo.baseBorrowed.sub(repayTusd);
         userBorrowInfo.supplied = userBorrowInfo.supplied.sub(withdrawAssetAmount);
         userBorrowInfo.borrowTime = block.timestamp;
-        userBorrowInfo.reward = 0; // Reset after calculation
         
         // Pre-Interactions
         bytes[] memory callData = new bytes[](2);
@@ -90,6 +108,9 @@ function repay(uint tusdRepayAmount) public nonReentrant {
         callData[0] = supplyAssetCalldata;
         bytes memory withdrawAssetCalldata = abi.encode(comet, address(this), withdrawAssetAmount);
         callData[1] = withdrawAssetCalldata;
+
+        // Record Balance
+        uint baseAssetBalanceBefore = IERC20(baseAsset).balanceOf(address(this));
 
         // Interactions
         IERC20(baseAsset).approve(comet, repayUsdcAmount);
@@ -102,17 +123,12 @@ function repay(uint tusdRepayAmount) public nonReentrant {
         require(baseAssetBalanceExpected == IERC20(baseAsset).balanceOf(address(this)), "Invalid USDC claim to Engine");
 
         // Transfer Assets
-        if (reward > 0) {
-            require(IERC20(rewardToken).balanceOf(address(this)) >= reward, "Insufficient balance to pay reward");
-            require(IERC20(rewardToken).transfer(msg.sender, reward), "Transfer reward failed");
-        }
         (bool success, ) = msg.sender.call{ value: withdrawAssetAmount }("");
         require(success, "Transfer ETH failed");
 
         // Final State Update
         totalBorrow = totalBorrow.sub(repayTusd);
         totalSupplied = totalSupplied.sub(withdrawAssetAmount);
-        RewardUtil(rewardUtil).updateReward(address(this), msg.sender);
     }
 
     function getTotalAmountSupplied(address user) public view returns (uint) {
