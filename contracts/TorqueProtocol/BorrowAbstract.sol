@@ -9,21 +9,17 @@ pragma solidity ^0.8.6;
 //       \ \__\ \ \_______\ \__\\ _\\ \_____  \ \_______\ \_______\
 //        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
 
-import "./RewardUtil.sol";
-
 import "./interfaces/IComet.sol";
 import "./interfaces/IWETH9.sol";
 import "./interfaces/IBulker.sol";
 import "./interfaces/ICometRewards.sol";
 import "./interfaces/ITUSDEngine.sol";
+import "./interfaces/ITokenDecimals.sol";
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-
-interface ITokenDecimals {
-    function decimals() external view returns (uint8);
-}
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 abstract contract BorrowAbstract is Ownable, ReentrancyGuard {
     using SafeMath for uint256;
@@ -36,8 +32,6 @@ abstract contract BorrowAbstract is Ownable, ReentrancyGuard {
     address public engine;
     address public tusd;
     address public treasury;
-    address public rewardUtil;
-    address public rewardToken;
     uint public claimPeriod;
     uint public repaySlippage;
     uint public totalBorrow;
@@ -52,6 +46,7 @@ abstract contract BorrowAbstract is Ownable, ReentrancyGuard {
     bytes32 public constant ACTION_CLAIM_REWARD = "ACTION_CLAIM_REWARD";
 
     constructor(
+        address _initialOwner,
         address _comet, 
         address _cometReward, 
         address _asset, 
@@ -60,10 +55,8 @@ abstract contract BorrowAbstract is Ownable, ReentrancyGuard {
         address _engine, 
         address _tusd, 
         address _treasury, 
-        address _rewardUtil, 
-        address _rewardToken,
         uint _repaySlippage
-    ) {
+    ) Ownable(_initialOwner) {
         comet = _comet;
         cometReward = _cometReward;
         asset = _asset;
@@ -72,8 +65,6 @@ abstract contract BorrowAbstract is Ownable, ReentrancyGuard {
         engine = _engine;
         tusd = _tusd;
         treasury = _treasury;
-        rewardUtil = _rewardUtil;
-        rewardToken = _rewardToken;
         IComet(comet).allow(_bulker, true);
         claimPeriod = 86400; // 1 day in seconds
         repaySlippage = _repaySlippage;
@@ -92,7 +83,6 @@ abstract contract BorrowAbstract is Ownable, ReentrancyGuard {
         uint borrowed;
         uint supplied;
         uint borrowTime;
-        uint reward;
     }
 
     mapping(address => BorrowInfo) public borrowInfoMap;
@@ -123,22 +113,22 @@ abstract contract BorrowAbstract is Ownable, ReentrancyGuard {
         return mintable;
     }
     
-    function getBorrowableUsdc(uint supplyAmount) public view returns (uint){
+    function getBorrowableUsdc(uint supplyAmount) public view returns (uint) {
         IComet icomet = IComet(comet);
         IComet.AssetInfo memory info = icomet.getAssetInfoByAddress(asset);
-        uint price = icomet.getPrice(info.priceFeed);
         uint assetDecimal = ITokenDecimals(asset).decimals();
-        uint maxBorrow = supplyAmount.mul(info.borrowCollateralFactor).mul(price).div(PRICE_MANTISA).div(10**assetDecimal).div(SCALE);
-        return maxBorrow;
+        return supplyAmount
+            .mul(info.borrowCollateralFactor)
+            .mul(icomet.getPrice(info.priceFeed))
+            .div(PRICE_MANTISA)
+            .div(10**assetDecimal)
+            .div(SCALE);
     }
 
     function withdraw(uint withdrawAmount) public nonReentrant {
         BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
         require(userBorrowInfo.supplied > 0, "User does not have asset");
         if (userBorrowInfo.borrowed > 0) {
-            RewardUtil(rewardUtil).updateReward(address(this), msg.sender);
-            uint reward = RewardUtil(rewardUtil).rewardsClaimed(address(this), msg.sender);
-            userBorrowInfo.reward = userBorrowInfo.reward.add(reward);
             uint accruedInterest = calculateInterest(userBorrowInfo.borrowed, userBorrowInfo.borrowTime);
             userBorrowInfo.borrowed = userBorrowInfo.borrowed.add(accruedInterest);
             userBorrowInfo.borrowTime = block.timestamp;
