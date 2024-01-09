@@ -20,19 +20,19 @@ import "./tToken.sol";
 
 contract BoostETH is BoostAbstract, AutomationCompatible {
     IWETH public wethToken;
-    GMXV2ETH public gmxV2EthVault;
-    StargateETH public stargateEthVault;
+    GMXV2ETH public gmxV2EthStrat;
+    StargateETH public stargateEthStrat;
 
     constructor(
         address _wethTokenAddress,
         address _tTokenContract,
-        address _gmxV2EthVaultAddress,
-        address _stargateEthVaultAddress,
+        address _gmxV2EthStratAddress,
+        address _stargateEthStratAddress,
         address _treasury
     ) BoostAbstract(_tTokenContract, _treasury) {
         wethToken = IWETH(_wethTokenAddress);
-        gmxV2EthVault = GMXV2ETH(_gmxV2EthVaultAddress);
-        stargateEthVault = StargateETH(_stargateEthVaultAddress);
+        gmxV2EthStrat = GMXV2ETH(_gmxV2EthStratAddress);
+        stargateEthStrat = StargateETH(_stargateEthStratAddress);
         config.gmxV2EthPercent = 50;
         config.stargateEthPercent = 50;
     }
@@ -63,10 +63,10 @@ contract BoostETH is BoostAbstract, AutomationCompatible {
         require(amount > 0, "Deposit amount must be greater than zero");
         wethToken.deposit{value: amount}();
         uint256 half = amount.div(2);
-        wethToken.approve(address(gmxV2EthVault), half);
-        gmxV2EthVault.deposit(half);
-        wethToken.approve(address(stargateEthVault), half);
-        stargateEthVault.deposit(half);
+        wethToken.approve(address(gmxV2EthStrat), half);
+        gmxV2EthStrat.deposit(half);
+        wethToken.approve(address(stargateEthStrat), half);
+        stargateEthStrat.deposit(half);
         tTokenContract.mint(msg.sender, amount);
         _updateTotalSupplied(amount, true);
         emit Deposit(msg.sender, amount);
@@ -76,8 +76,8 @@ contract BoostETH is BoostAbstract, AutomationCompatible {
         require(tTokenAmount > 0, "Withdraw amount must be greater than zero");
         require(tTokenContract.balanceOf(msg.sender) >= tTokenAmount, "Insufficient tToken balance");
         uint256 ethAmount = calculateEthAmount(tTokenAmount);
-        gmxV2EthVault.withdraw(tTokenAmount.div(2));
-        stargateEthVault.withdraw(tTokenAmount.div(2));
+        gmxV2EthStrat.withdraw(tTokenAmount.div(2));
+        stargateEthStrat.withdraw(tTokenAmount.div(2));
         tTokenContract.burn(msg.sender, tTokenAmount);
         wethToken.withdraw(ethAmount);
         payable(msg.sender).transfer(ethAmount);
@@ -86,21 +86,21 @@ contract BoostETH is BoostAbstract, AutomationCompatible {
     }
 
     function _compoundFees() internal override {
-        uint256 gmxV2EthBalanceBefore = gmxV2EthVault.balanceOf(address(this));
-        uint256 stargateEthBalanceBefore = stargateEthVault.balanceOf(address(this));
+        uint256 gmxV2EthBalanceBefore = gmxV2EthStrat.balanceOf(address(this));
+        uint256 stargateEthBalanceBefore = stargateEthStrat.balanceOf(address(this));
         uint256 totalBalanceBefore = gmxV2EthBalanceBefore.add(stargateEthBalanceBefore);
-        gmxV2EthVault.withdrawGMX();
-        stargateEthVault.withdrawStargate();
+        gmxV2EthStrat.withdrawGMX();
+        stargateEthStrat.withdrawStargate();
         uint256 performanceFee = totalBalanceBefore.mul(config.performanceFee).div(10000);
         uint256 treasuryFee = performanceFee.mul(20).div(100);
-        uint256 gmxV2EthFee = gmxV2EthVault.balanceOf(address(this));
-        uint256 stargateEthFee = stargateEthVault.balanceOf(address(this));
+        uint256 gmxV2EthFee = gmxV2EthStrat.balanceOf(address(this));
+        uint256 stargateEthFee = stargateEthStrat.balanceOf(address(this));
         payable(addresses.treasury).transfer(treasuryFee);
         uint256 totalBalanceAfter = gmxV2EthFee.add(stargateEthFee);
         uint256 gmxV2EthFeeActualPercent = gmxV2EthFee.mul(100).div(totalBalanceAfter);
         uint256 stargateEthFeeActualPercent = stargateEthFee.mul(100).div(totalBalanceAfter);
-        gmxV2EthVault.deposit();
-        stargateEthVault.deposit();
+        gmxV2EthStrat.deposit();
+        stargateEthStrat.deposit();
         lastCompoundTimestamp = block.timestamp;
         emit Compound(gmxV2EthFeeActualPercent, stargateEthFeeActualPercent);
     }
