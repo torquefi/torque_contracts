@@ -12,7 +12,7 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-import '@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol';
+import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 
 import "./../interfaces/IGMX.sol";
 import "./../interfaces/IExchangeRouter.sol";
