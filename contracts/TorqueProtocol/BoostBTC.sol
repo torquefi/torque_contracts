@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.20;
 
 //  _________  ________  ________  ________  ___  ___  _______
 // |\___   ___\\   __  \|\   __  \|\   __  \|\  \|\  \|\  ___ \
@@ -9,38 +9,45 @@ pragma solidity ^0.8.9;
 //       \ \__\ \ \_______\ \__\\ _\\ \_____  \ \_______\ \_______\
 //        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
 
-import "./BoostAbstract.sol";
 import "@chainlink/contracts/src/v0.8/automation/AutomationCompatible.sol";
-import "./interfaces/IGMX.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+
 import "./strategies/GMXV2BTC.sol";
 import "./strategies/UniswapBTC.sol";
-import "./tToken.sol";
 
-contract BoostBTC is BoostAbstract, AutomationCompatible {
-    Iwbtc public wbtcToken;
-    GMXV2Btc public gmxV2btcStrat;
-    uniswapbtc public uniswapbtcStrat;
+contract BoostBTC is AutomationCompatible, ERC4626, ReentrancyGuard, Ownable {
+    
+    IERC20 public wbtcToken;
+    GMXV2BTC public gmxV2Btc;
+    UniswapBTC public uniswapBtc;
+    Treasury public treasury;
+
+    uint256 public gmxAllocation;
+    uint256 public uniswapAllocation;
+    uint256 public lastCompoundTimestamp;
+    uint256 public performanceFee;
 
     constructor(
-        address _wbtcTokenAddress,
-        address _tTokenContract,
-        address _gmxV2btcStratAddress,
-        address _uniswapbtcStratAddress,
-        address _treasury
-    ) BoostAbstract(_tTokenContract, _treasury) {
-        wbtcToken = Iwbtc(_wbtcTokenAddress);
-        gmxV2btcStrat = GMXV2Btc(_gmxV2btcStratAddress);
-        uniswapbtcStrat = uniswapbtc(_uniswapbtcStratAddress);
-        config.gmxV2btcPercent = 50;
-        config.uniswapbtcPercent = 50;
+    address _gmxV2BtcAddress,
+    address _uniswapBtcAddress,
+    IERC20 _asset,
+    address _treasury
+    ) ERC4626(_asset) {
+        gmxV2Btc = GMXV2BTC(_gmxV2BtcAddress);
+        uniswapBtc = UniswapBTC(_uniswapBtcAddress);
+        gmxAllocation = 50;
+        uniswapAllocation = 50;
+        treasury = Treasury(_treasury);
     }
 
     function deposit(uint256 _amount) public override nonReentrant {
         _deposit(_amount);
     }
 
-    function withdraw(uint256 tTokenAmount) public override nonReentrant {
-        _withdraw(tTokenAmount);
+    function withdraw(uint256 sharesAmount) public override nonReentrant {
+        _withdraw(sharesAmount);
     }
 
     function compoundFees() public override nonReentrant {
@@ -59,27 +66,26 @@ contract BoostBTC is BoostAbstract, AutomationCompatible {
 
     function _deposit(uint256 amount) internal override {
         require(amount > 0, "Deposit amount must be greater than zero");
-        wbtcToken.deposit{value: amount}();
-        uint256 half = amount.div(2);
-        wbtcToken.approve(address(gmxV2btcStrat), half);
-        gmxV2btcStrat.deposit(half);
-        wbtcToken.approve(address(uniswapbtcStrat), half);
-        uniswapbtcStrat.deposit(half);
-        tTokenContract.mint(msg.sender, amount);
-        _updateTotalSupplied(amount, true);
-        emit Deposit(msg.sender, amount);
+        uint256 gmxAllocationAmount = amount.mul(gmxAllocation).div(100);
+        uint256 uniswapAllocationAmount = amount.sub(gmxAllocationAmount);
+        wbtcToken.approve(address(gmxV2btcStrat), gmxAllocationAmount);
+        gmxV2btcStrat.deposit(gmxAllocationAmount);
+        wbtcToken.approve(address(uniswapbtcStrat), uniswapAllocationAmount);
+        uniswapbtcStrat.deposit(uniswapAllocationAmount);
+        uint256 shares = _convertToShares(amount, Math.Rounding.Floor);
+        _mint(msg.sender, shares);
     }
 
-    function _withdraw(uint256 tTokenAmount) internal override {
-        require(tTokenAmount > 0, "Withdraw amount must be greater than zero");
-        require(tTokenContract.balanceOf(msg.sender) >= tTokenAmount, "Insufficient tToken balance");
-        uint256 btcAmount = calculatebtcAmount(tTokenAmount);
-        gmxV2btcStrat.withdraw(tTokenAmount.div(2));
-        uniswapbtcStrat.withdraw(tTokenAmount.div(2));
-        tTokenContract.burn(msg.sender, tTokenAmount);
-        wbtcToken.transfer(msg.sender, btcAmount);
-        _updateTotalSupplied(btcAmount, false);
-        emit Withdraw(msg.sender, tTokenAmount);
+    function _withdraw(uint256 sharesAmount) internal override {
+        require(sharesAmount > 0, "Withdraw amount must be greater than zero");
+        require(balanceOf(msg.sender) >= sharesAmount, "Insufficient balance");
+        uint256 totalBTCAmount = _convertToAssets(sharesAmount, Math.Rounding.Floor);
+        uint256 gmxWithdrawAmount = totalBTCAmount.mul(gmxAllocation).div(100);
+        uint256 uniswapWithdrawAmount = totalBTCAmount.sub(gmxWithdrawAmount);
+        _burn(msg.sender, sharesAmount);
+        gmxV2btcStrat.withdraw(gmxWithdrawAmount);
+        uniswapbtcStrat.withdraw(uniswapWithdrawAmount);
+        wbtcToken.transfer(msg.sender, totalBTCAmount);
     }
 
     function _compoundFees() internal override {
@@ -88,8 +94,8 @@ contract BoostBTC is BoostAbstract, AutomationCompatible {
         uint256 totalBalanceBefore = gmxV2btcBalanceBefore.add(uniswapbtcBalanceBefore);
         gmxV2btcStrat.withdrawGMX();
         uniswapbtcStrat.withdrawuniswap();
-        uint256 performanceFee = totalBalanceBefore.mul(config.performanceFee).div(10000);
-        uint256 treasuryFee = performanceFee.mul(20).div(100);
+        uint256 performanceFee = totalBalanceBefore.mul(performanceFee).div(10000);
+        uint256 treasuryFee = performanceFee.mul(performanceFee).div(100);
         uint256 gmxV2btcFee = gmxV2btcStrat.balanceOf(address(this));
         uint256 uniswapbtcFee = uniswapbtcStrat.balanceOf(address(this));
         wbtcToken.transfer(addresses.treasury, treasuryFee);
@@ -99,15 +105,24 @@ contract BoostBTC is BoostAbstract, AutomationCompatible {
         gmxV2btcStrat.deposit();
         uniswapbtcStrat.deposit();
         lastCompoundTimestamp = block.timestamp;
-        emit Compound(gmxV2btcFeeActualPercent, uniswapbtcFeeActualPercent);
     }
+
+    function setAllocation() public onlyOwner {
+        gmxAllocation = _gmxAllocation;
+        uniswapAllocation = _uniswapAllocation;
+    }
+
+    function setPerformanceFee(uint256 _performanceFee) public onlyOwner {
+        performanceFee = _performanceFee;
+    }
+
+    function setTreasury(address _treasury) public onlyOwner {
+        treasury = Treasury(_treasury);
+    }
+
+    function _checkUpkeep(bytes calldata) external virtual view returns (bool upkeepNeeded, bytes memory);
     
-    function calculatebtcAmount(uint256 tTokenAmount) public view returns (uint256) {
-        uint256 totalSupply = tTokenContract.totalSupply();
-        if (totalSupply == 0) return 0;
-        uint256 btcBalance = wbtcToken.balanceOf(address(this));
-        return tTokenAmount.mul(btcBalance).div(totalSupply);
-    }
+    function _performUpkeep(bytes calldata) external virtual;
 
     receive() external payable {}
 }
