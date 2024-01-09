@@ -94,9 +94,7 @@ interface IExchangeRouter {
 
     function createDeposit(CreateDepositParams memory params) external payable returns (bytes32);
 
-    function createWithdrawal(
-        CreateWithdrawalParams memory params
-    ) external payable returns (bytes32);
+    function createWithdrawal(CreateWithdrawalParams memory params) external payable returns (bytes32);
 
     function createOrder(CreateOrderParams memory params) external payable returns (bytes32);
 
