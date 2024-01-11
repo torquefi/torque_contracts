@@ -47,7 +47,7 @@ const config: HardhatUserConfig = {
       accounts: [`0x${PRIVATE_KEY}`],
     },
     tenderlyFork: {
-      url: `https://rpc.tenderly.co/fork/b8cef826-3d88-42f1-bc3a-82d34962ab5a`,
+      url: "https://rpc.tenderly.co/fork/b8cef826-3d88-42f1-bc3a-82d34962ab5a",
       chainId: 42161, // Arbitrum One fork
       accounts: [`0x${PRIVATE_KEY}`],
       gasPrice: 0,
@@ -56,6 +56,11 @@ const config: HardhatUserConfig = {
         "x-tenderly-project": TENDERLY_PROJECT_NAME,
         "x-tenderly-username": TENDERLY_USERNAME
       }
+    },
+    mocha: {
+      timeout: 20000,
+      url: "http://127.0.0.1:8545", // Update this URL with the correct Ethereum node URL for testing
+    },
   },
   solidity: {
     compilers: [
@@ -152,11 +157,7 @@ const config: HardhatUserConfig = {
           },
         },
       ],
-    },
-    mocha: {
-      timeout: 20000,
-    },
-  },
+    }
 };
 
 export default config;
