@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.8.15;
 
-import "./interfaces/IUniswapV3Staker.sol";
+import "../interfaces/IUniswapV3Staker.sol";
 
-import "./libraries/IncentiveId.sol";
-import "./libraries/RewardMath.sol";
-import "./libraries/NFTPositionInfo.sol";
-import "./libraries/TransferHelperExtended.sol";
+import "../libraries/IncentiveId.sol";
+import "../libraries/RewardMath.sol";
+import "../libraries/NFTPositionInfo.sol";
+import "../libraries/TransferHelperExtended.sol";
 
 import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";

@@ -98,8 +98,8 @@ contract UniswapTORQ is Ownable, ReentrancyGuard {
         (uint256 expectedTorqAmount, uint256 expectedWethAmount) = calculateExpectedTokenAmounts(amount);
         uint256 amount0Min = expectedTorqAmount * (10000 - slippage) / 10000;
         uint256 amount1Min = expectedWethAmount * (10000 - slippage) / 10000;
-        uint256 amount0Min = expectedTorqAmount - (expectedTorqAmount * 0.5 / 100);
-        uint256 amount1Min = expectedWethAmount - (expectedWethAmount * 0.5 / 100);
+        amount0Min = expectedTorqAmount - (expectedTorqAmount * 0.5 / 100);
+        amount1Min = expectedWethAmount - (expectedWethAmount * 0.5 / 100);
         uint256 deadline = block.timestamp + 2 minutes;
         INonfungiblePositionManager.DecreaseLiquidityParams memory decreaseLiquidityParams = INonfungiblePositionManager.DecreaseLiquidityParams({
             tokenId: tokenId,
@@ -119,7 +119,7 @@ contract UniswapTORQ is Ownable, ReentrancyGuard {
         liquidity -= amount;
         uint256 convertedTorqAmount = convertWETHtoTORQ(amount1);
         amount0 = amount0.add(convertedTorqAmount);
-        uint256 remainingWeth = amount1 - /* Amount of WETH converted to TORQ */;
+        uint256 remainingWeth = amount1 - 0/* Amount of WETH converted to TORQ  PS CHECK*/;
         torqToken.safeTransfer(msg.sender, amount0);
         wethToken.safeTransfer(msg.sender, remainingWeth);
         emit Withdrawal(amount0, remainingWeth);
