@@ -13,8 +13,8 @@ import "./BoostAbstract.sol";
 
 import "@chainlink/contracts/src/v0.8/automation/AutomationCompatible.sol";
 
-import "./strategies/redactedTORQ.sol";
-import "./strategies/UniswapTORQ.sol";
+import "./RedactedTORQ.sol";
+import "./UniswapTORQ.sol";
 
 import "./tToken.sol";
 

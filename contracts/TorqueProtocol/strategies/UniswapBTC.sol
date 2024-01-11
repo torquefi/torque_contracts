@@ -11,7 +11,7 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
 
 contract UniswapBTC is Ownable, ReentrancyGuard {
@@ -30,7 +30,7 @@ contract UniswapBTC is Ownable, ReentrancyGuard {
         INonfungiblePositionManager positionManager;
         IERC20 wbtcToken;
         IERC20 wethToken;
-        Uniswapwbtc vaultToken;
+        UniswapBTC vaultToken;
         address treasury;
         uint256 slippage;
         uint24 poolFee;
@@ -98,8 +98,8 @@ contract UniswapBTC is Ownable, ReentrancyGuard {
         (uint256 expectedwbtcAmount, uint256 expectedWethAmount) = calculateExpectedTokenAmounts(amount);
         uint256 amount0Min = expectedwbtcAmount * (10000 - slippage) / 10000;
         uint256 amount1Min = expectedWethAmount * (10000 - slippage) / 10000;
-        uint256 amount0Min = expectedwbtcAmount - (expectedwbtcAmount * 0.5 / 100);
-        uint256 amount1Min = expectedWethAmount - (expectedWethAmount * 0.5 / 100);
+        amount0Min = expectedwbtcAmount - (expectedwbtcAmount * 0.5 / 100);
+        amount1Min = expectedWethAmount - (expectedWethAmount * 0.5 / 100);
         uint256 deadline = block.timestamp + 2 minutes;
         INonfungiblePositionManager.DecreaseLiquidityParams memory decreaseLiquidityParams = INonfungiblePositionManager.DecreaseLiquidityParams({
             tokenId: tokenId,
@@ -119,7 +119,7 @@ contract UniswapBTC is Ownable, ReentrancyGuard {
         liquidity -= amount;
         uint256 convertedwbtcAmount = convertWETHtowbtc(amount1);
         amount0 = amount0.add(convertedwbtcAmount);
-        uint256 remainingWeth = amount1 - /* Amount of WETH converted to wbtc */;
+        uint256 remainingWeth = amount1 - 0/* Amount of WETH converted to wbtc PS CHECK */;
         wbtcToken.safeTransfer(msg.sender, amount0);
         wethToken.safeTransfer(msg.sender, remainingWeth);
         emit Withdrawal(amount0, remainingWeth);
