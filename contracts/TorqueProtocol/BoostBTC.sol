@@ -94,7 +94,7 @@ contract BoostBTC is AutomationCompatible, ERC4626, ReentrancyGuard, Ownable {
         uint256 totalBalanceBefore = gmxV2btcBalanceBefore.add(uniswapbtcBalanceBefore);
         gmxV2btcStrat.withdrawGMX();
         uniswapbtcStrat.withdrawuniswap();
-        uint256 performanceFee = totalBalanceBefore.mul(performanceFee).div(10000);
+        uint256 feeAmount = totalBalanceBefore.mul(performanceFee).div(10000);
         uint256 treasuryFee = performanceFee.mul(performanceFee).div(100);
         uint256 gmxV2btcFee = gmxV2btcStrat.balanceOf(address(this));
         uint256 uniswapbtcFee = uniswapbtcStrat.balanceOf(address(this));
