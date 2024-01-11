@@ -12,17 +12,17 @@ pragma solidity ^0.8.15;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
-import "./interfaces/IStargateLPStaking.sol";
-import "./interfaces/ISwapRouterV3.sol";
-import "./interfaces/IWETH.sol";
+import "../interfaces/IStargateLPStaking.sol";
+import "../interfaces/ISwapRouterV3.sol";
+import "../interfaces/IWETH.sol";
 
-import "./interfaces/IGMX.sol";
+import "../interfaces/IGMX.sol";
 
-import "./vaults/StargateETH.sol";
-import "./vaults/GMXV2ETH.sol";
+import "../strategies/StargateETH.sol";
+import "../strategies/GMXV2ETH.sol";
 
 import "./tToken.sol"; // need to implement
-import "./RewardUtil"; // need to implement
+import "./RewardUtil.sol"; // need to implement
 
 contract BoostETHOld is Ownable, GMXV2ETH, StargateETH {
     using SafeMath for uint256;

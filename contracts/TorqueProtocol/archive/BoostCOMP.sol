@@ -14,7 +14,7 @@ import "./BoostAbstract.sol";
 import "@chainlink/contracts/src/v0.8/automation/AutomationCompatible.sol";
 
 // import "./strategies/SushiCOMP.sol";
-import "./strategies/UniswapCOMP.sol";
+import "./UniswapCOMP.sol";
 
 import "./tToken.sol";
 
