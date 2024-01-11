@@ -101,7 +101,7 @@ contract BoostETH is AutomationCompatible, ERC4626, ReentrancyGuard, Ownable {
         uint256 totalBalanceBefore = gmxV2EthBalanceBefore.add(stargateEthBalanceBefore);
         gmxV2EthStrat.withdrawGMX();
         stargateEthStrat.withdrawStargate();
-        uint256 performanceFee = totalBalanceBefore.mul(performanceFee).div(10000);
+        uint256 feeAmount = totalBalanceBefore.mul(performanceFee).div(10000);
         uint256 treasuryFee = performanceFee.mul(performanceFee).div(100);
         uint256 gmxV2EthFee = gmxV2EthStrat.balanceOf(address(this));
         uint256 stargateEthFee = stargateEthStrat.balanceOf(address(this));
