@@ -13,6 +13,8 @@ import "./BorrowAbstract.sol";
 
 contract BTCBorrow is BorrowAbstract {
     using SafeMath for uint256;
+    uint256 private borrowPrecisionNumerator = 1000000000000001;
+    uint256 private borrowPrecisionDenominator = 980000000000000;
 
     constructor(
         address _initialOwner,
@@ -38,15 +40,14 @@ contract BTCBorrow is BorrowAbstract {
         _repaySlippage
     ) {}
 
-    function borrow(uint supplyAmount, uint borrowAmount, uint tusdBorrowAmount) public nonReentrant(){
-        // Checks
+    function borrow(uint supplyAmount, uint tusdBorrowAmount) public nonReentrant(){
         require(supplyAmount > 0, "Supply amount must be greater than 0");
         BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
-        uint maxBorrow = getBorrowableUsdc(supplyAmount.add(userBorrowInfo.supplied));
-        (uint mintable, bool canMint) = ITUSDEngine(engine).getMintableTUSD(msg.sender, maxBorrow);
-        require(canMint, "User can not mint more TUSD");
-        require(mintable > tusdBorrowAmount, "Exceeds borrowable amount");
-        uint borrowable = maxBorrow.sub(userBorrowInfo.borrowed);
+        uint maxBorrowUSDC = getBorrowableUsdc(supplyAmount.add(userBorrowInfo.supplied));
+        uint256 mintable = getMintableToken(msg.sender, maxBorrowUSDC); // Returns how much more USDT that can be minted
+        require(mintable >= tusdBorrowAmount, "Exceeds borrowable amount");
+        uint borrowAmount = tusdBorrowAmount.mul(borrowPrecisionNumerator).div(borrowPrecisionDenominator);
+        uint borrowable = maxBorrowUSDC.sub(userBorrowInfo.borrowed);
         require(borrowable >= borrowAmount, "Borrow cap exceeded");
         require(
             IERC20(asset).transferFrom(msg.sender, address(this), supplyAmount),
@@ -75,7 +76,7 @@ contract BTCBorrow is BorrowAbstract {
         IBulker(bulker).invoke(buildBorrowAction(), callData);
         IERC20(baseAsset).approve(address(engine), borrowAmount);
         uint tusdBefore = IERC20(tusd).balanceOf(address(this));
-        ITUSDEngine(engine).depositCollateralAndMintTusd(baseAsset, borrowAmount, tusdBorrowAmount, msg.sender);
+        ITUSDEngine(engine).depositCollateralAndMintTusd(borrowAmount, tusdBorrowAmount);
         
         // Post-Interaction Checks
         uint expectedTusd = tusdBefore.add(tusdBorrowAmount);
@@ -91,8 +92,7 @@ contract BTCBorrow is BorrowAbstract {
         // Checks
         require(tusdRepayAmount > 0, "Repay amount must be greater than 0");
         BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
-        (uint256 withdrawUsdcAmountFromEngine, bool burnable) = ITUSDEngine(engine).getBurnableTUSD(msg.sender, tusdRepayAmount);
-        require(burnable, "Not burnable");
+        uint256 withdrawUsdcAmountFromEngine = getBurnableToken(msg.sender, tusdRepayAmount); // PS CHECK 
         withdrawUsdcAmountFromEngine = withdrawUsdcAmountFromEngine.mul(100 - repaySlippage).div(100);
         require(userBorrowInfo.borrowed >= withdrawUsdcAmountFromEngine, "Exceeds current borrowed amount");
         require(IERC20(tusd).transferFrom(msg.sender, address(this), tusdRepayAmount), "Transfer assets failed");
@@ -121,7 +121,7 @@ contract BTCBorrow is BorrowAbstract {
         IERC20(baseAsset).approve(comet, repayUsdcAmount);
         IBulker(bulker).invoke(buildRepay(), callData);
         IERC20(tusd).approve(address(engine), tusdRepayAmount);
-        ITUSDEngine(engine).redeemCollateralForTusd(baseAsset, withdrawUsdcAmountFromEngine, tusdRepayAmount, msg.sender);
+        ITUSDEngine(engine).redeemCollateralForTusd(withdrawUsdcAmountFromEngine, tusdRepayAmount);
 
         // Post-Interaction Checks
         uint baseAssetBalanceExpected = baseAssetBalanceBefore.add(withdrawUsdcAmountFromEngine);
