@@ -47,16 +47,17 @@ abstract contract BorrowAbstract is Ownable, ReentrancyGuard {
 
     constructor(
         address _initialOwner,
-        address _comet, 
-        address _cometReward, 
-        address _asset, 
-        address _baseAsset, 
-        address _bulker, 
-        address _engine, 
-        address _tusd, 
-        address _treasury, 
-        uint _repaySlippage
-    ) Ownable(_initialOwner) {
+        address _comet, // Compound V3 Address
+        address _cometReward, // Address for Claiming Comet Rewards
+        address _asset, // Collateral to be staked (WBTC / WETH)
+        address _baseAsset, // Borrowing Asset (USDC)
+        address _bulker, // Bulker Contract
+        address _engine, // Torque USD Engine 
+        address _tusd, // TUSD Token
+        address _treasury, // Fees Address
+        uint _repaySlippage // Slippage %
+    ) {
+        Ownable.transferOwnership(_initialOwner);
         comet = _comet;
         cometReward = _cometReward;
         asset = _asset;
@@ -65,7 +66,7 @@ abstract contract BorrowAbstract is Ownable, ReentrancyGuard {
         engine = _engine;
         tusd = _tusd;
         treasury = _treasury;
-        IComet(comet).allow(_bulker, true);
+        // IComet(_comet).allow(_bulker, true);
         claimPeriod = 86400; // 1 day in seconds
         repaySlippage = _repaySlippage;
     }
@@ -78,11 +79,11 @@ abstract contract BorrowAbstract is Ownable, ReentrancyGuard {
     uint constant PRICE_SCALE = 1e8;
 
     struct BorrowInfo {
-        address user;
-        uint baseBorrowed;
-        uint borrowed;
-        uint supplied;
-        uint borrowTime;
+        address user; // User Address
+        uint baseBorrowed; // How much base asset is borrowed 
+        uint borrowed; // ? 
+        uint supplied; // How much token is supplied (Collateral Asset)
+        uint borrowTime; // Borrow time
     }
 
     mapping(address => BorrowInfo) public borrowInfoMap;
@@ -98,18 +99,24 @@ abstract contract BorrowAbstract is Ownable, ReentrancyGuard {
 
     function getUserBorrowable(address _user) public view returns (uint){
         BorrowInfo storage userBorrowInfo = borrowInfoMap[_user];
-        if(userBorrowInfo.supplied > 0) {
-            return 0;
+        if(userBorrowInfo.supplied == 0) { // PS CHECK --> Should be rather == 0 
+            return 0; 
         }
         uint assetSupplyAmount = userBorrowInfo.supplied;
         uint maxUsdc = getBorrowableUsdc(assetSupplyAmount);
-        uint maxTusd = getBorrowable(maxUsdc, _user);
+        uint maxTusd = getBorrowableV2(maxUsdc, _user); 
         return maxTusd;
     }
 
     function getBorrowable(uint supplyAmount, address _user) public view returns (uint){
-        uint maxBorrow = getBorrowableUsdc(supplyAmount);
+        uint maxBorrow = getBorrowableUsdc(supplyAmount); // PS CHECK --> Not sure why are we calling getBorrowableUsdc with supply as borrowable USDC
         (uint mintable,) = ITUSDEngine(engine).getMintableTUSD(_user, maxBorrow);
+        return mintable;
+    }
+
+    // PS CHECK --> This function should be used
+    function getBorrowableV2(uint maxUSDC, address _user) public view returns (uint){
+        uint mintable = getMintableToken(_user, maxUSDC);
         return mintable;
     }
     
@@ -139,7 +146,7 @@ abstract contract BorrowAbstract is Ownable, ReentrancyGuard {
         uint assetDecimal = ITokenDecimals(asset).decimals();
         uint minRequireSupplyAmount = userBorrowInfo.borrowed.mul(SCALE).mul(10**assetDecimal).mul(PRICE_MANTISA).div(price).div(uint(info.borrowCollateralFactor).sub(WITHDRAW_OFFSET));
         uint withdrawableAmount = userBorrowInfo.supplied - minRequireSupplyAmount;
-        require(withdrawAmount < withdrawableAmount, "Exceeds asset supply");
+        require(withdrawAmount <= withdrawableAmount, "Exceeds asset supply");
         userBorrowInfo.supplied = userBorrowInfo.supplied.sub(withdrawAmount);
         bytes[] memory callData = new bytes[](1);
         bytes memory withdrawAssetCalldata = abi.encode(comet, address(this), asset, withdrawAmount);
@@ -194,6 +201,33 @@ abstract contract BorrowAbstract is Ownable, ReentrancyGuard {
         actions[0] = ACTION_SUPPLY_ASSET;
         actions[1] = ACTION_WITHDRAW_ASSET;
         return actions;
+    }
+
+    function getMintableToken(address _user, uint256 _usdcSupply) public view returns (uint256) {
+        (uint256 totalTusdMinted,) = ITUSDEngine(engine).getAccountInformation(_user);
+        uint256 LIQUIDATION_THRESHOLD = ITUSDEngine(engine).getLiquidationThreshold();
+        uint256 PRECISION = ITUSDEngine(engine).getPrecision();
+        uint256 LIQUIDATION_PRECISION = ITUSDEngine(engine).getLiquidationPrecision();
+        uint256 MIN_HEALTH_FACTOR = ITUSDEngine(engine).getMinHealthFactor();
+        uint256 totalMintable = _usdcSupply*LIQUIDATION_THRESHOLD/LIQUIDATION_PRECISION;
+        totalMintable = totalMintable*PRECISION/MIN_HEALTH_FACTOR;
+        require(totalMintable > totalTusdMinted, "User can not mint more TUSD");
+        totalMintable -= totalTusdMinted;
+        return totalMintable;
+    }
+
+    function getBurnableToken(address _user, uint256 _tUsdRepayAmount) public view returns (uint256) {
+        (uint256 totalTusdMinted,uint256 collateralValueInUsd) = ITUSDEngine(engine).getAccountInformation(_user);
+        uint256 LIQUIDATION_THRESHOLD = ITUSDEngine(engine).getLiquidationThreshold();
+        uint256 PRECISION = ITUSDEngine(engine).getPrecision();
+        uint256 LIQUIDATION_PRECISION = ITUSDEngine(engine).getLiquidationPrecision();
+        uint256 MIN_HEALTH_FACTOR = ITUSDEngine(engine).getMinHealthFactor();
+        totalTusdMinted -= _tUsdRepayAmount;
+        uint256 totalWithdrawableCollateral = totalTusdMinted*LIQUIDATION_PRECISION/LIQUIDATION_THRESHOLD;
+        totalWithdrawableCollateral = totalWithdrawableCollateral*MIN_HEALTH_FACTOR/PRECISION;
+        require(totalWithdrawableCollateral <= collateralValueInUsd, "User cannot withdraw more collateral");
+        totalWithdrawableCollateral = collateralValueInUsd - totalWithdrawableCollateral;
+        return totalWithdrawableCollateral;
     }
     
     receive() external payable {}
