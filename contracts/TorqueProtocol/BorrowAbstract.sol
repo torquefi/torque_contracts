@@ -222,6 +222,7 @@ abstract contract BorrowAbstract is Ownable, ReentrancyGuard {
         uint256 PRECISION = ITUSDEngine(engine).getPrecision();
         uint256 LIQUIDATION_PRECISION = ITUSDEngine(engine).getLiquidationPrecision();
         uint256 MIN_HEALTH_FACTOR = ITUSDEngine(engine).getMinHealthFactor();
+        require(totalTusdMinted >= _tUsdRepayAmount, "You have not minted enough TUSD");
         totalTusdMinted -= _tUsdRepayAmount;
         uint256 totalWithdrawableCollateral = totalTusdMinted*LIQUIDATION_PRECISION/LIQUIDATION_THRESHOLD;
         totalWithdrawableCollateral = totalWithdrawableCollateral*MIN_HEALTH_FACTOR/PRECISION;
