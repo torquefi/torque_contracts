@@ -66,7 +66,7 @@ abstract contract BorrowAbstract is Ownable, ReentrancyGuard {
         engine = _engine;
         tusd = _tusd;
         treasury = _treasury;
-        // IComet(_comet).allow(_bulker, true);
+        IComet(_comet).allow(_bulker, true);
         claimPeriod = 86400; // 1 day in seconds
         repaySlippage = _repaySlippage;
     }
