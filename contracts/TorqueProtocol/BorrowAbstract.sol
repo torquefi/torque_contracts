@@ -37,6 +37,8 @@ abstract contract BorrowAbstract is Ownable, ReentrancyGuard {
     uint public totalBorrow;
     uint public totalSupplied;
     uint public lastClaimCometTime;
+
+    uint256 public decimalAdjust = 1000000000000;
     
     bytes32 public constant ACTION_SUPPLY_ASSET = "ACTION_SUPPLY_ASSET";
     bytes32 public constant ACTION_SUPPLY_ETH = "ACTION_SUPPLY_NATIVE_TOKEN";
@@ -212,10 +214,12 @@ abstract contract BorrowAbstract is Ownable, ReentrancyGuard {
         uint256 totalMintable = _usdcSupply*LIQUIDATION_THRESHOLD/LIQUIDATION_PRECISION;
         totalMintable = totalMintable*PRECISION/MIN_HEALTH_FACTOR;
         require(totalMintable > totalTusdMinted, "User can not mint more TUSD");
+        totalMintable *= decimalAdjust;
         totalMintable -= totalTusdMinted;
         return totalMintable;
     }
 
+    // Need decimal adjustment
     function getBurnableToken(address _user, uint256 _tUsdRepayAmount) public view returns (uint256) {
         (uint256 totalTusdMinted,uint256 collateralValueInUsd) = ITUSDEngine(engine).getAccountInformation(_user);
         uint256 LIQUIDATION_THRESHOLD = ITUSDEngine(engine).getLiquidationThreshold();
@@ -226,6 +230,7 @@ abstract contract BorrowAbstract is Ownable, ReentrancyGuard {
         totalTusdMinted -= _tUsdRepayAmount;
         uint256 totalWithdrawableCollateral = totalTusdMinted*LIQUIDATION_PRECISION/LIQUIDATION_THRESHOLD;
         totalWithdrawableCollateral = totalWithdrawableCollateral*MIN_HEALTH_FACTOR/PRECISION;
+        totalWithdrawableCollateral /= decimalAdjust;
         require(totalWithdrawableCollateral <= collateralValueInUsd, "User cannot withdraw more collateral");
         totalWithdrawableCollateral = collateralValueInUsd - totalWithdrawableCollateral;
         return totalWithdrawableCollateral;
