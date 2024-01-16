@@ -25,7 +25,7 @@ contract TUSDEngine is Ownable, ReentrancyGuard {
 
     using OracleLib for AggregatorV3Interface;
 
-    TUSD private immutable i_tusd; // 0xa0985c4e6f2a1e694f58b93df3e5f4ba8a09b239
+    TUSD private immutable i_tusd; // 0xf7F6718Cf69967203740cCb431F6bDBff1E0FB68
     IERC20 private immutable usdcToken; // 0xaf88d065e77c8cC2239327C5EDb3A432268e5831
     AggregatorV3Interface private immutable usdcPriceFeed; // 0x50834f3163758fcc1df9973b6e91f0f0f0434ad3
 
@@ -36,6 +36,7 @@ contract TUSDEngine is Ownable, ReentrancyGuard {
     uint256 private constant PRECISION = 1e18;
     uint256 private constant ADDITIONAL_FEED_PRECISION = 1e10;
     uint256 private constant FEED_PRECISION = 1e8;
+    uint256 private constant USDC_DECIMAL = 1e6;
 
     mapping(address => uint256) private s_collateralDeposited;
     mapping(address => uint256) private s_TUSDMinted;
@@ -52,7 +53,7 @@ contract TUSDEngine is Ownable, ReentrancyGuard {
         _;
     }
 
-    constructor(address initialOwner, address usdcTokenAddress, address usdcPriceFeedAddress, address tusdAddress) Ownable(initialOwner) {
+    constructor(address usdcTokenAddress, address usdcPriceFeedAddress, address tusdAddress) Ownable() {
         i_tusd = TUSD(tusdAddress);
         usdcToken = IERC20(usdcTokenAddress);
         usdcPriceFeed = AggregatorV3Interface(usdcPriceFeedAddress);
@@ -147,7 +148,7 @@ contract TUSDEngine is Ownable, ReentrancyGuard {
 
     function _getUsdValue(uint256 amount) private view returns (uint256) {
         (, int256 price,,,) = usdcPriceFeed.latestRoundData();
-        return (uint256(price) * amount) / FEED_PRECISION;
+        return (uint256(price) * amount * PRECISION) / (FEED_PRECISION*USDC_DECIMAL);
     }
 
     function _calculateHealthFactor(uint256 totalTusdMinted, uint256 collateralValueInUsd) internal pure returns (uint256) {
