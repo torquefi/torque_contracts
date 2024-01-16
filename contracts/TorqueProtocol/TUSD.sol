@@ -13,13 +13,22 @@ import {ERC20Burnable, ERC20} from "@openzeppelin/contracts/token/ERC20/extensio
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract TUSD is ERC20Burnable, Ownable {
+
+    address controller;
+
     error TUSD__AmountMustBeMoreThanZero();
     error TUSD__BurnAmountExceedsBalance();
     error TUSD__NotZeroAddress();
 
-    constructor(address initialOwner) ERC20("Torque USD", "TUSD") Ownable(initialOwner) {}
+    constructor() ERC20("Torque USD", "TUSD") Ownable() {}
 
-    function burn(uint256 _amount) public override onlyOwner {
+
+    function setController(address _controller) external onlyOwner {
+      controller = _controller;
+    }
+
+    function burn(uint256 _amount) public override {
+        require(msg.sender == controller, "you do not have the permission");
         uint256 balance = balanceOf(msg.sender);
         if (_amount <= 0) {
             revert TUSD__AmountMustBeMoreThanZero();
@@ -30,7 +39,8 @@ contract TUSD is ERC20Burnable, Ownable {
         super.burn(_amount);
     }
 
-    function mint(address _to, uint256 _amount) external onlyOwner returns (bool) {
+    function mint(address _to, uint256 _amount) external returns (bool) {
+        require(msg.sender == controller, "you do not have the permission");
         if (_to == address(0)) {
             revert TUSD__NotZeroAddress();
         }
