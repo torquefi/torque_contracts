@@ -71,7 +71,7 @@ contract TUSDEngine is Ownable, ReentrancyGuard {
 
     function depositCollateral(uint256 amountCollateral) public moreThanZero(amountCollateral) nonReentrant {
         s_collateralDeposited[msg.sender] += amountCollateral;
-        require(usdcToken.transferFrom(msg.sender, address(this), amountCollateral), "Transfer failed");
+        require(usdcToken.transfer(address(this), amountCollateral), "Transfer failed");
         emit CollateralDeposited(msg.sender, amountCollateral);
     }
 
