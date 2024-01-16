@@ -13,8 +13,6 @@ import "./BorrowAbstract.sol";
 
 contract BTCBorrow is BorrowAbstract {
     using SafeMath for uint256;
-    uint256 private borrowPrecisionNumerator = 1000000000000001;
-    uint256 private borrowPrecisionDenominator = 980000000000000;
 
     constructor(
         address _initialOwner,
@@ -39,16 +37,16 @@ contract BTCBorrow is BorrowAbstract {
         _treasury,
         _repaySlippage
     ) {}
-
-    function borrow(uint supplyAmount, uint tusdBorrowAmount) public nonReentrant(){
+    
+    // Approve the contract of WBTC usage
+    function borrow(uint supplyAmount, uint borrowAmountUSDC, uint tUSDBorrowAmount) public nonReentrant(){
         require(supplyAmount > 0, "Supply amount must be greater than 0");
         BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
         uint maxBorrowUSDC = getBorrowableUsdc(supplyAmount.add(userBorrowInfo.supplied));
         uint256 mintable = getMintableToken(msg.sender, maxBorrowUSDC); // Returns how much more USDT that can be minted
-        require(mintable >= tusdBorrowAmount, "Exceeds borrowable amount");
-        uint borrowAmount = tusdBorrowAmount.mul(borrowPrecisionNumerator).div(borrowPrecisionDenominator);
+        require(mintable >= tUSDBorrowAmount, "Exceeds borrowable amount");
         uint borrowable = maxBorrowUSDC.sub(userBorrowInfo.borrowed);
-        require(borrowable >= borrowAmount, "Borrow cap exceeded");
+        require(borrowable >= borrowAmountUSDC, "Borrow cap exceeded");
         require(
             IERC20(asset).transferFrom(msg.sender, address(this), supplyAmount),
             "Transfer asset failed"
@@ -59,8 +57,8 @@ contract BTCBorrow is BorrowAbstract {
         if (userBorrowInfo.borrowed > 0) {
             accruedInterest = calculateInterest(userBorrowInfo.borrowed, userBorrowInfo.borrowTime);
         }
-        userBorrowInfo.baseBorrowed = userBorrowInfo.baseBorrowed.add(tusdBorrowAmount);
-        userBorrowInfo.borrowed = userBorrowInfo.borrowed.add(borrowAmount).add(accruedInterest);
+        userBorrowInfo.baseBorrowed = userBorrowInfo.baseBorrowed.add(tUSDBorrowAmount);
+        userBorrowInfo.borrowed = userBorrowInfo.borrowed.add(borrowAmountUSDC).add(accruedInterest);
         userBorrowInfo.supplied = userBorrowInfo.supplied.add(supplyAmount);
         userBorrowInfo.borrowTime = block.timestamp;
         
@@ -68,23 +66,23 @@ contract BTCBorrow is BorrowAbstract {
         bytes[] memory callData = new bytes[](2);
         bytes memory supplyAssetCalldata = abi.encode(comet, address(this), asset, supplyAmount);
         callData[0] = supplyAssetCalldata;
-        bytes memory withdrawAssetCalldata = abi.encode(comet, address(this), baseAsset, borrowAmount);
+        bytes memory withdrawAssetCalldata = abi.encode(comet, address(this), baseAsset, borrowAmountUSDC);
         callData[1] = withdrawAssetCalldata;
         
         // Interactions
         IERC20(asset).approve(comet, supplyAmount);
         IBulker(bulker).invoke(buildBorrowAction(), callData);
-        IERC20(baseAsset).approve(address(engine), borrowAmount);
+        IERC20(baseAsset).approve(address(engine), borrowAmountUSDC);
         uint tusdBefore = IERC20(tusd).balanceOf(address(this));
-        ITUSDEngine(engine).depositCollateralAndMintTusd(borrowAmount, tusdBorrowAmount);
+        ITUSDEngine(engine).depositCollateralAndMintTusd(borrowAmountUSDC, tUSDBorrowAmount);
         
         // Post-Interaction Checks
-        uint expectedTusd = tusdBefore.add(tusdBorrowAmount);
+        uint expectedTusd = tusdBefore.add(tUSDBorrowAmount);
         require(expectedTusd == IERC20(tusd).balanceOf(address(this)), "Invalid amount");
-        require(IERC20(tusd).transfer(msg.sender, tusdBorrowAmount), "Transfer token failed");
+        require(IERC20(tusd).transfer(msg.sender, tUSDBorrowAmount), "Transfer token failed");
         
         // Final State Update
-        totalBorrow = totalBorrow.add(tusdBorrowAmount);
+        totalBorrow = totalBorrow.add(tUSDBorrowAmount);
         totalSupplied = totalSupplied.add(supplyAmount);
     }
 
