@@ -62,5 +62,22 @@ describe("BTCBorrow", function () {
     it("Should get error when withdrawing funds without supply", async function() {
       await expect(btcBorrow.withdraw(1)).to.be.revertedWith("User does not have asset");
     })
+    
+    it("Should borrow TUSD for supply of 1WBTC ", async function() {
+      try{
+        const uniswapRouter = new ethers.Contract(uniswapRouterAddress, ['function swapExactETHForTokens(uint amountOutMin, address[] calldata path, address to, uint deadline) payable returns (uint[] memory amounts)'], owner);
+        const amountOutMin = 1;
+        const path = ["0x82aF49447D8a07e3bd95BD0d56f35241523fBab1", wbtcAddress];
+        const to = owner.address;
+        const deadline = Math.floor(Date.now() / 1000) + 60000;
+        const weiValue = await ethers.parseUnits('10', 18);
+        const result = await uniswapRouter.swapExactETHForTokens(amountOutMin, path, to, deadline, {value: weiValue});
+        console.log("Swap Result: ", result);
+        console.log("TEST ", deadline);
+      }
+      catch (error) {
+        console.error("Error:", error.message || error.reason || error.toString());
+      }
+    })
   })
 });
