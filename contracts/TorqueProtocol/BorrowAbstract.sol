@@ -118,7 +118,8 @@ abstract contract BorrowAbstract is Ownable, ReentrancyGuard {
 
     // PS CHECK --> This function should be used
     function getBorrowableV2(uint maxUSDC, address _user) public view returns (uint){
-        uint mintable = getMintableToken(_user, maxUSDC);
+        BorrowInfo storage userBorrowInfo = borrowInfoMap[_user];
+        uint mintable = getMintableToken(maxUSDC, userBorrowInfo.baseBorrowed, 0);
         return mintable;
     }
     
@@ -205,35 +206,38 @@ abstract contract BorrowAbstract is Ownable, ReentrancyGuard {
         return actions;
     }
 
-    function getMintableToken(address _user, uint256 _usdcSupply) public view returns (uint256) {
-        (uint256 totalTusdMinted,) = ITUSDEngine(engine).getAccountInformation(_user);
+    function getMintableToken(uint256 _usdcSupply, uint256 _mintedTUSD, uint256 _toMintTUSD) public view returns (uint256) {
         uint256 LIQUIDATION_THRESHOLD = ITUSDEngine(engine).getLiquidationThreshold();
         uint256 PRECISION = ITUSDEngine(engine).getPrecision();
         uint256 LIQUIDATION_PRECISION = ITUSDEngine(engine).getLiquidationPrecision();
         uint256 MIN_HEALTH_FACTOR = ITUSDEngine(engine).getMinHealthFactor();
         uint256 totalMintable = _usdcSupply*LIQUIDATION_THRESHOLD/LIQUIDATION_PRECISION;
         totalMintable = totalMintable*PRECISION/MIN_HEALTH_FACTOR;
-        require(totalMintable > totalTusdMinted, "User can not mint more TUSD");
         totalMintable *= decimalAdjust;
-        totalMintable -= totalTusdMinted;
+        require(totalMintable >= _mintedTUSD + _toMintTUSD, "User can not mint more TUSD");
+        totalMintable -= _mintedTUSD;
         return totalMintable;
     }
 
     // Need decimal adjustment
-    function getBurnableToken(address _user, uint256 _tUsdRepayAmount) public view returns (uint256) {
-        (uint256 totalTusdMinted,uint256 collateralValueInUsd) = ITUSDEngine(engine).getAccountInformation(_user);
+    function getBurnableToken(uint256 _tUsdRepayAmount, uint256 tUSDBorrowAmount, uint256 _usdcToBePayed) public view returns (uint256) {
         uint256 LIQUIDATION_THRESHOLD = ITUSDEngine(engine).getLiquidationThreshold();
         uint256 PRECISION = ITUSDEngine(engine).getPrecision();
         uint256 LIQUIDATION_PRECISION = ITUSDEngine(engine).getLiquidationPrecision();
         uint256 MIN_HEALTH_FACTOR = ITUSDEngine(engine).getMinHealthFactor();
-        require(totalTusdMinted >= _tUsdRepayAmount, "You have not minted enough TUSD");
-        totalTusdMinted -= _tUsdRepayAmount;
-        uint256 totalWithdrawableCollateral = totalTusdMinted*LIQUIDATION_PRECISION/LIQUIDATION_THRESHOLD;
-        totalWithdrawableCollateral = totalWithdrawableCollateral*MIN_HEALTH_FACTOR/PRECISION;
-        totalWithdrawableCollateral /= decimalAdjust;
-        require(totalWithdrawableCollateral <= collateralValueInUsd, "User cannot withdraw more collateral");
-        totalWithdrawableCollateral = collateralValueInUsd - totalWithdrawableCollateral;
-        return totalWithdrawableCollateral;
+        require(tUSDBorrowAmount >= _tUsdRepayAmount, "You have not minted enough TUSD");
+        tUSDBorrowAmount -= _tUsdRepayAmount;
+        if(tUSDBorrowAmount == 0){
+            return _usdcToBePayed;
+        }
+        else{
+            uint256 totalWithdrawableCollateral = tUSDBorrowAmount*LIQUIDATION_PRECISION/LIQUIDATION_THRESHOLD;
+            totalWithdrawableCollateral = totalWithdrawableCollateral*MIN_HEALTH_FACTOR/PRECISION;
+            totalWithdrawableCollateral /= decimalAdjust;
+            require(totalWithdrawableCollateral <= _usdcToBePayed, "User cannot withdraw more collateral");
+            totalWithdrawableCollateral = _usdcToBePayed - totalWithdrawableCollateral;
+            return totalWithdrawableCollateral;
+        }
     }
     
     receive() external payable {}
