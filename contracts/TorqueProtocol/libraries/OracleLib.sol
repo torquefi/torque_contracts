@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-//  _________  ________  ________  ________  ___  ___  _______
-// |\___   ___\\   __  \|\   __  \|\   __  \|\  \|\  \|\  ___ \
+//  _______  ____  ____  ____  _  _  _____
+// |\_   _\\     \|\     \|\     \|\  \|\  \|\  _ \
 // \|___ \  \_\ \  \|\  \ \  \|\  \ \  \|\  \ \  \\\  \ \   __/|
 //     \ \  \ \ \  \\\  \ \   _  _\ \  \\\  \ \  \\\  \ \  \_|/__
 //      \ \  \ \ \  \\\  \ \  \\  \\ \  \\\  \ \  \\\  \ \  \_|\ \
-//       \ \__\ \ \_______\ \__\\ _\\ \_____  \ \_______\ \_______\
-//        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
+//       \ \\ \ \___\ \\\ _\\ \___  \ \___\ \_____\
+//        \||  \|___|\||\||\|_| \\|___|\|_____|
 
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 
@@ -17,7 +17,7 @@ library OracleLib {
     uint256 private constant TIMEOUT = 3 hours;
 
     function staleCheckLatestRoundData(AggregatorV3Interface chainlinkFeed)
-        public
+        internal
         view
         returns (uint80, int256, uint256, uint256, uint80)
     {
@@ -33,7 +33,7 @@ library OracleLib {
         return (roundId, answer, startedAt, updatedAt, answeredInRound);
     }
 
-    function getTimeout(AggregatorV3Interface /* chainlinkFeed */ ) public pure returns (uint256) {
+    function getTimeout(AggregatorV3Interface /* chainlinkFeed */ ) internal pure returns (uint256) {
         return TIMEOUT;
     }
 }
