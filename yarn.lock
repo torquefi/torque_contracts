@@ -57,14 +57,13 @@
     "chalk" "^2.4.2"
     "js-tokens" "^4.0.0"
 
-"@chainlink/contracts@^0.8.0":
-  "integrity" "sha512-nUv1Uxw5Mn92wgLs2bgPYmo8hpdQ3s9jB/lcbdU0LmNOVu0hbfmouVnqwRLa28Ll50q6GczUA+eO0ikNIKLZsA=="
-  "resolved" "https://registry.npmjs.org/@chainlink/contracts/-/contracts-0.8.0.tgz"
-  "version" "0.8.0"
+"@chainlink/contracts@^0.5.1":
+  "integrity" "sha512-3PDBJ38Sd6Ml9h7FNK/tZQti+kTCdXUq1qzE6E59CnlzycsV9ElPvf2hTvs9Mi9C6pEx2Mmw9yhZMfBktYUInQ=="
+  "resolved" "https://registry.npmjs.org/@chainlink/contracts/-/contracts-0.5.1.tgz"
+  "version" "0.5.1"
   dependencies:
     "@eth-optimism/contracts" "^0.5.21"
-    "@openzeppelin/contracts" "~4.3.3"
-    "@openzeppelin/contracts-upgradeable-4.7.3" "npm:@openzeppelin/contracts-upgradeable@v4.7.3"
+    "@openzeppelin/contracts" "^4.3.3"
     "@openzeppelin/contracts-v0.7" "npm:@openzeppelin/contracts@v3.4.2"
 
 "@chainsafe/as-sha256@^0.3.1":
@@ -773,11 +772,6 @@
     "table" "^6.8.0"
     "undici" "^5.14.0"
 
-"@openzeppelin/contracts-upgradeable-4.7.3@npm:@openzeppelin/contracts-upgradeable@v4.7.3":
-  "integrity" "sha512-+wuegAMaLcZnLCJIvrVUDzA9z/Wp93f0Dla/4jJvIhijRrPabjQbZe6fWiECLaJyfn5ci9fqf9vTw3xpQOad2A=="
-  "resolved" "https://registry.npmjs.org/@openzeppelin/contracts-upgradeable/-/contracts-upgradeable-4.7.3.tgz"
-  "version" "4.7.3"
-
 "@openzeppelin/contracts-upgradeable@^4.9.5":
   "integrity" "sha512-f7L1//4sLlflAN7fVzJLoRedrf5Na3Oal5PZfIq55NFcVZ90EpV1q5xOvL4lFvg3MNICSDr2hH0JUBxwlxcoPg=="
   "resolved" "https://registry.npmjs.org/@openzeppelin/contracts-upgradeable/-/contracts-upgradeable-4.9.5.tgz"
@@ -788,15 +782,10 @@
   "resolved" "https://registry.npmjs.org/@openzeppelin/contracts/-/contracts-3.4.2.tgz"
   "version" "3.4.2"
 
-"@openzeppelin/contracts@^4.8.2":
+"@openzeppelin/contracts@^4.3.3", "@openzeppelin/contracts@^4.8.2":
   "integrity" "sha512-He3LieZ1pP2TNt5JbkPA4PNT9WC3gOTOlDcFGJW4Le4QKqwmiNJCRt44APfxMxvq7OugU/cqYuPcSBzOw38DAg=="
   "resolved" "https://registry.npmjs.org/@openzeppelin/contracts/-/contracts-4.9.3.tgz"
   "version" "4.9.3"
-
-"@openzeppelin/contracts@~4.3.3":
-  "integrity" "sha512-tDBopO1c98Yk7Cv/PZlHqrvtVjlgK5R4J6jxLwoO7qxK4xqOiZG+zSkIvGFpPZ0ikc3QOED3plgdqjgNTnBc7g=="
-  "resolved" "https://registry.npmjs.org/@openzeppelin/contracts/-/contracts-4.3.3.tgz"
-  "version" "4.3.3"
 
 "@openzeppelin/contracts@4.6.0":
   "integrity" "sha512-8vi4d50NNya/bQqCmaVzvHNmwHvS0OBKb7HNtuNwEE3scXWrP31fKQoGxNMT+KbzmrNZzatE3QK5p2gFONI/hg=="
@@ -2738,10 +2727,10 @@
   dependencies:
     "chokidar" "^3.5.3"
 
-"hardhat@^2.0.0", "hardhat@^2.0.2", "hardhat@^2.0.4", "hardhat@^2.11.0", "hardhat@^2.19.4", "hardhat@^2.9.4", "hardhat@^2.9.5", "hardhat@^2.9.9":
-  "integrity" "sha512-fTQJpqSt3Xo9Mn/WrdblNGAfcANM6XC3tAEi6YogB4s02DmTf93A8QsGb8uR0KR8TFcpcS8lgiW4ugAIYpnbrQ=="
-  "resolved" "https://registry.npmjs.org/hardhat/-/hardhat-2.19.4.tgz"
-  "version" "2.19.4"
+"hardhat@^2.0.0", "hardhat@^2.0.2", "hardhat@^2.0.4", "hardhat@^2.11.0", "hardhat@^2.19.1", "hardhat@^2.9.4", "hardhat@^2.9.5", "hardhat@^2.9.9":
+  "integrity" "sha512-bsWa63g1GB78ZyMN08WLhFElLPA+J+pShuKD1BFO2+88g3l+BL3R07vj9deIi9dMbssxgE714Gof1dBEDGqnCw=="
+  "resolved" "https://registry.npmjs.org/hardhat/-/hardhat-2.19.1.tgz"
+  "version" "2.19.1"
   dependencies:
     "@ethersproject/abi" "^5.1.2"
     "@metamask/eth-sig-util" "^4.0.0"
