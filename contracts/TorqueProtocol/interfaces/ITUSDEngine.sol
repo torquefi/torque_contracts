@@ -13,7 +13,7 @@ interface ITUSDEngine {
     function getMinHealthFactor() external pure returns (uint256);
     function depositCollateralAndMintTusd(uint256 amountCollateral, uint256 amountTusdToMint) external;
     function redeemCollateralForTusd(uint256 amountCollateral, uint256 amountTusdToBurn) external ;
-
+    function getCollateralBalanceOfUser(address user) external view returns (uint256);
 
     // function getLiquidationRate() external view returns (uint256);
     // function getInterestRate() external view returns (uint256);
