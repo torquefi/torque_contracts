@@ -11,3 +11,6 @@ cache
 artifacts
 arguments.js
 
+yarn.lock
+package-lock.json
+package.json
