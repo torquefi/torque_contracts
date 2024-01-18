@@ -42,7 +42,7 @@ contract BTCBorrow is BorrowAbstract {
         require(supplyAmount > 0, "Supply amount must be greater than 0");
         BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
         uint maxBorrowUSDC = getBorrowableUsdc(supplyAmount.add(userBorrowInfo.supplied));
-        uint256 mintable = getMintableToken(maxBorrowUSDC, userBorrowInfo.baseBorrowed, tUSDBorrowAmount); // Returns how much more USDT that can be minted
+        uint256 mintable = getMintableToken(maxBorrowUSDC, userBorrowInfo.baseBorrowed, tUSDBorrowAmount);
         require(mintable >= tUSDBorrowAmount, "Exceeds borrowable amount");
         uint borrowable = maxBorrowUSDC.sub(userBorrowInfo.borrowed);
         require(borrowable >= borrowAmountUSDC, "Borrow cap exceeded");
@@ -85,23 +85,23 @@ contract BTCBorrow is BorrowAbstract {
         totalSupplied = totalSupplied.add(supplyAmount);
     }
 
-    function repay(uint tusdRepayAmount, uint256 withdrawBTC) public nonReentrant {
+    function repay(uint tusdRepayAmount, uint256 WbtcWithdraw) public nonReentrant {
         // Checks
         require(tusdRepayAmount > 0, "Repay amount must be greater than 0");
         BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
-        uint256 withdrawUsdcAmountFromEngine = getBurnableToken(tusdRepayAmount, userBorrowInfo.baseBorrowed, userBorrowInfo.borrowed); // PS CHECK 
+        uint256 withdrawUsdcAmountFromEngine = getBurnableToken(tusdRepayAmount, userBorrowInfo.baseBorrowed, userBorrowInfo.borrowed);
         require(userBorrowInfo.borrowed >= withdrawUsdcAmountFromEngine, "Exceeds current borrowed amount");
         require(IERC20(tusd).transferFrom(msg.sender, address(this), tusdRepayAmount), "Transfer assets failed");
 
         // Effects
         uint accruedInterest = calculateInterest(userBorrowInfo.borrowed, userBorrowInfo.borrowTime);
         userBorrowInfo.borrowed = userBorrowInfo.borrowed.add(accruedInterest);
-        uint repayUsdcAmount = min(withdrawUsdcAmountFromEngine, userBorrowInfo.borrowed); // 1USD
-        uint repayTusd = userBorrowInfo.baseBorrowed.mul(repayUsdcAmount).div(userBorrowInfo.borrowed); // .97
-        uint withdrawAssetAmount = userBorrowInfo.supplied.mul(repayUsdcAmount).div(userBorrowInfo.borrowed); // Borrowed + intereset = 1.0103 & withdraw is 4949.02
-        require(withdrawBTC <= withdrawAssetAmount, "Cannot withdraw this much WBTC");
+        uint repayUsdcAmount = min(withdrawUsdcAmountFromEngine, userBorrowInfo.borrowed); 
+        uint repayTusd = userBorrowInfo.baseBorrowed.mul(repayUsdcAmount).div(userBorrowInfo.borrowed); 
+        uint withdrawAssetAmount = userBorrowInfo.supplied.mul(repayUsdcAmount).div(userBorrowInfo.borrowed); 
+        require(WbtcWithdraw <= withdrawAssetAmount, "Cannot withdraw this much WBTC");
         userBorrowInfo.baseBorrowed = userBorrowInfo.baseBorrowed.sub(repayTusd);
-        userBorrowInfo.supplied = userBorrowInfo.supplied.sub(withdrawBTC);
+        userBorrowInfo.supplied = userBorrowInfo.supplied.sub(WbtcWithdraw);
         userBorrowInfo.borrowed = userBorrowInfo.borrowed.sub(repayUsdcAmount);
         userBorrowInfo.borrowTime = block.timestamp;
 
@@ -110,29 +110,28 @@ contract BTCBorrow is BorrowAbstract {
 
         // Interactions
         IERC20(tusd).approve(address(engine), tusdRepayAmount);
-        ITUSDEngine(engine).redeemCollateralForTusd(withdrawUsdcAmountFromEngine, tusdRepayAmount);// 1USD for 0.98 TUSD
+        ITUSDEngine(engine).redeemCollateralForTusd(withdrawUsdcAmountFromEngine, tusdRepayAmount);
 
         // Post-Interaction Checks
         uint baseAssetBalanceExpected = baseAssetBalanceBefore.add(withdrawUsdcAmountFromEngine);
         require(baseAssetBalanceExpected == IERC20(baseAsset).balanceOf(address(this)), "Invalid USDC claim to Engine");
 
-        // Pre-Interactions
+        // Interactions
         bytes[] memory callData = new bytes[](2);
         bytes memory supplyAssetCalldata = abi.encode(comet, address(this), baseAsset, repayUsdcAmount);
         callData[0] = supplyAssetCalldata;
-        bytes memory withdrawAssetCalldata = abi.encode(comet, address(this), asset, withdrawBTC);
+        bytes memory withdrawAssetCalldata = abi.encode(comet, address(this), asset, WbtcWithdraw);
         callData[1] = withdrawAssetCalldata;
         
         IERC20(baseAsset).approve(comet, repayUsdcAmount);
         IBulker(bulker).invoke(buildRepay(), callData);
 
         // Transfer Assets
-        // Add slippage
-        require(IERC20(asset).transfer(msg.sender, withdrawBTC), "Transfer asset from Compound failed");
+        require(IERC20(asset).transfer(msg.sender, WbtcWithdraw), "Transfer asset from Compound failed");
 
         // Final State Update
         totalBorrow = totalBorrow.sub(repayTusd);
-        totalSupplied = totalSupplied.sub(withdrawBTC);
+        totalSupplied = totalSupplied.sub(WbtcWithdraw);
     }
 
     function mintableTUSD(uint supplyAmount) external view returns (uint) {
@@ -154,5 +153,29 @@ contract BTCBorrow is BorrowAbstract {
 
     function min(uint a, uint b) private pure returns (uint) {
         return a < b ? a : b;
+    }
+
+
+    // Calculate withdrawableWBTC supplying TUSD, please take into account slippage based on Compound Finance
+    function getWbtcWithdraw(uint256 tusdRepayAmount) public view returns (uint256) {
+        require(tusdRepayAmount > 0, "Repay amount must be greater than 0");
+        BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
+        uint256 withdrawUsdcAmountFromEngine = getBurnableToken(tusdRepayAmount, userBorrowInfo.baseBorrowed, userBorrowInfo.borrowed);
+        uint accruedInterest = calculateInterest(userBorrowInfo.borrowed, userBorrowInfo.borrowTime);
+        uint256 totalBorrowed = userBorrowInfo.borrowed.add(accruedInterest);
+        uint repayUsdcAmount = min(withdrawUsdcAmountFromEngine, totalBorrowed);
+        uint256 withdrawAssetAmount = userBorrowInfo.supplied.mul(repayUsdcAmount).div(userBorrowInfo.borrowed);
+        return withdrawAssetAmount;
+    }
+
+    function getWbtcWithdrawWithSlippage(uint256 tusdRepayAmount, uint256 _repaySlippage) public view returns (uint256) {
+        require(tusdRepayAmount > 0, "Repay amount must be greater than 0");
+        BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
+        uint256 withdrawUsdcAmountFromEngine = getBurnableToken(tusdRepayAmount, userBorrowInfo.baseBorrowed, userBorrowInfo.borrowed);
+        uint accruedInterest = calculateInterest(userBorrowInfo.borrowed, userBorrowInfo.borrowTime);
+        uint256 totalBorrowed = userBorrowInfo.borrowed.add(accruedInterest);
+        uint repayUsdcAmount = min(withdrawUsdcAmountFromEngine, totalBorrowed);
+        uint256 withdrawAssetAmount = userBorrowInfo.supplied.mul(repayUsdcAmount).div(userBorrowInfo.borrowed);
+        return withdrawAssetAmount.mul(100-_repaySlippage).div(100);
     }
 }
