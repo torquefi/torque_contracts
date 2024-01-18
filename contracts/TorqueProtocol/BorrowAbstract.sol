@@ -82,9 +82,9 @@ abstract contract BorrowAbstract is Ownable, ReentrancyGuard {
 
     struct BorrowInfo {
         address user; // User Address
-        uint baseBorrowed; // How much base asset is borrowed 
-        uint borrowed; // ? 
-        uint supplied; // How much token is supplied (Collateral Asset)
+        uint baseBorrowed; // TUSD borrowed 
+        uint borrowed; // USDC Borrowed 
+        uint supplied; // WBTC Supplied
         uint borrowTime; // Borrow time
     }
 
@@ -101,7 +101,7 @@ abstract contract BorrowAbstract is Ownable, ReentrancyGuard {
 
     function getUserBorrowable(address _user) public view returns (uint){
         BorrowInfo storage userBorrowInfo = borrowInfoMap[_user];
-        if(userBorrowInfo.supplied == 0) { // PS CHECK --> Should be rather == 0 
+        if(userBorrowInfo.supplied == 0) {
             return 0; 
         }
         uint assetSupplyAmount = userBorrowInfo.supplied;
@@ -110,13 +110,6 @@ abstract contract BorrowAbstract is Ownable, ReentrancyGuard {
         return maxTusd;
     }
 
-    function getBorrowable(uint supplyAmount, address _user) public view returns (uint){
-        uint maxBorrow = getBorrowableUsdc(supplyAmount); // PS CHECK --> Not sure why are we calling getBorrowableUsdc with supply as borrowable USDC
-        (uint mintable,) = ITUSDEngine(engine).getMintableTUSD(_user, maxBorrow);
-        return mintable;
-    }
-
-    // PS CHECK --> This function should be used
     function getBorrowableV2(uint maxUSDC, address _user) public view returns (uint){
         BorrowInfo storage userBorrowInfo = borrowInfoMap[_user];
         uint mintable = getMintableToken(maxUSDC, userBorrowInfo.baseBorrowed, 0);
@@ -219,7 +212,6 @@ abstract contract BorrowAbstract is Ownable, ReentrancyGuard {
         return totalMintable;
     }
 
-    // Need decimal adjustment
     function getBurnableToken(uint256 _tUsdRepayAmount, uint256 tUSDBorrowAmount, uint256 _usdcToBePayed) public view returns (uint256) {
         uint256 LIQUIDATION_THRESHOLD = ITUSDEngine(engine).getLiquidationThreshold();
         uint256 PRECISION = ITUSDEngine(engine).getPrecision();
