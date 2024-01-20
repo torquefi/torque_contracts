@@ -36,7 +36,7 @@ contract BTCBorrow is BorrowAbstract {
         _tusd,
         _treasury,
         _repaySlippage
-    ) {}
+    ) Ownable(msg.sender) {}
     // Approve the contract of WBTC usage
     function borrow(uint supplyAmount, uint borrowAmountUSDC, uint tUSDBorrowAmount) public nonReentrant(){
         require(supplyAmount > 0, "Supply amount must be greater than 0");
@@ -134,8 +134,8 @@ contract BTCBorrow is BorrowAbstract {
         totalSupplied = totalSupplied.sub(WbtcWithdraw);
     }
 
-    function mintableTUSD(uint supplyAmount) external view returns (uint) {
-        BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
+    function mintableTUSD(uint supplyAmount, address _address) external view returns (uint) {
+        BorrowInfo storage userBorrowInfo = borrowInfoMap[_address];
         uint maxBorrowUSDC = getBorrowableUsdc(supplyAmount.add(userBorrowInfo.supplied));
         uint256 mintable = getMintableToken(maxBorrowUSDC, userBorrowInfo.baseBorrowed, 0);
         return mintable;
@@ -157,9 +157,9 @@ contract BTCBorrow is BorrowAbstract {
 
 
     // Calculate withdrawableWBTC supplying TUSD, please take into account slippage based on Compound Finance
-    function getWbtcWithdraw(uint256 tusdRepayAmount) public view returns (uint256) {
+    function getWbtcWithdraw(uint256 tusdRepayAmount, address _address) public view returns (uint256) {
         require(tusdRepayAmount > 0, "Repay amount must be greater than 0");
-        BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
+        BorrowInfo storage userBorrowInfo = borrowInfoMap[_address];
         uint256 withdrawUsdcAmountFromEngine = getBurnableToken(tusdRepayAmount, userBorrowInfo.baseBorrowed, userBorrowInfo.borrowed);
         uint accruedInterest = calculateInterest(userBorrowInfo.borrowed, userBorrowInfo.borrowTime);
         uint256 totalBorrowed = userBorrowInfo.borrowed.add(accruedInterest);
@@ -168,9 +168,9 @@ contract BTCBorrow is BorrowAbstract {
         return withdrawAssetAmount;
     }
 
-    function getWbtcWithdrawWithSlippage(uint256 tusdRepayAmount, uint256 _repaySlippage) public view returns (uint256) {
+    function getWbtcWithdrawWithSlippage(uint256 tusdRepayAmount, address _address, uint256 _repaySlippage) public view returns (uint256) {
         require(tusdRepayAmount > 0, "Repay amount must be greater than 0");
-        BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
+        BorrowInfo storage userBorrowInfo = borrowInfoMap[_address];
         uint256 withdrawUsdcAmountFromEngine = getBurnableToken(tusdRepayAmount, userBorrowInfo.baseBorrowed, userBorrowInfo.borrowed);
         uint accruedInterest = calculateInterest(userBorrowInfo.borrowed, userBorrowInfo.borrowTime);
         uint256 totalBorrowed = userBorrowInfo.borrowed.add(accruedInterest);
