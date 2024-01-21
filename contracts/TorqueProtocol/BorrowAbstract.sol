@@ -47,6 +47,11 @@ abstract contract BorrowAbstract is Ownable, ReentrancyGuard {
     bytes32 public constant ACTION_WITHDRAW_ETH = "ACTION_WITHDRAW_NATIVE_TOKEN";
     bytes32 public constant ACTION_CLAIM_REWARD = "ACTION_CLAIM_REWARD";
 
+    uint256 LIQUIDATION_THRESHOLD;
+    uint256 PRECISION;
+    uint256 LIQUIDATION_PRECISION;
+    uint256 MIN_HEALTH_FACTOR;
+
     constructor(
         address _initialOwner,
         address _comet, // Compound V3 Address
@@ -71,6 +76,7 @@ abstract contract BorrowAbstract is Ownable, ReentrancyGuard {
         IComet(_comet).allow(_bulker, true);
         claimPeriod = 86400; // 1 day in seconds
         repaySlippage = _repaySlippage;
+        fetchValues();
     }
     
     uint constant BASE_ASSET_MANTISA = 1e6;
@@ -92,6 +98,13 @@ abstract contract BorrowAbstract is Ownable, ReentrancyGuard {
 
     event UserBorrow(address user, address collateralAddress, uint amount);
     event UserRepay(address user, address collateralAddress, uint repayAmount, uint claimAmount);
+
+    function fetchValues() public {
+        LIQUIDATION_THRESHOLD = ITUSDEngine(engine).getLiquidationThreshold();
+        PRECISION = ITUSDEngine(engine).getPrecision();
+        LIQUIDATION_PRECISION = ITUSDEngine(engine).getLiquidationPrecision();
+        MIN_HEALTH_FACTOR = ITUSDEngine(engine).getMinHealthFactor();
+    }
 
     function getCollateralFactor() public view returns (uint){
         IComet icomet = IComet(comet);
@@ -200,34 +213,28 @@ abstract contract BorrowAbstract is Ownable, ReentrancyGuard {
     }
 
     function getMintableToken(uint256 _usdcSupply, uint256 _mintedTUSD, uint256 _toMintTUSD) public view returns (uint256) {
-        uint256 LIQUIDATION_THRESHOLD = ITUSDEngine(engine).getLiquidationThreshold();
-        uint256 PRECISION = ITUSDEngine(engine).getPrecision();
-        uint256 LIQUIDATION_PRECISION = ITUSDEngine(engine).getLiquidationPrecision();
-        uint256 MIN_HEALTH_FACTOR = ITUSDEngine(engine).getMinHealthFactor();
-        uint256 totalMintable = _usdcSupply*LIQUIDATION_THRESHOLD/LIQUIDATION_PRECISION;
-        totalMintable = totalMintable*PRECISION/MIN_HEALTH_FACTOR;
-        totalMintable *= decimalAdjust;
+        uint256 totalMintable = _usdcSupply.mul(LIQUIDATION_THRESHOLD)
+            .mul(PRECISION)
+            .mul(decimalAdjust)
+            .div(LIQUIDATION_PRECISION)
+            .div(MIN_HEALTH_FACTOR);
         require(totalMintable >= _mintedTUSD + _toMintTUSD, "User can not mint more TUSD");
         totalMintable -= _mintedTUSD;
         return totalMintable;
     }
 
     function getBurnableToken(uint256 _tUsdRepayAmount, uint256 tUSDBorrowAmount, uint256 _usdcToBePayed) public view returns (uint256) {
-        uint256 LIQUIDATION_THRESHOLD = ITUSDEngine(engine).getLiquidationThreshold();
-        uint256 PRECISION = ITUSDEngine(engine).getPrecision();
-        uint256 LIQUIDATION_PRECISION = ITUSDEngine(engine).getLiquidationPrecision();
-        uint256 MIN_HEALTH_FACTOR = ITUSDEngine(engine).getMinHealthFactor();
         require(tUSDBorrowAmount >= _tUsdRepayAmount, "You have not minted enough TUSD");
-        tUSDBorrowAmount -= _tUsdRepayAmount;
         if(tUSDBorrowAmount == 0){
             return _usdcToBePayed;
         }
         else{
-            uint256 totalWithdrawableCollateral = tUSDBorrowAmount*LIQUIDATION_PRECISION/LIQUIDATION_THRESHOLD;
-            totalWithdrawableCollateral = totalWithdrawableCollateral*MIN_HEALTH_FACTOR/PRECISION;
-            totalWithdrawableCollateral /= decimalAdjust;
+            uint256 totalWithdrawableCollateral = _tUsdRepayAmount.mul(LIQUIDATION_PRECISION)
+                .mul(MIN_HEALTH_FACTOR)
+                .div(LIQUIDATION_THRESHOLD)
+                .div(PRECISION)
+                .div(decimalAdjust);
             require(totalWithdrawableCollateral <= _usdcToBePayed, "User cannot withdraw more collateral");
-            totalWithdrawableCollateral = _usdcToBePayed - totalWithdrawableCollateral;
             return totalWithdrawableCollateral;
         }
     }
