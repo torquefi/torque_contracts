@@ -218,16 +218,14 @@ abstract contract BorrowAbstract is Ownable, ReentrancyGuard {
         uint256 LIQUIDATION_PRECISION = ITUSDEngine(engine).getLiquidationPrecision();
         uint256 MIN_HEALTH_FACTOR = ITUSDEngine(engine).getMinHealthFactor();
         require(tUSDBorrowAmount >= _tUsdRepayAmount, "You have not minted enough TUSD");
-        tUSDBorrowAmount -= _tUsdRepayAmount;
         if(tUSDBorrowAmount == 0){
             return _usdcToBePayed;
         }
         else{
-            uint256 totalWithdrawableCollateral = tUSDBorrowAmount*LIQUIDATION_PRECISION/LIQUIDATION_THRESHOLD;
+            uint256 totalWithdrawableCollateral = _tUsdRepayAmount*LIQUIDATION_PRECISION/LIQUIDATION_THRESHOLD;
             totalWithdrawableCollateral = totalWithdrawableCollateral*MIN_HEALTH_FACTOR/PRECISION;
             totalWithdrawableCollateral /= decimalAdjust;
             require(totalWithdrawableCollateral <= _usdcToBePayed, "User cannot withdraw more collateral");
-            totalWithdrawableCollateral = _usdcToBePayed - totalWithdrawableCollateral;
             return totalWithdrawableCollateral;
         }
     }
