@@ -96,11 +96,10 @@ contract ETHBorrow is BorrowAbstract {
         // Effects
         uint accruedInterest = calculateInterest(userBorrowInfo.borrowed, userBorrowInfo.borrowTime);
         userBorrowInfo.borrowed = userBorrowInfo.borrowed.add(accruedInterest);
-        uint repayUsdcAmount = min(withdrawUsdcAmountFromEngine, userBorrowInfo.borrowed); 
-        uint repayTusd = userBorrowInfo.baseBorrowed.mul(repayUsdcAmount).div(userBorrowInfo.borrowed); 
+        uint repayUsdcAmount = min(withdrawUsdcAmountFromEngine, userBorrowInfo.borrowed);  
         uint withdrawAssetAmount = userBorrowInfo.supplied.mul(repayUsdcAmount).div(userBorrowInfo.borrowed); 
         require(WETHWithdraw <= withdrawAssetAmount, "Cannot withdraw this much WETH");
-        userBorrowInfo.baseBorrowed = userBorrowInfo.baseBorrowed.sub(repayTusd);
+        userBorrowInfo.baseBorrowed = userBorrowInfo.baseBorrowed.sub(tusdRepayAmount);
         userBorrowInfo.supplied = userBorrowInfo.supplied.sub(WETHWithdraw);
         userBorrowInfo.borrowed = userBorrowInfo.borrowed.sub(repayUsdcAmount);
         userBorrowInfo.borrowTime = block.timestamp;
@@ -130,7 +129,7 @@ contract ETHBorrow is BorrowAbstract {
         require(IERC20(asset).transfer(msg.sender, WETHWithdraw), "Transfer asset from Compound failed");
 
         // Final State Update
-        totalBorrow = totalBorrow.sub(repayTusd);
+        totalBorrow = totalBorrow.sub(tusdRepayAmount);
         totalSupplied = totalSupplied.sub(WETHWithdraw);
     }
 
