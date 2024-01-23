@@ -14,6 +14,7 @@ interface ITUSDEngine {
     function depositCollateralAndMintTusd(uint256 amountCollateral, uint256 amountTusdToMint) external;
     function redeemCollateralForTusd(uint256 amountCollateral, uint256 amountTusdToBurn) external ;
     function getCollateralBalanceOfUser(address user) external view returns (uint256);
+    function mintTusd(uint256 amountTusdToMint) external;
 
     // function getLiquidationRate() external view returns (uint256);
     // function getInterestRate() external view returns (uint256);
