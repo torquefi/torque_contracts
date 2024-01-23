@@ -42,8 +42,8 @@ contract BTCBorrow is BorrowAbstract {
         require(supplyAmount > 0, "Supply amount must be greater than 0");
         BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
         uint maxBorrowUSDC = getBorrowableUsdc(supplyAmount.add(userBorrowInfo.supplied));
-        uint256 mintable = getMintableToken(maxBorrowUSDC, userBorrowInfo.baseBorrowed, tUSDBorrowAmount);
-        require(mintable >= tUSDBorrowAmount, "Exceeds borrowable amount");
+        uint256 mintableTusd = getMintableToken(maxBorrowUSDC, userBorrowInfo.baseBorrowed, tUSDBorrowAmount);
+        require(mintableTusd >= tUSDBorrowAmount, "Exceeds borrowable amount");
         uint borrowable = maxBorrowUSDC.sub(userBorrowInfo.borrowed);
         require(borrowable >= borrowAmountUSDC, "Borrow cap exceeded");
         require(
@@ -58,6 +58,7 @@ contract BTCBorrow is BorrowAbstract {
         }
         userBorrowInfo.baseBorrowed = userBorrowInfo.baseBorrowed.add(tUSDBorrowAmount);
         userBorrowInfo.borrowed = userBorrowInfo.borrowed.add(borrowAmountUSDC).add(accruedInterest);
+        borrowHealth[msg.sender] += borrowAmountUSDC;
         userBorrowInfo.supplied = userBorrowInfo.supplied.add(supplyAmount);
         userBorrowInfo.borrowTime = block.timestamp;
         
@@ -102,6 +103,7 @@ contract BTCBorrow is BorrowAbstract {
         userBorrowInfo.baseBorrowed = userBorrowInfo.baseBorrowed.sub(tusdRepayAmount);
         userBorrowInfo.supplied = userBorrowInfo.supplied.sub(WbtcWithdraw);
         userBorrowInfo.borrowed = userBorrowInfo.borrowed.sub(repayUsdcAmount);
+        borrowHealth[msg.sender] -= repayUsdcAmount;
         userBorrowInfo.borrowTime = block.timestamp;
 
         // Record Balance
@@ -176,5 +178,28 @@ contract BTCBorrow is BorrowAbstract {
         uint repayUsdcAmount = min(withdrawUsdcAmountFromEngine, totalBorrowed);
         uint256 withdrawAssetAmount = userBorrowInfo.supplied.mul(repayUsdcAmount).div(userBorrowInfo.borrowed);
         return withdrawAssetAmount.mul(100-_repaySlippage).div(100);
+    }
+
+    function mintTUSD(uint256 _amountToMint) public {
+        BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
+        uint256 mintTUSDTotal = userBorrowInfo.baseBorrowed + _amountToMint;
+        uint256 borrowedAmount = borrowHealth[msg.sender];
+        borrowedAmount =  borrowedAmount.mul(decimalAdjust)
+            .mul(LIQUIDATION_PRECISION)
+            .div(LIQUIDATION_THRESHOLD);
+        require(borrowedAmount >= mintTUSDTotal, "Health factor is broken");
+        userBorrowInfo.baseBorrowed += _amountToMint;
+
+        uint tusdBefore = IERC20(tusd).balanceOf(address(this));
+        
+        ITUSDEngine(engine).mintTusd(_amountToMint);
+
+        // Post-Interaction Checks
+        uint expectedTusd = tusdBefore.add(_amountToMint);
+        require(expectedTusd == IERC20(tusd).balanceOf(address(this)), "Invalid amount");
+        require(IERC20(tusd).transfer(msg.sender, _amountToMint), "Transfer token failed");
+        
+        // Final State Update
+        totalBorrow = totalBorrow.add(_amountToMint);
     }
 }
