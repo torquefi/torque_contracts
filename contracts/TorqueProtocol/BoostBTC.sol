@@ -22,7 +22,7 @@ contract BoostBTC is AutomationCompatible, ERC4626, ReentrancyGuard, Ownable {
     IERC20 public wbtcToken;
     GMXV2BTC public gmxV2Btc;
     UniswapBTC public uniswapBtc;
-    Treasury public treasury;
+    address public treasury;
 
     uint256 public gmxAllocation;
     uint256 public uniswapAllocation;
@@ -39,7 +39,7 @@ contract BoostBTC is AutomationCompatible, ERC4626, ReentrancyGuard, Ownable {
         uniswapBtc = UniswapBTC(_uniswapBtcAddress);
         gmxAllocation = 50;
         uniswapAllocation = 50;
-        treasury = Treasury(_treasury);
+        treasury = _treasury;
     }
 
     function deposit(uint256 _amount) public override nonReentrant {
@@ -117,7 +117,7 @@ contract BoostBTC is AutomationCompatible, ERC4626, ReentrancyGuard, Ownable {
     }
 
     function setTreasury(address _treasury) public onlyOwner {
-        treasury = Treasury(_treasury);
+        treasury = _treasury;
     }
 
     function _checkUpkeep(bytes calldata) external virtual view returns (bool upkeepNeeded, bytes memory);

@@ -38,6 +38,8 @@ abstract contract BorrowAbstract is Ownable, ReentrancyGuard {
     uint public totalSupplied;
     uint public lastClaimCometTime;
 
+    mapping (address => uint256) borrowHealth;
+
     uint256 public decimalAdjust = 1000000000000;
     
     bytes32 public constant ACTION_SUPPLY_ASSET = "ACTION_SUPPLY_ASSET";
