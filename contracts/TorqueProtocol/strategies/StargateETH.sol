@@ -17,7 +17,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import "../interfaces/IStargateLPStakingTime.sol";
 import "../interfaces/IStargateRouterETH.sol";
-import "../../StargateContracts/interfaces/IStargateRouter.sol";
+import "../../StargateBase/interfaces/IStargateRouter.sol";
 import "../interfaces/IWETH9.sol";
 
 import "../../UniswapContracts/ISwapRouter.sol";
@@ -48,18 +48,27 @@ contract StargateETH is Ownable, ReentrancyGuard{
         weth.transferFrom(msg.sender, address(this), _amount);
         weth.withdraw(_amount);
         routerETH.addLiquidity{value: _amount}();
+        // uint256 wethSTGAmount = wethSTG.balanceOf(address(this));
         wethSTG.approve(address(lpStakingTime), _amount);
         lpStakingTime.deposit(2, _amount);
     }
 
-    function withdraw(uint256 _amount) external {
+    function withdraw(uint256 _amount) external onlyOwner() {
         lpStakingTime.withdraw(2, _amount);
         wethSTG.approve(address(router), _amount);
         router.instantRedeemLocal(13, _amount, address(this));
-        weth.approve(address(msg.sender), _amount);
+        weth.transfer(address(msg.sender), _amount);
     }
 
-    function swapARBtoWETH(uint256 arbAmount) internal {
+    function compound() external onlyOwner() {
+        lpStakingTime.deposit(2, 0);
+        uint256 arbAmount = arbToken.balanceOf(address(this));
+        swapARBtoWETH(arbAmount);
+        uint256 wethAmount = weth.balanceOf(address(this));
+        weth.transfer(msg.sender, wethAmount);
+    }
+
+    function swapARBtoWETH(uint256 arbAmount) internal returns (uint256 amountOut){
         arbToken.approve(address(swapRouter), arbAmount);
         ISwapRouter.ExactInputSingleParams memory params =
             ISwapRouter.ExactInputSingleParams({
@@ -72,6 +81,6 @@ contract StargateETH is Ownable, ReentrancyGuard{
                 amountOutMinimum:0,
                 sqrtPriceLimitX96: 0
             });
-        swapRouter.exactInputSingle(params);
+        return swapRouter.exactInputSingle(params);
     }
 }

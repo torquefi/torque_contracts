@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
-interface IExchangeRouter {
+interface IGMXExchangeRouter {
     struct CreateDepositParams {
         address receiver;
         address callbackContract;
