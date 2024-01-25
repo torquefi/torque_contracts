@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.19;
 
 //  _________  ________  ________  ________  ___  ___  _______      
 // |\___   ___\\   __  \|\   __  \|\   __  \|\  \|\  \|\  ___ \     
@@ -14,15 +14,15 @@ import "@openzeppelin/contracts/governance/extensions/GovernorSettings.sol";
 import "@openzeppelin/contracts/governance/extensions/GovernorCountingSimple.sol";
 import "@openzeppelin/contracts/governance/extensions/GovernorVotes.sol";
 import "@openzeppelin/contracts/governance/extensions/GovernorVotesQuorumFraction.sol";
-import "@openzeppelin/contracts/governance/extensions/GovernorTimelockControl.sol";
+import "@openzeppelin/contracts/governance/extensions/GovernorTimelockCompound.sol";
 
-contract Hamilton is Governor, GovernorSettings, GovernorCountingSimple, GovernorVotes, GovernorVotesQuorumFraction, GovernorTimelockControl {
-    constructor(IVotes _token, TimelockController _timelock)
+contract Hamilton is Governor, GovernorSettings, GovernorCountingSimple, GovernorVotes, GovernorVotesQuorumFraction, GovernorTimelockCompound {
+    constructor(IVotes _token, ICompoundTimelock _timelock)
         Governor("Hamilton")
         GovernorSettings(50400 /* 7 day */, 50400 /* 1 week */, 10000000e18)
         GovernorVotes(_token)
         GovernorVotesQuorumFraction(10)
-        GovernorTimelockControl(_timelock)
+        GovernorTimelockCompound(_timelock)
     {}
 
     // The following functions are overrides required by Solidity.
@@ -57,7 +57,7 @@ contract Hamilton is Governor, GovernorSettings, GovernorCountingSimple, Governo
     function state(uint256 proposalId)
         public
         view
-        override(Governor, GovernorTimelockControl)
+        override(Governor, GovernorTimelockCompound)
         returns (ProposalState)
     {
         return super.state(proposalId);
@@ -82,14 +82,14 @@ contract Hamilton is Governor, GovernorSettings, GovernorCountingSimple, Governo
 
     function _execute(uint256 proposalId, address[] memory targets, uint256[] memory values, bytes[] memory calldatas, bytes32 descriptionHash)
         internal
-        override(Governor, GovernorTimelockControl)
+        override(Governor, GovernorTimelockCompound)
     {
         super._execute(proposalId, targets, values, calldatas, descriptionHash);
     }
 
     function _cancel(address[] memory targets, uint256[] memory values, bytes[] memory calldatas, bytes32 descriptionHash)
         internal
-        override(Governor, GovernorTimelockControl)
+        override(Governor, GovernorTimelockCompound)
         returns (uint256)
     {
         return super._cancel(targets, values, calldatas, descriptionHash);
@@ -98,7 +98,7 @@ contract Hamilton is Governor, GovernorSettings, GovernorCountingSimple, Governo
     function _executor()
         internal
         view
-        override(Governor, GovernorTimelockControl)
+        override(Governor, GovernorTimelockCompound)
         returns (address)
     {
         return super._executor();
@@ -107,7 +107,7 @@ contract Hamilton is Governor, GovernorSettings, GovernorCountingSimple, Governo
     function supportsInterface(bytes4 interfaceId)
         public
         view
-        override(Governor, GovernorTimelockControl)
+        override(Governor, GovernorTimelockCompound)
         returns (bool)
     {
         return super.supportsInterface(interfaceId);
