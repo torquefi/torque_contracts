@@ -101,8 +101,7 @@ contract BoostETH is AutomationCompatible, Ownable, ReentrancyGuard, ERC20{
         gmxV2ETH.compound();
         uint256 postWethAmount = weth.balanceOf(address(this));
         uint256 treasuryFee = (postWethAmount - prevWethAmount).mul(performanceFee).div(100);
-        weth.withdraw(treasuryFee);
-        payable(treasury).transfer(treasuryFee);
+        weth.transfer(treasury, treasuryFee);
         uint256 wethAmount = postWethAmount - treasuryFee;
         uint256 stargateDepositAmount = wethAmount.mul(stargateAllocation).div(100);
         uint256 gmxDepositAmount = wethAmount.sub(stargateDepositAmount);
