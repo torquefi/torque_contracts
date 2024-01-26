@@ -18,6 +18,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../interfaces/IStargateLPStakingTime.sol";
 import "../interfaces/IStargateRouterETH.sol";
 import "../../StargateBase/interfaces/IStargateRouter.sol";
+import "../../StargateBase/LPStakingTime.sol";
 import "../interfaces/IWETH9.sol";
 
 import "../../UniswapContracts/ISwapRouter.sol";
@@ -30,42 +31,52 @@ contract StargateETH is Ownable, ReentrancyGuard{
     IERC20 public wethSTG;
     IERC20 public arbToken;
     IStargateRouterETH public routerETH;
-    IStargateLPStakingTime public lpStakingTime;
+    LPStakingTime public lpStakingTime;
     IStargateRouter public router;
     ISwapRouter public swapRouter;
+
+    uint256 public depositedWethAmount;
     
-    constructor(address payable weth_, address wethSTG_, address arbToken_, address routerETH_, address lpStakingTime_, address router_, address swapRouter_){
+    constructor(address payable weth_, address wethSTG_, address arbToken_, address payable routerETH_, address lpStakingTime_, address router_, address swapRouter_){
         weth = IWETH9(weth_);
         wethSTG = IERC20(wethSTG_);
         arbToken = IERC20(arbToken_);
         routerETH = IStargateRouterETH(routerETH_);
-        lpStakingTime = IStargateLPStakingTime(lpStakingTime_);
+        lpStakingTime = LPStakingTime(lpStakingTime_);
         router = IStargateRouter(router_);
         swapRouter = ISwapRouter(swapRouter_);
+        depositedWethAmount = 0;
     }
 
-    function deposit(uint256 _amount) payable external {
+    function deposit(uint256 _amount) external {
         weth.transferFrom(msg.sender, address(this), _amount);
         weth.withdraw(_amount);
-        routerETH.addLiquidity{value: _amount}();
-        // uint256 wethSTGAmount = wethSTG.balanceOf(address(this));
-        wethSTG.approve(address(lpStakingTime), _amount);
-        lpStakingTime.deposit(2, _amount);
+        routerETH.addLiquidityETH{value: _amount}();
+        uint256 wethSTGAmount = wethSTG.balanceOf(address(this));
+        wethSTG.approve(address(lpStakingTime), wethSTGAmount);
+        lpStakingTime.deposit(2, wethSTGAmount);
+        depositedWethAmount = depositedWethAmount + _amount;
     }
 
     function withdraw(uint256 _amount) external onlyOwner() {
-        lpStakingTime.withdraw(2, _amount);
-        wethSTG.approve(address(router), _amount);
-        router.instantRedeemLocal(13, _amount, address(this));
-        weth.transfer(address(msg.sender), _amount);
+        (uint256 realWethSTGDepositedAmount, ) = lpStakingTime.userInfo(2, address(this));
+        uint256 withdrawAmount = _amount * realWethSTGDepositedAmount / depositedWethAmount;
+        lpStakingTime.withdraw(2, withdrawAmount);
+        wethSTG.approve(address(router), withdrawAmount);
+        router.instantRedeemLocal(13, withdrawAmount, address(this));
+        uint256 wethAmount = weth.balanceOf(address(this));
+        weth.transfer(address(msg.sender), wethAmount);
+        depositedWethAmount = depositedWethAmount - _amount;
     }
 
     function compound() external onlyOwner() {
         lpStakingTime.deposit(2, 0);
         uint256 arbAmount = arbToken.balanceOf(address(this));
-        swapARBtoWETH(arbAmount);
-        uint256 wethAmount = weth.balanceOf(address(this));
-        weth.transfer(msg.sender, wethAmount);
+        if(arbAmount > 0){
+            swapARBtoWETH(arbAmount);
+            uint256 wethAmount = weth.balanceOf(address(this));
+            weth.transfer(msg.sender, wethAmount);
+        }
     }
 
     function swapARBtoWETH(uint256 arbAmount) internal returns (uint256 amountOut){
@@ -83,4 +94,6 @@ contract StargateETH is Ownable, ReentrancyGuard{
             });
         return swapRouter.exactInputSingle(params);
     }
+
+    receive() external payable{}
 }

@@ -49,7 +49,7 @@ contract BoostETH is AutomationCompatible, Ownable, ReentrancyGuard, ERC20{
         totalAssetsAmount = 0;
     }
 
-    function depositETH(uint256 depositAmount) external payable nonReentrant() {
+    function depositETH(uint256 depositAmount) external nonReentrant() {
         weth.transferFrom(msg.sender, address(this), depositAmount);
         uint256 stargateDepositAmount = depositAmount.mul(stargateAllocation).div(100);
         uint256 gmxDepositAmount = depositAmount.sub(stargateDepositAmount);
@@ -137,5 +137,15 @@ contract BoostETH is AutomationCompatible, Ownable, ReentrancyGuard, ERC20{
         }
     }
 
+    // Remove for prod deployment
+    function updateStargate(address payable _address) external onlyOwner {
+        stargateETH = StargateETH(_address);
+    }
+
+    // Remove for prod deployment
+    function updateGMXV2(address _address) external onlyOwner {
+        gmxV2ETH = GMXV2ETH(_address);
+    }
+    
     receive() external payable {}
 }
