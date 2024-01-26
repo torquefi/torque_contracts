@@ -28,7 +28,7 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
     IERC20 public usdcToken;
     IERC20 public arbToken;
 
-    address marketAddress;
+    address public marketAddress = 0x70d95587d40A2caf56bd97485aB3Eec10Bee6336;
     address depositVault;
     address withdrawalVault;
 
@@ -66,16 +66,20 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
         gmToken.approve(withdrawalVault, gmAmountWithdraw);
         exchangeRouter.createWithdrawal(withdrawParams);
         uint256 usdcAmount = usdcToken.balanceOf(address(this));
-        swapUSDCtoWETH(usdcAmount);
+        if(usdcAmount > 0){
+            swapUSDCtoWETH(usdcAmount);
+        }
         uint256 wethAmount = weth.balanceOf(address(this));
         weth.transfer(msg.sender, wethAmount);
     }
 
     function compound() external onlyOwner() {
         uint256 arbAmount = arbToken.balanceOf(address(this));
-        swapARBtoWETH(arbAmount);
-        uint256 wethAmount = weth.balanceOf(address(this));
-        weth.transfer(msg.sender, wethAmount);
+        if(arbAmount > 0){
+            swapARBtoWETH(arbAmount);
+            uint256 wethAmount = weth.balanceOf(address(this));
+            weth.transfer(msg.sender, wethAmount);
+        }
     }
 
     function swapUSDCtoWETH(uint256 usdcAmount) internal {
@@ -113,7 +117,7 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
     function createDepositParams() internal view returns (IGMXExchangeRouter.CreateDepositParams memory) {
         IGMXExchangeRouter.CreateDepositParams memory depositParams;
         depositParams.callbackContract = address(this);
-        depositParams.callbackGasLimit = 0;
+        depositParams.callbackGasLimit = 200000;
         depositParams.executionFee = 0;
         depositParams.initialLongToken = address(weth);
         depositParams.initialShortToken = address(usdcToken);
