@@ -37,7 +37,7 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
 
     uint256 depositedWethAmount;
 
-    constructor(address payable weth_, address gmToken_, address usdcToken_, address arbToken_, address exchangeRouter_, address swapRouter_, address depositVault_, address withdrawalVault_){
+    constructor(address payable weth_, address gmToken_, address usdcToken_, address arbToken_, address payable exchangeRouter_, address swapRouter_, address depositVault_, address withdrawalVault_){
         weth = IWETH9(weth_);
         gmToken = IERC20(gmToken_);
         usdcToken = IERC20(usdcToken_);
@@ -50,10 +50,10 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
     }
 
     function deposit(uint256 _amount) external {
-        exchangeRouter.sendWnt(depositVault, _amount);
-        IGMXExchangeRouter.CreateDepositParams memory depositParams = createDepositParams();
         weth.transferFrom(msg.sender, address(this), _amount);
-        weth.approve(depositVault, _amount);
+        weth.withdraw(_amount);
+        exchangeRouter.sendWnt{value: _amount}(depositVault, _amount);
+        IGMXExchangeRouter.CreateDepositParams memory depositParams = createDepositParams();
         exchangeRouter.createDeposit{value: _amount}(depositParams);
         depositedWethAmount = depositedWethAmount + _amount;
     }
@@ -140,4 +140,6 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
         withdrawParams.minShortTokenAmount = 0;
         return withdrawParams;
     }
+
+    receive() external payable {}
 }
