@@ -10,5 +10,7 @@ pragma solidity ^0.8.9;
 //        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
 
 interface IStargateRouterETH{
-    function addLiquidity() external payable;
+    function addLiquidityETH() external payable;
+
+    receive() external payable;
 }
