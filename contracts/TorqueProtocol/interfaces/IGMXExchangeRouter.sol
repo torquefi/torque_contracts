@@ -101,4 +101,6 @@ interface IGMXExchangeRouter {
     // function cancelDeposit(bytes32 key) external payable;
 
     // function cancelWithdrawal(bytes32 key) external payable;
+
+    receive() external payable;
 }
