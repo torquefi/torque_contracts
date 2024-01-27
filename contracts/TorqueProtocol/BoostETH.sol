@@ -1,6 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 
+//  _________  ________  ________  ________  ___  ___  _______
+// |\___   ___\\   __  \|\   __  \|\   __  \|\  \|\  \|\  ___ \
+// \|___ \  \_\ \  \|\  \ \  \|\  \ \  \|\  \ \  \\\  \ \   __/|
+//     \ \  \ \ \  \\\  \ \   _  _\ \  \\\  \ \  \\\  \ \  \_|/__
+//      \ \  \ \ \  \\\  \ \  \\  \\ \  \\\  \ \  \\\  \ \  \_|\ \
+//       \ \__\ \ \_______\ \__\\ _\\ \_____  \ \_______\ \_______\
+//        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
+
 import "@chainlink/contracts/src/v0.8/automation/AutomationCompatible.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
