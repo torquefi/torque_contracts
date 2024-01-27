@@ -29,15 +29,19 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
     IERC20 public arbToken;
 
     address public marketAddress = 0x70d95587d40A2caf56bd97485aB3Eec10Bee6336;
+    uint256 public executionFee; 
     address depositVault;
     address withdrawalVault;
+    address router;
 
     IGMXExchangeRouter public exchangeRouter;
     ISwapRouter public swapRouter;
 
-    uint256 depositedWethAmount;
+    uint256 public depositedWethAmount;
+    uint256 minUSDCAmount = 0;
+    uint256 minARBAmount = 1000000000000000000;
 
-    constructor(address payable weth_, address gmToken_, address usdcToken_, address arbToken_, address exchangeRouter_, address swapRouter_, address depositVault_, address withdrawalVault_){
+    constructor(address payable weth_, address gmToken_, address usdcToken_, address arbToken_, address payable exchangeRouter_, address swapRouter_, address depositVault_, address withdrawalVault_, address router_){
         weth = IWETH9(weth_);
         gmToken = IERC20(gmToken_);
         usdcToken = IERC20(usdcToken_);
@@ -46,36 +50,46 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
         swapRouter = ISwapRouter(swapRouter_);
         depositVault = depositVault_;
         withdrawalVault = withdrawalVault_;
+        router = router_;
         depositedWethAmount = 0;
+        executionFee = 1000000000000000;
     }
 
-    function deposit(uint256 _amount) external {
-        exchangeRouter.sendWnt(depositVault, _amount);
-        IGMXExchangeRouter.CreateDepositParams memory depositParams = createDepositParams();
+    function deposit(uint256 _amount) external payable{
+        require(msg.value >= executionFee, "You must pay GMX v2 execution fee");
+        exchangeRouter.sendWnt{value: executionFee}(address(depositVault), executionFee);
         weth.transferFrom(msg.sender, address(this), _amount);
-        weth.approve(depositVault, _amount);
-        exchangeRouter.createDeposit{value: _amount}(depositParams);
+        weth.approve(address(router), _amount);
+        exchangeRouter.sendTokens(address(weth), address(depositVault), _amount);
+        IGMXExchangeRouter.CreateDepositParams memory depositParams = createDepositParams();
+        exchangeRouter.createDeposit(depositParams);
         depositedWethAmount = depositedWethAmount + _amount;
     }
 
-    function withdraw(uint256 _amount) external onlyOwner() {
+    function withdraw(uint256 _amount) external payable onlyOwner() {
+        require(msg.value >= executionFee, "You must pay GMX v2 execution fee");
+        exchangeRouter.sendWnt{value: executionFee}(address(withdrawalVault), executionFee);
         uint256 gmAmountWithdraw = _amount * gmToken.balanceOf(address(this)) / depositedWethAmount;
-        depositedWethAmount = depositedWethAmount - _amount;
-        exchangeRouter.sendTokens(address(gmToken), withdrawalVault, gmAmountWithdraw);
+        gmToken.approve(address(router), gmAmountWithdraw);
+        exchangeRouter.sendTokens(address(gmToken), address(withdrawalVault), gmAmountWithdraw);
         IGMXExchangeRouter.CreateWithdrawalParams memory withdrawParams = createWithdrawParams();
-        gmToken.approve(withdrawalVault, gmAmountWithdraw);
         exchangeRouter.createWithdrawal(withdrawParams);
+        depositedWethAmount = depositedWethAmount - _amount;
         uint256 usdcAmount = usdcToken.balanceOf(address(this));
-        if(usdcAmount > 0){
+        if(usdcAmount > minUSDCAmount){
             swapUSDCtoWETH(usdcAmount);
         }
         uint256 wethAmount = weth.balanceOf(address(this));
         weth.transfer(msg.sender, wethAmount);
     }
 
+    function withdrawETH() external onlyOwner() {
+        payable(msg.sender).transfer(address(this).balance);
+    }
+
     function compound() external onlyOwner() {
         uint256 arbAmount = arbToken.balanceOf(address(this));
-        if(arbAmount > 0){
+        if(arbAmount > minARBAmount){
             swapARBtoWETH(arbAmount);
             uint256 wethAmount = weth.balanceOf(address(this));
             weth.transfer(msg.sender, wethAmount);
@@ -98,6 +112,10 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
         swapRouter.exactInputSingle(params);
     }
 
+    function updateExecutionFee(uint256 _executionFee) public onlyOwner{
+        executionFee = _executionFee;
+    }
+
     function swapARBtoWETH(uint256 arbAmount) internal returns (uint256 amountOut){
         arbToken.approve(address(swapRouter), arbAmount);
         ISwapRouter.ExactInputSingleParams memory params =
@@ -116,28 +134,31 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
 
     function createDepositParams() internal view returns (IGMXExchangeRouter.CreateDepositParams memory) {
         IGMXExchangeRouter.CreateDepositParams memory depositParams;
+        depositParams.receiver = address(this);
         depositParams.callbackContract = address(this);
-        depositParams.callbackGasLimit = 200000;
-        depositParams.executionFee = 0;
+        depositParams.market = marketAddress;
+        depositParams.minMarketTokens = 0;
+        depositParams.shouldUnwrapNativeToken = false;
+        depositParams.executionFee = executionFee;
+        depositParams.callbackGasLimit = 0;
         depositParams.initialLongToken = address(weth);
         depositParams.initialShortToken = address(usdcToken);
-        depositParams.market = marketAddress;
-        depositParams.shouldUnwrapNativeToken = true;
-        depositParams.receiver = address(this);
-        depositParams.minMarketTokens = 0;
         return depositParams;
     }
 
     function createWithdrawParams() internal view returns (IGMXExchangeRouter.CreateWithdrawalParams memory) {
         IGMXExchangeRouter.CreateWithdrawalParams memory withdrawParams;
-        withdrawParams.callbackContract = address(this);
-        withdrawParams.callbackGasLimit = 0;
-        withdrawParams.executionFee = 0;
-        withdrawParams.market = marketAddress;
-        withdrawParams.shouldUnwrapNativeToken = true;
         withdrawParams.receiver = address(this);
+        withdrawParams.callbackContract = address(this);
+        withdrawParams.market = marketAddress;
+        withdrawParams.callbackGasLimit = 0;
+        withdrawParams.executionFee = executionFee;
+        withdrawParams.shouldUnwrapNativeToken = false;
+        withdrawParams.callbackGasLimit = 0;
         withdrawParams.minLongTokenAmount = 0;
         withdrawParams.minShortTokenAmount = 0;
         return withdrawParams;
     }
+
+    receive() external payable{}
 }
