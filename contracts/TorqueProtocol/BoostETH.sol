@@ -1,14 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 
-//  _________  ________  ________  ________  ___  ___  _______
-// |\___   ___\\   __  \|\   __  \|\   __  \|\  \|\  \|\  ___ \
-// \|___ \  \_\ \  \|\  \ \  \|\  \ \  \|\  \ \  \\\  \ \   __/|
-//     \ \  \ \ \  \\\  \ \   _  _\ \  \\\  \ \  \\\  \ \  \_|/__
-//      \ \  \ \ \  \\\  \ \  \\  \\ \  \\\  \ \  \\\  \ \  \_|\ \
-//       \ \__\ \ \_______\ \__\\ _\\ \_____  \ \_______\ \_______\
-//        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
-
 import "@chainlink/contracts/src/v0.8/automation/AutomationCompatible.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
@@ -37,7 +29,7 @@ contract BoostETH is AutomationCompatible, Ownable, ReentrancyGuard, ERC20{
     
     uint256 public totalAssetsAmount;
 
-    constructor(string memory _name, string memory _symbol, address payable weth_, address payable gmxV2ETH_, address stargateETH_, address treasury_) ERC20(_name, _symbol){
+    constructor(string memory _name, string memory _symbol, address payable weth_, address payable gmxV2ETH_, address payable stargateETH_, address treasury_) ERC20(_name, _symbol){
         weth = IWETH9(weth_);
         gmxV2ETH = GMXV2ETH(gmxV2ETH_);
         stargateETH = StargateETH(stargateETH_);
@@ -49,7 +41,8 @@ contract BoostETH is AutomationCompatible, Ownable, ReentrancyGuard, ERC20{
         totalAssetsAmount = 0;
     }
 
-    function depositETH(uint256 depositAmount) external nonReentrant() {
+    function depositETH(uint256 depositAmount) external payable nonReentrant() {
+        require(msg.value >= gmxV2ETH.executionFee(), "You must pay GMX v2 execution fee");
         weth.transferFrom(msg.sender, address(this), depositAmount);
         uint256 stargateDepositAmount = depositAmount.mul(stargateAllocation).div(100);
         uint256 gmxDepositAmount = depositAmount.sub(stargateDepositAmount);
@@ -57,14 +50,16 @@ contract BoostETH is AutomationCompatible, Ownable, ReentrancyGuard, ERC20{
         stargateETH.deposit(stargateDepositAmount);
 
         weth.approve(address(gmxV2ETH), gmxDepositAmount);
-        gmxV2ETH.deposit(gmxDepositAmount);
+        gmxV2ETH.deposit{value: gmxV2ETH.executionFee()}(gmxDepositAmount);
 
         uint256 shares = _convertToShares(depositAmount);
         _mint(msg.sender, shares);
         totalAssetsAmount = totalAssetsAmount.add(depositAmount);
+        payable(msg.sender).transfer(address(this).balance);
     }
 
-    function withdrawETH(uint256 sharesAmount) external nonReentrant() {
+    function withdrawETH(uint256 sharesAmount) external payable nonReentrant() {
+        require(msg.value >= gmxV2ETH.executionFee(), "You must pay GMX v2 execution fee");
         uint256 withdrawAmount = _convertToAssets(sharesAmount);
         uint256 stargateWithdrawAmount = withdrawAmount.mul(stargateAllocation).div(100);
         uint256 gmxWithdrawAmount = withdrawAmount.sub(stargateWithdrawAmount);
@@ -72,9 +67,15 @@ contract BoostETH is AutomationCompatible, Ownable, ReentrancyGuard, ERC20{
         totalAssetsAmount = totalAssetsAmount.sub(withdrawAmount);
 
         stargateETH.withdraw(stargateWithdrawAmount);
-        gmxV2ETH.withdraw(gmxWithdrawAmount);
+        gmxV2ETH.withdraw{value: gmxV2ETH.executionFee()}(gmxWithdrawAmount);
         uint256 wethAmount = weth.balanceOf(address(this));
         weth.transfer(msg.sender, wethAmount);
+        payable(msg.sender).transfer(address(this).balance);
+    }
+
+    function withdrawGMXETHFee() external onlyOwner() {
+        gmxV2ETH.withdrawETH();
+        payable(msg.sender).transfer(address(this).balance);
     }
 
     function totalAssets() public view returns (uint256) {
@@ -101,7 +102,8 @@ contract BoostETH is AutomationCompatible, Ownable, ReentrancyGuard, ERC20{
         gmxV2ETH.compound();
         uint256 postWethAmount = weth.balanceOf(address(this));
         uint256 treasuryFee = (postWethAmount - prevWethAmount).mul(performanceFee).div(100);
-        weth.transfer(treasury, treasuryFee);
+        weth.withdraw(treasuryFee);
+        payable(treasury).transfer(treasuryFee);
         uint256 wethAmount = postWethAmount - treasuryFee;
         uint256 stargateDepositAmount = wethAmount.mul(stargateAllocation).div(100);
         uint256 gmxDepositAmount = wethAmount.sub(stargateDepositAmount);
@@ -146,6 +148,7 @@ contract BoostETH is AutomationCompatible, Ownable, ReentrancyGuard, ERC20{
     function updateGMXV2(address payable _address) external onlyOwner {
         gmxV2ETH = GMXV2ETH(_address);
     }
+    
 
     receive() external payable {}
 }

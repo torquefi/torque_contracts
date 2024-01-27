@@ -17,8 +17,8 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import "../interfaces/IStargateLPStakingTime.sol";
 import "../interfaces/IStargateRouterETH.sol";
-import "../../StargateBase/interfaces/IStargateRouter.sol";
-import "../../StargateBase/LPStakingTime.sol";
+import "../../StargateContracts/interfaces/IStargateRouter.sol";
+import "../../StargateContracts/LPStakingTime.sol";
 import "../interfaces/IWETH9.sol";
 
 import "../../UniswapContracts/ISwapRouter.sol";
@@ -36,6 +36,7 @@ contract StargateETH is Ownable, ReentrancyGuard{
     ISwapRouter public swapRouter;
 
     uint256 public depositedWethAmount;
+    uint256 minARBAmount = 1000000000000000000;
     
     constructor(address payable weth_, address wethSTG_, address arbToken_, address payable routerETH_, address lpStakingTime_, address router_, address swapRouter_){
         weth = IWETH9(weth_);
@@ -72,7 +73,7 @@ contract StargateETH is Ownable, ReentrancyGuard{
     function compound() external onlyOwner() {
         lpStakingTime.deposit(2, 0);
         uint256 arbAmount = arbToken.balanceOf(address(this));
-        if(arbAmount > 0){
+        if(arbAmount > minARBAmount){
             swapARBtoWETH(arbAmount);
             uint256 wethAmount = weth.balanceOf(address(this));
             weth.transfer(msg.sender, wethAmount);
