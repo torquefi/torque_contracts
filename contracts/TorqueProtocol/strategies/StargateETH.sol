@@ -64,9 +64,9 @@ contract StargateETH is Ownable, ReentrancyGuard{
         uint256 withdrawAmount = _amount * realWethSTGDepositedAmount / depositedWethAmount;
         lpStakingTime.withdraw(2, withdrawAmount);
         wethSTG.approve(address(router), withdrawAmount);
-        router.instantRedeemLocal(13, withdrawAmount, address(this));
-        uint256 wethAmount = weth.balanceOf(address(this));
-        weth.transfer(address(msg.sender), wethAmount);
+        uint256 withdrawETHAmount = router.instantRedeemLocal(13, withdrawAmount, address(this));
+        weth.deposit{value: withdrawETHAmount}();
+        weth.transfer(address(msg.sender), withdrawETHAmount);
         depositedWethAmount = depositedWethAmount - _amount;
     }
 
