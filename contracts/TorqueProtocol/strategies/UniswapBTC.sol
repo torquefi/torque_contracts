@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.19;
 
 //  _________  ________  ________  ________  ___  ___  _______
 // |\___   ___\\   __  \|\   __  \|\   __  \|\  \|\  \|\  ___ \
@@ -11,40 +11,30 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
 
 contract UniswapBTC is Ownable, ReentrancyGuard {
-    
-    struct PoolConfig {
-        address wbtcToken;
-        address wethToken;
-        address positionManager;
-        address vaultToken;
-        address treasury;
-        uint256 performanceFee;
-        uint24 poolFee;
-    }
 
-    struct State {
-        INonfungiblePositionManager positionManager;
-        IERC20 wbtcToken;
-        IERC20 wethToken;
-        UniswapBTC vaultToken;
-        address treasury;
-        uint256 slippage;
-        uint24 poolFee;
-        int24 tickLower;
-        int24 tickUpper;
-        uint256 tokenId;
-        uint256 liquidity;
-    }
+    using SafeMath for uint256;
+    
+    IERC20 public wbtcToken;
+    IERC20 public wethToken;
+
+    address treasury;
+    uint256 performanceFee;
+    uint24 poolFee;
+
+    INonfungiblePositionManager positionManager;
+    uint256 slippage;
+    int24 tickLower;
+    int24 tickUpper;
+    uint256 tokenId;
+    uint256 liquidity;
 
     event Deposited(uint256 amount);
     event Withdrawal(uint256 amount);
-
-    PoolConfig public poolConfig;
-    State public state;
 
     constructor(
         address _wbtcToken,
@@ -53,7 +43,7 @@ contract UniswapBTC is Ownable, ReentrancyGuard {
         address _treasury,
         uint256 _performanceFee,
         uint24 _poolFee
-    ) {
+    ) Ownable(msg.sender) {
         wbtcToken = IERC20(_wbtcToken);
         wethToken = IERC20(_wethToken);
         positionManager = INonfungiblePositionManager(_positionManager);
@@ -67,12 +57,12 @@ contract UniswapBTC is Ownable, ReentrancyGuard {
     }
 
     function deposit(uint256 amount) external nonReentrant {
-        wbtcToken.safeTransferFrom(msg.sender, address(this), amount);
+        wbtcToken.transferFrom(msg.sender, address(this), amount);
         uint256 wbtcToConvert = amount / 2; 
         uint256 wbtcToKeep = amount - wbtcToConvert;
         uint256 wethAmount = convertwbtctoWETH(wbtcToConvert);
-        wbtcToken.safeApprove(address(positionManager), wbtcToKeep);
-        wethToken.safeApprove(address(positionManager), wethAmount);
+        wbtcToken.approve(address(positionManager), wbtcToKeep);
+        wethToken.approve(address(positionManager), wethAmount);
         uint256 amount0Min = wbtcToKeep * (10000 - slippage) / 10000;
         uint256 amount1Min = wethAmount * (10000 - slippage) / 10000;
         INonfungiblePositionManager.MintParams memory params = INonfungiblePositionManager.MintParams({
@@ -89,17 +79,17 @@ contract UniswapBTC is Ownable, ReentrancyGuard {
             deadline: block.timestamp + 2 minutes
         });
         (tokenId, liquidity,,) = positionManager.mint(params);
-        emit Deposited(wbtcToKeep, wethAmount);
+        emit Deposited(amount);
     }
 
-    function withdraw(uint256 amount) external nonReentrant {
+    function withdraw(uint128 amount) external nonReentrant {
         require(amount > 0, "Invalid amount");
         require(liquidity >= amount, "Insufficient liquidity");
         (uint256 expectedwbtcAmount, uint256 expectedWethAmount) = calculateExpectedTokenAmounts(amount);
         uint256 amount0Min = expectedwbtcAmount * (10000 - slippage) / 10000;
         uint256 amount1Min = expectedWethAmount * (10000 - slippage) / 10000;
-        amount0Min = expectedwbtcAmount - (expectedwbtcAmount * 0.5 / 100);
-        amount1Min = expectedWethAmount - (expectedWethAmount * 0.5 / 100);
+        amount0Min = expectedwbtcAmount - (expectedwbtcAmount / 200);
+        amount1Min = expectedWethAmount - (expectedWethAmount / 200);
         uint256 deadline = block.timestamp + 2 minutes;
         INonfungiblePositionManager.DecreaseLiquidityParams memory decreaseLiquidityParams = INonfungiblePositionManager.DecreaseLiquidityParams({
             tokenId: tokenId,
@@ -120,13 +110,13 @@ contract UniswapBTC is Ownable, ReentrancyGuard {
         uint256 convertedwbtcAmount = convertWETHtowbtc(amount1);
         amount0 = amount0.add(convertedwbtcAmount);
         uint256 remainingWeth = amount1 - 0/* Amount of WETH converted to wbtc PS CHECK */;
-        wbtcToken.safeTransfer(msg.sender, amount0);
-        wethToken.safeTransfer(msg.sender, remainingWeth);
-        emit Withdrawal(amount0, remainingWeth);
+        wbtcToken.transfer(msg.sender, amount0);
+        wethToken.transfer(msg.sender, remainingWeth);
+        emit Withdrawal(amount);
     }
 
     function setTickRange(int24 _tickLower, int24 _tickUpper) external onlyOwner {
-        require(_newLower < _newUpper, "Invalid tick range");
+        require(_tickLower < _tickUpper, "Invalid tick range");
         tickLower = _tickLower;
         tickUpper = _tickUpper;
     }
@@ -149,16 +139,16 @@ contract UniswapBTC is Ownable, ReentrancyGuard {
 
     function calculateExpectedTokenAmounts(uint256 liquidityAmount) internal view returns (uint256 expectedwbtcAmount, uint256 expectedWethAmount) {
         // Calculate the expected amount of WBTC and WETH tokens to receive
-        return (calculatedwbtcAmount, calculatedWethAmount);
+        return (0, 0);
     }
 
     function convertwbtctoWETH(uint256 wbtcAmount) internal returns (uint256) {
         // Swap WBTC for WETH
-        return wethAmount;
+        return 0;
     }
 
     function convertWETHtowbtc(uint256 wethAmount) internal returns (uint256) {
         // Swap WETH for WBTC
-        return wbtcAmount;
+        return 0;
     }
 }
