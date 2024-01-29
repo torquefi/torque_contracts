@@ -75,7 +75,7 @@ contract BoostETH is AutomationCompatible, Ownable, ReentrancyGuard, ERC20{
         totalAssetsAmount = totalAssetsAmount.sub(withdrawAmount);
 
         stargateETH.withdraw(stargateWithdrawAmount);
-        gmxV2ETH.withdraw{value: gmxV2ETH.executionFee()}(gmxWithdrawAmount);
+        gmxV2ETH.withdraw{value: gmxV2ETH.executionFee()}(gmxWithdrawAmount, msg.sender);
         uint256 wethAmount = weth.balanceOf(address(this));
         weth.transfer(msg.sender, wethAmount);
         payable(msg.sender).transfer(address(this).balance);
