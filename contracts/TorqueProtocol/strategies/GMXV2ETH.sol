@@ -41,6 +41,9 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
     uint256 minUSDCAmount = 0;
     uint256 minARBAmount = 1000000000000000000;
 
+    mapping (bytes32 => address) public withdrawalKeyMap;
+    mapping (bytes32 => bool) public withdrawalKeyTx;
+
     constructor(address payable weth_, address gmToken_, address usdcToken_, address arbToken_, address payable exchangeRouter_, address swapRouter_, address depositVault_, address withdrawalVault_, address router_){
         weth = IWETH9(weth_);
         gmToken = IERC20(gmToken_);
@@ -66,21 +69,32 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
         depositedWethAmount = depositedWethAmount + _amount;
     }
 
-    function withdraw(uint256 _amount) external payable onlyOwner() {
+        function withdraw(uint256 _amount, address _userAddress) external payable onlyOwner() {
         require(msg.value >= executionFee, "You must pay GMX v2 execution fee");
         exchangeRouter.sendWnt{value: executionFee}(address(withdrawalVault), executionFee);
         uint256 gmAmountWithdraw = _amount * gmToken.balanceOf(address(this)) / depositedWethAmount;
         gmToken.approve(address(router), gmAmountWithdraw);
         exchangeRouter.sendTokens(address(gmToken), address(withdrawalVault), gmAmountWithdraw);
         IGMXExchangeRouter.CreateWithdrawalParams memory withdrawParams = createWithdrawParams();
-        exchangeRouter.createWithdrawal(withdrawParams);
+        bytes32 withdrawalKey = exchangeRouter.createWithdrawal(withdrawParams);
         depositedWethAmount = depositedWethAmount - _amount;
+        withdrawalKeyMap[withdrawalKey] = _userAddress;
+        withdrawalKeyTx[withdrawalKey] = false;
+    }
+
+    function withdrawAmount(bytes32 key, uint256 _wethAmount, uint256 _usdcAmount) internal {
+        require(withdrawalKeyMap[key] != address(0), "Needs to be a valid key");
+        require(withdrawalKeyTx[key] == false, "Tx already done");
         uint256 usdcAmount = usdcToken.balanceOf(address(this));
-        if(usdcAmount > minUSDCAmount){
+        uint256 wethAmountBefore = weth.balanceOf(address(this));
+        if(usdcAmount >= _usdcAmount){
             swapUSDCtoWETH(usdcAmount);
         }
-        uint256 wethAmount = weth.balanceOf(address(this));
-        weth.transfer(msg.sender, wethAmount);
+        uint256 wethAmountAfter = weth.balanceOf(address(this));
+        _wethAmount = _wethAmount + wethAmountAfter - wethAmountBefore;
+        require(_wethAmount <= wethAmountAfter, "Not enough balance");
+        withdrawalKeyTx[key] = true;
+        weth.transfer(withdrawalKeyMap[key], _wethAmount);
     }
 
     function withdrawETH() external onlyOwner() {
