@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.20;
 
 //  _________  ________  ________  ________  ___  ___  _______
 // |\___   ___\\   __  \|\   __  \|\   __  \|\  \|\  \|\  ___ \
@@ -9,9 +9,7 @@ pragma solidity ^0.8.19;
 //       \ \__\ \ \_______\ \__\\ _\\ \_____  \ \_______\ \_______\
 //        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
 
-import "@chainlink/contracts/src/v0.8/AutomationCompatible.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
-import "@openzeppelin/contracts/utils/math/Math.sol";
+import "@chainlink/contracts/src/v0.8/automation/AutomationCompatible.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -19,9 +17,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "./strategies/GMXV2BTC.sol";
 import "./strategies/UniswapBTC.sol";
 
-contract BoostBTC is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
-    using SafeMath for uint256;
-    using Math for uint256;
+contract BoostBTC is AutomationCompatible, ERC4626, ReentrancyGuard, Ownable {
     
     IERC20 public wbtcToken;
     GMXV2BTC public gmxV2Btc;
@@ -33,17 +29,12 @@ contract BoostBTC is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
     uint256 public lastCompoundTimestamp;
     uint256 public performanceFee;
 
-    uint256 public totalAssetsAmount = 0;
-
     constructor(
-    string memory _name, 
-    string memory _symbol,
-    address wBTC,
-    address payable _gmxV2BtcAddress,
+    address _gmxV2BtcAddress,
     address _uniswapBtcAddress,
+    IERC20 _asset,
     address _treasury
-    ) ERC20(_name, _symbol) Ownable(msg.sender) {
-        wbtcToken = IERC20(wBTC);
+    ) ERC4626(_asset) {
         gmxV2Btc = GMXV2BTC(_gmxV2BtcAddress);
         uniswapBtc = UniswapBTC(_uniswapBtcAddress);
         gmxAllocation = 50;
@@ -51,63 +42,72 @@ contract BoostBTC is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
         treasury = _treasury;
     }
 
-    function depositBTC(uint256 depositAmount) external payable nonReentrant() {
-        require(msg.value >= gmxV2Btc.executionFee(), "You must pay GMX v2 execution fee");
-        wbtcToken.transferFrom(msg.sender, address(this), depositAmount);
-        uint256 uniswapDepositAmount = depositAmount.mul(uniswapAllocation).div(100);
-        uint256 gmxDepositAmount = depositAmount.sub(uniswapDepositAmount);
-        wbtcToken.approve(address(uniswapBtc), uniswapDepositAmount);
-        uniswapBtc.deposit(uniswapDepositAmount);
-
-        wbtcToken.approve(address(gmxV2Btc), gmxDepositAmount);
-        gmxV2Btc.deposit{value: gmxV2Btc.executionFee()}(gmxDepositAmount);
-
-        uint256 shares = _convertToShares(depositAmount);
-        _mint(msg.sender, shares);
-        totalAssetsAmount = totalAssetsAmount.add(depositAmount);
-        payable(msg.sender).transfer(address(this).balance);
+    function deposit(uint256 _amount) public override nonReentrant {
+        _deposit(_amount);
     }
 
-    function withdrawBTC(uint256 sharesAmount) external payable nonReentrant() {
-        require(msg.value >= gmxV2Btc.executionFee(), "You must pay GMX v2 execution fee");
-        uint256 withdrawAmount = _convertToAssets(sharesAmount);
-        uint256 uniswapWithdrawAmount = withdrawAmount.mul(uniswapAllocation).div(100);
-        uint256 gmxWithdrawAmount = withdrawAmount.sub(uniswapWithdrawAmount);
-        _burn(msg.sender, sharesAmount);
-        totalAssetsAmount = totalAssetsAmount.sub(withdrawAmount);
-
-        uniswapBtc.withdraw(uint128(uniswapWithdrawAmount));
-        gmxV2Btc.withdraw{value: gmxV2Btc.executionFee()}(gmxWithdrawAmount);
-        uint256 wbtcAmount = wbtcToken.balanceOf(address(this));
-        wbtcToken.transfer(msg.sender, wbtcAmount);
-        payable(msg.sender).transfer(address(this).balance);
+    function withdraw(uint256 sharesAmount) public override nonReentrant {
+        _withdraw(sharesAmount);
     }
 
-    function compoundFees() external nonReentrant(){
+    function compoundFees() public override nonReentrant {
         _compoundFees();
     }
 
-    function _compoundFees() internal {
-        // uint256 prevWethAmount = weth.balanceOf(address(this));
-        // stargateETH.compound();
-        // gmxV2ETH.compound();
-        // uint256 postWethAmount = weth.balanceOf(address(this));
-        // uint256 treasuryFee = (postWethAmount - prevWethAmount).mul(performanceFee).div(100);
-        // weth.withdraw(treasuryFee);
-        // payable(treasury).transfer(treasuryFee);
-        // uint256 wethAmount = postWethAmount - treasuryFee;
-        // uint256 stargateDepositAmount = wethAmount.mul(stargateAllocation).div(100);
-        // uint256 gmxDepositAmount = wethAmount.sub(stargateDepositAmount);
-        // totalAssetsAmount = totalAssetsAmount + wethAmount;
-        // weth.approve(address(stargateETH), stargateDepositAmount);
-        // stargateETH.deposit(stargateDepositAmount);
-        // weth.approve(address(gmxV2ETH), gmxDepositAmount);
-        // gmxV2ETH.deposit(gmxDepositAmount);
-        // lastCompoundTimestamp = block.timestamp;
+    function checkUpkeep(bytes calldata) external view override returns (bool upkeepNeeded, bytes memory) {
+        upkeepNeeded = (block.timestamp >= lastCompoundTimestamp + 12 hours);
     }
 
-    function setAllocation(uint256 _gmxAllocation, uint256 _uniswapAllocation) public onlyOwner {
-        require(_gmxAllocation + _uniswapAllocation == 100, "Allocation has to be exactly 100");
+    function performUpkeep(bytes calldata) external override {
+        if ((block.timestamp >= lastCompoundTimestamp + 12 hours)) {
+            _compoundFees();
+        }
+    }
+
+    function _deposit(uint256 amount) internal override {
+        require(amount > 0, "Deposit amount must be greater than zero");
+        uint256 gmxAllocationAmount = amount.mul(gmxAllocation).div(100);
+        uint256 uniswapAllocationAmount = amount.sub(gmxAllocationAmount);
+        wbtcToken.approve(address(gmxV2btcStrat), gmxAllocationAmount);
+        gmxV2btcStrat.deposit(gmxAllocationAmount);
+        wbtcToken.approve(address(uniswapbtcStrat), uniswapAllocationAmount);
+        uniswapbtcStrat.deposit(uniswapAllocationAmount);
+        uint256 shares = _convertToShares(amount, Math.Rounding.Floor);
+        _mint(msg.sender, shares);
+    }
+
+    function _withdraw(uint256 sharesAmount) internal override {
+        require(sharesAmount > 0, "Withdraw amount must be greater than zero");
+        require(balanceOf(msg.sender) >= sharesAmount, "Insufficient balance");
+        uint256 totalBTCAmount = _convertToAssets(sharesAmount, Math.Rounding.Floor);
+        uint256 gmxWithdrawAmount = totalBTCAmount.mul(gmxAllocation).div(100);
+        uint256 uniswapWithdrawAmount = totalBTCAmount.sub(gmxWithdrawAmount);
+        _burn(msg.sender, sharesAmount);
+        gmxV2btcStrat.withdraw(gmxWithdrawAmount);
+        uniswapbtcStrat.withdraw(uniswapWithdrawAmount);
+        wbtcToken.transfer(msg.sender, totalBTCAmount);
+    }
+
+    function _compoundFees() internal override {
+        uint256 gmxV2btcBalanceBefore = gmxV2btcStrat.balanceOf(address(this));
+        uint256 uniswapbtcBalanceBefore = uniswapbtcStrat.balanceOf(address(this));
+        uint256 totalBalanceBefore = gmxV2btcBalanceBefore.add(uniswapbtcBalanceBefore);
+        gmxV2btcStrat.withdrawGMX();
+        uniswapbtcStrat.withdrawuniswap();
+        uint256 feeAmount = totalBalanceBefore.mul(performanceFee).div(10000);
+        uint256 treasuryFee = performanceFee.mul(performanceFee).div(100);
+        uint256 gmxV2btcFee = gmxV2btcStrat.balanceOf(address(this));
+        uint256 uniswapbtcFee = uniswapbtcStrat.balanceOf(address(this));
+        wbtcToken.transfer(addresses.treasury, treasuryFee);
+        uint256 totalBalanceAfter = gmxV2btcFee.add(uniswapbtcFee);
+        uint256 gmxV2btcFeeActualPercent = gmxV2btcFee.mul(100).div(totalBalanceAfter);
+        uint256 uniswapbtcFeeActualPercent = uniswapbtcFee.mul(100).div(totalBalanceAfter);
+        gmxV2btcStrat.deposit();
+        uniswapbtcStrat.deposit();
+        lastCompoundTimestamp = block.timestamp;
+    }
+
+    function setAllocation() public onlyOwner {
         gmxAllocation = _gmxAllocation;
         uniswapAllocation = _uniswapAllocation;
     }
@@ -120,29 +120,9 @@ contract BoostBTC is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
         treasury = _treasury;
     }
 
-    function _convertToShares(uint256 assets) internal view returns (uint256) {
-        uint256 supply = totalSupply();
-        return (assets==0 || supply==0) ? assets : assets.mulDiv(supply, totalAssets(), Math.Rounding.Down);
-    }
-
-    function _convertToAssets(uint256 shares) internal view returns (uint256){
-        uint256 supply = totalSupply();
-        return (supply==0) ? shares : shares.mulDiv(totalAssets(), supply, Math.Rounding.Down);
-    }
-
-    function totalAssets() public view returns (uint256) {
-        return totalAssetsAmount;
-    }
-
-    function checkUpkeep(bytes calldata) external view override returns (bool upkeepNeeded, bytes memory performData) {
-        upkeepNeeded = (block.timestamp >= lastCompoundTimestamp + 12 hours);
-    }
-
-    function performUpkeep(bytes calldata) external override {
-        if ((block.timestamp >= lastCompoundTimestamp + 12 hours)) {
-            _compoundFees();
-        }
-    }
+    function _checkUpkeep(bytes calldata) external virtual view returns (bool upkeepNeeded, bytes memory);
+    
+    function _performUpkeep(bytes calldata) external virtual;
 
     receive() external payable {}
 }
