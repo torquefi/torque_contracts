@@ -15,76 +15,60 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 
 import "./../interfaces/IGMX.sol";
-import "../interfaces/IGMXExchangeRouter.sol";
+import "./../interfaces/IExchangeRouter.sol";
+import "./../interfaces/IGMXV2ETH.sol";
 
-contract GMXV2BTC is Ownable, ReentrancyGuard {
+contract GMXV2BTC is Ownable, ReentrancyGuard, IGMXV2ETH {
     IERC20 public wbtcGMX;
     IERC20 public gmToken;
     IERC20 public usdcToken;
-    IERC20 public arbToken;
-
     address marketAddress;
     address depositVault;
     address withdrawalVault;
-    address router;
-
-    uint256 public depositedBTCAmount;
-    uint256 public executionFee; 
-    uint256 minUSDCAmount = 0;
     
-    IGMXExchangeRouter public immutable gmxExchange;
+    IExchangeRouter public immutable gmxExchange;
     ISwapRouter public immutable swapRouter;
     
     address private constant UNISWAP_V3_ROUTER = 0x2f5e87C9312fa29aed5c179E456625D79015299c;
 
     constructor(
         address _wbtc,
-        address gmToken_, 
-        address usdcToken_, 
-        address arbToken_, 
-        address payable exchangeRouter_, 
-        address swapRouter_, 
-        address depositVault_, 
-        address withdrawalVault_, 
-        address router_) Ownable(msg.sender) {
-            wbtcGMX = IERC20(_wbtc);
-            gmToken = IERC20(gmToken_);
-            usdcToken = IERC20(usdcToken_);
-            arbToken = IERC20(arbToken_);
-            gmxExchange = IGMXExchangeRouter(exchangeRouter_);
-            swapRouter = ISwapRouter(swapRouter_);
-            depositVault = depositVault_;
-            withdrawalVault = withdrawalVault_;
-            router = router_;
-            executionFee = 1000000000000000;
+        address _gmxExchange,
+        address _gmToken,
+        address _usdcToken,
+        address _depositVault,
+        address _withdrawalVault
+    ) {
+        wbtcGMX = IERC20(_wbtc);
+        gmxExchange = IExchangeRouter(_gmxExchange);
+        gmToken = IERC20(_gmToken);
+        usdcToken = IERC20(_usdcToken);
+        depositVault = _depositVault;
+        withdrawalVault = _withdrawalVault;
+        swapRouter = ISwapRouter(UNISWAP_V3_ROUTER);
     }
 
-    function deposit(uint256 _amount) external payable {
-        require(msg.value >= executionFee, "You must pay GMX v2 execution fee");
-        gmxExchange.sendWnt{value: executionFee}(address(depositVault), executionFee);
-        wbtcGMX.transferFrom(msg.sender, address(this), _amount);
-        wbtcGMX.approve(address(router), _amount);
-        gmxExchange.sendTokens(address(wbtcGMX), address(depositVault), _amount);
-        IGMXExchangeRouter.CreateDepositParams memory depositParams = createDepositParams();
-        gmxExchange.createDeposit(depositParams);
-        depositedBTCAmount = depositedBTCAmount + _amount;
+    function _deposit(uint256 _amount) internal returns (uint256 gmTokenAmount) {
+        gmxExchange.sendWnt(depositVault, _amount);
+        IExchangeRouter.CreateDepositParams memory params = createDepositParams();
+        wbtcGMX.safeTransferFrom(msg.sender, address(this), _amount);
+        wbtcGMX.approve(depositVault, _amount);
+        gmxExchange.createDeposit{ value: _amount }(params);
+        gmTokenAmount = gmToken.balanceOf(address(this));
     }
 
-    function withdraw(uint256 _amount) external payable onlyOwner() {
-        require(msg.value >= executionFee, "You must pay GMX v2 execution fee");
-        gmxExchange.sendWnt{value: executionFee}(address(withdrawalVault), executionFee);
-        uint256 gmAmountWithdraw = _amount * gmToken.balanceOf(address(this)) / depositedBTCAmount;
-        gmToken.approve(address(router), gmAmountWithdraw);
-        gmxExchange.sendTokens(address(gmToken), address(withdrawalVault), gmAmountWithdraw);
-        IGMXExchangeRouter.CreateWithdrawalParams memory withdrawParams = createWithdrawParams();
-        gmxExchange.createWithdrawal(withdrawParams);
-        depositedBTCAmount = depositedBTCAmount - _amount;
-        uint256 usdcAmount = usdcToken.balanceOf(address(this));
-        if(usdcAmount > minUSDCAmount){
-            swapUSDCtoWETH(usdcAmount);
-        }
-        uint256 btcAmount = wbtcGMX.balanceOf(address(this));
-        wbtcGMX.transfer(msg.sender, btcAmount);
+    function _withdraw(uint256 _amount) internal returns (uint256 initialWbtcBalance, uint256 usdcAmount, uint256 totalWbtcAmount) {
+        gmxExchange.sendTokens(address(gmToken), withdrawalVault, _amount);
+        IExchangeRouter.CreateWithdrawalParams memory params = createWithdrawParams();
+        gmToken.safeTransferFrom(msg.sender, address(this), _amount);
+        gmToken.approve(withdrawalVault, _amount);
+        gmxExchange.createWithdrawal(params);
+        initialWbtcBalance = wbtcGMX.balanceOf(address(this));
+        usdcAmount = usdcToken.balanceOf(address(this));
+        swapUSDCtoWBTC(usdcAmount);
+        uint256 postSwapWbtcBalance = wbtcGMX.balanceOf(address(this));
+        totalWbtcAmount = postSwapWbtcBalance;
+        wbtcGMX.safeTransfer(msg.sender, totalWbtcAmount);
     }
 
     function _sendWnt(address _receiver, uint256 _amount) private {
@@ -95,27 +79,29 @@ contract GMXV2BTC is Ownable, ReentrancyGuard {
         gmxExchange.sendTokens(_token, _receiver, _amount);
     }
 
-    function createDepositParams() internal view returns (IGMXExchangeRouter.CreateDepositParams memory) {
-        IGMXExchangeRouter.CreateDepositParams memory depositParams;
+    function createDepositParams() internal view returns (IExchangeRouter.CreateDepositParams memory) {
+        IExchangeRouter.CreateDepositParams memory depositParams;
         depositParams.callbackContract = address(this);
         depositParams.callbackGasLimit = 0;
-        depositParams.executionFee = executionFee;
+        depositParams.executionFee = 0;
         depositParams.initialLongToken = address(wbtcGMX);
         depositParams.initialShortToken = address(usdcToken);
         depositParams.market = marketAddress;
-        depositParams.shouldUnwrapNativeToken = false;
+        depositParams.shouldUnwrapNativeToken = true;
         depositParams.receiver = address(this);
         depositParams.minMarketTokens = 0;
         return depositParams;
     }
 
-    function createWithdrawParams() internal view returns (IGMXExchangeRouter.CreateWithdrawalParams memory) {
-        IGMXExchangeRouter.CreateWithdrawalParams memory withdrawParams;
+    function createWithdrawParams() internal view returns (IExchangeRouter.CreateWithdrawalParams memory) {
+        IExchangeRouter.CreateWithdrawalParams memory withdrawParams;
         withdrawParams.callbackContract = address(this);
         withdrawParams.callbackGasLimit = 0;
-        withdrawParams.executionFee = executionFee;
+        withdrawParams.executionFee = 0;
+        // withdrawParams.initialLongToken = address(wbtc);
+        // withdrawParams.initialShortToken = address(usdcToken);
         withdrawParams.market = marketAddress;
-        withdrawParams.shouldUnwrapNativeToken = false;
+        withdrawParams.shouldUnwrapNativeToken = true;
         withdrawParams.receiver = address(this);
         withdrawParams.minLongTokenAmount = 0;
         withdrawParams.minShortTokenAmount = 0;
@@ -138,26 +124,4 @@ contract GMXV2BTC is Ownable, ReentrancyGuard {
 
         swapRouter.exactInputSingle(params);
     }
-
-    function updateExecutionFee(uint256 _executionFee) public onlyOwner{
-        executionFee = _executionFee;
-    }
-
-    function swapUSDCtoWETH(uint256 usdcAmount) internal {
-        usdcToken.approve(address(swapRouter), usdcAmount);
-        ISwapRouter.ExactInputSingleParams memory params =  
-            ISwapRouter.ExactInputSingleParams({
-                tokenIn: address(usdcToken),
-                tokenOut: address(wbtcGMX),
-                fee: 0,
-                recipient: address(this),
-                deadline: block.timestamp,
-                amountIn: usdcAmount,
-                amountOutMinimum: 0,
-                sqrtPriceLimitX96: 0
-            });
-        swapRouter.exactInputSingle(params);
-    }
-
-    receive() external payable{}
 }
