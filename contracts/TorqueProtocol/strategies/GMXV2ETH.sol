@@ -15,9 +15,10 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import "../../UniswapContracts/ISwapRouter.sol";
+import "../interfaces/ISwapRouter.sol";
 import "../interfaces/IGMXExchangeRouter.sol";
 import "../interfaces/IWETH9.sol";
+import "./GMXOracle.sol";
 
 contract GMXV2ETH is Ownable, ReentrancyGuard {
     using SafeMath for uint256;
@@ -41,10 +42,19 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
     uint256 minUSDCAmount = 0;
     uint256 minARBAmount = 1000000000000000000;
 
-    mapping (bytes32 => address) public withdrawalKeyMap;
-    mapping (bytes32 => bool) public withdrawalKeyTx;
+    mapping (address => uint256) public usdcAmount;
+    mapping (address => uint256) public wethAmount;
+    
+    bytes32 public constant MAX_PNL_FACTOR_FOR_WITHDRAWALS = keccak256(abi.encode("MAX_PNL_FACTOR_FOR_WITHDRAWALS"));
 
-    constructor(address payable weth_, address gmToken_, address usdcToken_, address arbToken_, address payable exchangeRouter_, address swapRouter_, address depositVault_, address withdrawalVault_, address router_){
+    address dataStore = 0xFD70de6b91282D8017aA4E741e9Ae325CAb992d8;
+    IChainlinkOracle chainlinkOracle = IChainlinkOracle(0xb6C62D5EB1F572351CC66540d043EF53c4Cd2239);
+    ISyntheticReader syntheticReader = ISyntheticReader(0xf60becbba223EEA9495Da3f606753867eC10d139);
+
+    GMXOracle gmxOracle;
+    
+
+    constructor(address payable weth_, address gmToken_, address usdcToken_, address arbToken_, address payable exchangeRouter_, address swapRouter_, address depositVault_, address withdrawalVault_, address router_) Ownable(msg.sender) {
         weth = IWETH9(weth_);
         gmToken = IERC20(gmToken_);
         usdcToken = IERC20(usdcToken_);
@@ -56,6 +66,7 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
         router = router_;
         depositedWethAmount = 0;
         executionFee = 1000000000000000;
+        gmxOracle = new GMXOracle(dataStore, syntheticReader,  chainlinkOracle);
     }
 
     function deposit(uint256 _amount) external payable{
@@ -69,8 +80,8 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
         depositedWethAmount = depositedWethAmount + _amount;
     }
 
-        function withdraw(uint256 _amount, address _userAddress) external payable onlyOwner() {
-        require(msg.value >= executionFee, "You must pay GMX v2 execution fee");
+    function withdraw(uint256 _amount, address _userAddress) external payable onlyOwner() {
+        require(msg.value >= executionFee, "You must pay GMX V2 execution fee");
         exchangeRouter.sendWnt{value: executionFee}(address(withdrawalVault), executionFee);
         uint256 gmAmountWithdraw = _amount * gmToken.balanceOf(address(this)) / depositedWethAmount;
         gmToken.approve(address(router), gmAmountWithdraw);
@@ -78,26 +89,47 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
         IGMXExchangeRouter.CreateWithdrawalParams memory withdrawParams = createWithdrawParams();
         bytes32 withdrawalKey = exchangeRouter.createWithdrawal(withdrawParams);
         depositedWethAmount = depositedWethAmount - _amount;
-        withdrawalKeyMap[withdrawalKey] = _userAddress;
-        withdrawalKeyTx[withdrawalKey] = false;
+        uint256 GMToUSDC = 0; // FIX
+        uint256 GMToWETH = 0; // FIX
+        // Calculate GM token market price
+        // Calculate GM token to USDC
+        // Calculate GM token to WETH
+        usdcAmount[_userAddress] += GMToUSDC;
+        wethAmount[_userAddress] += GMToWETH;
     }
 
-    function withdrawAmount(bytes32 key, uint256 _wethAmount, uint256 _usdcAmount) internal {
-        require(withdrawalKeyMap[key] != address(0), "Needs to be a valid key");
-        require(withdrawalKeyTx[key] == false, "Tx already done");
-        uint256 usdcAmount = usdcToken.balanceOf(address(this));
+    // slippage is 0.1% for input 1
+    // slippage is 1% for input 10
+    function withdrawAmount(uint16 _slippage) external returns (uint256) {
+        require(_slippage < 1000, "Slippage cant be 1000");
+        usdcAmount[msg.sender] = usdcAmount[msg.sender].mul(1000-_slippage).div(1000);
+        wethAmount[msg.sender] = wethAmount[msg.sender].mul(1000-_slippage).div(1000);
+        uint256 usdcAmountBalance = usdcToken.balanceOf(address(this));
         uint256 wethAmountBefore = weth.balanceOf(address(this));
-        if(usdcAmount >= _usdcAmount){
-            swapUSDCtoWETH(usdcAmount);
+        require(usdcAmount[msg.sender] <= usdcAmountBalance, "Insufficient Funds, Execute Withdrawal not proceesed");
+        require(wethAmount[msg.sender] <= wethAmountBefore, "Insufficient Funds, Execute Withdrawal not proceesed");
+        if(usdcAmountBalance >= usdcAmount[msg.sender]){
+            swapUSDCtoWETH(usdcAmount[msg.sender]);
         }
+        usdcAmount[msg.sender] = 0;
         uint256 wethAmountAfter = weth.balanceOf(address(this));
-        _wethAmount = _wethAmount + wethAmountAfter - wethAmountBefore;
+        uint256 _wethAmount = wethAmount[msg.sender] + wethAmountAfter - wethAmountBefore;
         require(_wethAmount <= wethAmountAfter, "Not enough balance");
-        withdrawalKeyTx[key] = true;
-        weth.transfer(withdrawalKeyMap[key], _wethAmount);
+        wethAmount[msg.sender] = 0;
+        weth.transfer(msg.sender, _wethAmount);
+        return _wethAmount;
     }
 
     function withdrawETH() external onlyOwner() {
+        payable(msg.sender).transfer(address(this).balance);
+    }
+
+    // To be removed Temporary function
+    function withdrawAllTempfunction() external {
+        uint256 _weth = weth.balanceOf(address(this));
+        uint256 _usdc = usdcToken.balanceOf(address(this));
+        weth.transfer(msg.sender, _weth);
+        usdcToken.transfer(msg.sender, _usdc);
         payable(msg.sender).transfer(address(this).balance);
     }
 
@@ -116,7 +148,7 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
             ISwapRouter.ExactInputSingleParams({
                 tokenIn: address(usdcToken),
                 tokenOut: address(weth),
-                fee: 0,
+                fee: 0, // Double check
                 recipient: address(this),
                 deadline: block.timestamp,
                 amountIn: usdcAmount,
@@ -174,5 +206,37 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
         return withdrawParams;
     }
 
+    function calculateGMPrice() view public returns (int256) {
+        (int256 marketTokenPrice, ISyntheticReader.MarketPoolValueInfoProps memory marketPoolValueInfo) = gmxOracle.getMarketTokenInfo(
+            address(gmToken),
+            address(usdcToken),
+            address(weth),
+            address(usdcToken),
+            MAX_PNL_FACTOR_FOR_WITHDRAWALS,
+            false
+            );
+        return marketTokenPrice;
+    }
+
     receive() external payable{}
 }
+
+// bytes32 public constant MAX_PNL_FACTOR_FOR_WITHDRAWALS = keccak256(abi.encode("MAX_PNL_FACTOR_FOR_WITHDRAWALS"));
+/**
+    * @dev Get LP (market) token info
+    * @param marketToken LP token address
+    * @param indexToken Index token address
+    * @param longToken Long token address
+    * @param shortToken Short token address
+    * @param pnlFactorType P&L Factory type in bytes32 hashed string
+    * @param maximize Min/max price boolean // false
+    * @return (marketTokenPrice, MarketPoolValueInfoProps MarketInfo)
+  */
+//   function getMarketTokenInfo(
+//     address marketToken, // GM TOKEN
+//     address indexToken, // USDC
+//     address longToken, // WETH
+//     address shortToken, // USDC
+//     bytes32 pnlFactorType, // MAX_PNL_FACTOR_FOR_WITHDRAWALS
+//     bool maximize // false
+//   )
