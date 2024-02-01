@@ -18,7 +18,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../interfaces/ISwapRouter.sol";
 import "../interfaces/IGMXExchangeRouter.sol";
 import "../interfaces/IWETH9.sol";
-import "./GMXOracle.sol";
+import "../utils/GMXOracle.sol";
 
 contract GMXV2ETH is Ownable, ReentrancyGuard {
     using SafeMath for uint256;
@@ -41,6 +41,7 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
     uint256 public depositedWethAmount;
     uint256 minUSDCAmount = 0;
     uint256 minARBAmount = 1000000000000000000;
+    uint24 feeAmt = 500;
 
     mapping (address => uint256) public usdcAmount;
     mapping (address => uint256) public wethAmount;
@@ -89,13 +90,9 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
         IGMXExchangeRouter.CreateWithdrawalParams memory withdrawParams = createWithdrawParams();
         bytes32 withdrawalKey = exchangeRouter.createWithdrawal(withdrawParams);
         depositedWethAmount = depositedWethAmount - _amount;
-        uint256 GMToUSDC = 0; // FIX
-        uint256 GMToWETH = 0; // FIX
-        // Calculate GM token market price
-        // Calculate GM token to USDC
-        // Calculate GM token to WETH
-        usdcAmount[_userAddress] += GMToUSDC;
-        wethAmount[_userAddress] += GMToWETH;
+        (uint256 wethWithdraw, uint256 usdcWithdraw) = calculateGMPrice(gmAmountWithdraw);
+        usdcAmount[_userAddress] += usdcWithdraw;
+        wethAmount[_userAddress] += wethWithdraw;
     }
 
     // slippage is 0.1% for input 1
@@ -148,7 +145,7 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
             ISwapRouter.ExactInputSingleParams({
                 tokenIn: address(usdcToken),
                 tokenOut: address(weth),
-                fee: 0, // Double check
+                fee: feeAmt,
                 recipient: address(this),
                 deadline: block.timestamp,
                 amountIn: usdcAmount,
@@ -168,7 +165,7 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
             ISwapRouter.ExactInputSingleParams({
                 tokenIn: address(arbToken),
                 tokenOut: address(weth),
-                fee: 0,
+                fee: feeAmt,
                 recipient: address(this),
                 deadline: block.timestamp,
                 amountIn: arbAmount,
@@ -206,7 +203,11 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
         return withdrawParams;
     }
 
-    function calculateGMPrice() view public returns (int256) {
+    function updateFee(uint24 fee) external onlyOwner {
+        feeAmt = fee;
+    }
+
+    function calculateGMPrice(uint256 gmAmountWithdraw) view public returns (uint256, uint256) {
         (int256 marketTokenPrice, ISyntheticReader.MarketPoolValueInfoProps memory marketPoolValueInfo) = gmxOracle.getMarketTokenInfo(
             address(gmToken),
             address(usdcToken),
@@ -215,28 +216,52 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
             MAX_PNL_FACTOR_FOR_WITHDRAWALS,
             false
             );
-        return marketTokenPrice;
+        uint256 totalGMSupply = gmToken.totalSupply();
+        uint256 adjustedSupply = getAdjustedSupply(marketPoolValueInfo.longTokenUsd , marketPoolValueInfo.shortTokenUsd , marketPoolValueInfo.totalBorrowingFees, marketPoolValueInfo.netPnl, marketPoolValueInfo.impactPoolAmount);
+        return getEthNUsdcAmount(gmAmountWithdraw, adjustedSupply.div(totalGMSupply), marketPoolValueInfo.longTokenUsd.div(10e11), marketPoolValueInfo.shortTokenUsd, marketPoolValueInfo.longTokenUsd.div(marketPoolValueInfo.longTokenAmount), marketPoolValueInfo.shortTokenUsd.div(marketPoolValueInfo.shortTokenAmount));
+    }
+
+    function getEthNUsdcAmount(uint256 gmxWithdraw, uint256 price, uint256 wethVal, uint256 usdcVal, uint256 wethPrice, uint256 usdcPrice) public view returns (uint256, uint256) {
+        uint256 wethAmountUSD = gmxWithdraw.mul(price).div(10e6).mul(wethVal);
+        wethAmountUSD = wethAmountUSD.div(wethVal.add(usdcVal));
+
+        uint256 usdcAmountUSD = gmxWithdraw.mul(price).div(10e6).mul(usdcVal);
+        usdcAmountUSD = usdcAmountUSD.div(wethVal.add(usdcVal));
+        return(wethAmountUSD.mul(10e19).div(wethPrice), usdcAmountUSD.mul(10e7).div(usdcPrice));
+    }
+
+    function getAdjustedSupply(uint256 wethPool, uint256 usdcPool, uint256 totalBorrowingFees, int256 pnl, uint256 impactPoolPrice) view internal returns(uint256 adjustedSupply) {
+        wethPool = wethPool.div(10e12);
+        usdcPool = usdcPool.div(10);
+        totalBorrowingFees = totalBorrowingFees.div(10e6);
+        impactPoolPrice = impactPoolPrice.mul(10e6);
+        uint256 newPNL;
+        if(pnl>0){
+            newPNL = uint256(pnl);
+        }
+        else{
+            newPNL = uint256(-pnl);
+        }
+        newPNL = newPNL.div(10e12);
+        return wethPool + usdcPool - totalBorrowingFees - newPNL - impactPoolPrice;
     }
 
     receive() external payable{}
 }
 
-// bytes32 public constant MAX_PNL_FACTOR_FOR_WITHDRAWALS = keccak256(abi.encode("MAX_PNL_FACTOR_FOR_WITHDRAWALS"));
-/**
-    * @dev Get LP (market) token info
-    * @param marketToken LP token address
-    * @param indexToken Index token address
-    * @param longToken Long token address
-    * @param shortToken Short token address
-    * @param pnlFactorType P&L Factory type in bytes32 hashed string
-    * @param maximize Min/max price boolean // false
-    * @return (marketTokenPrice, MarketPoolValueInfoProps MarketInfo)
-  */
-//   function getMarketTokenInfo(
-//     address marketToken, // GM TOKEN
-//     address indexToken, // USDC
-//     address longToken, // WETH
-//     address shortToken, // USDC
-//     bytes32 pnlFactorType, // MAX_PNL_FACTOR_FOR_WITHDRAWALS
-//     bool maximize // false
-//   )
+// struct MarketPoolValueInfoProps {
+//     int256 poolValue; 67039328300310430062298621117219239751021965
+//     int256 longPnl; 10537335603643258919843540626299201864784
+//     int256 shortPnl; -9096078577302319492802764449993254343806
+//     int256 netPnl; 193216289957428237735839942
+
+//     uint256 longTokenAmount; 28991271118852233316174
+//     uint256 shortTokenAmount; 66072603147815
+//     uint256 longTokenUsd; 67041035345430659732790768082827760000000000
+//     uint256 shortTokenUsd; 66079032672827313877650000000000
+
+//     uint256 totalBorrowingFees; 105303623536261299892874151902449117
+//     uint256 borrowingFeePoolFactor; 630000000000000000000000000000
+
+//     uint256 impactPoolAmount; 26582863346626897991800000000
+//   }
