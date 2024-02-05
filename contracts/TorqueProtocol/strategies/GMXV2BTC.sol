@@ -96,7 +96,7 @@ contract GMXV2BTC is Ownable, ReentrancyGuard {
         gmToken.approve(address(router), gmAmountWithdraw);
         gmxExchange.sendTokens(address(gmToken), address(withdrawalVault), gmAmountWithdraw);
         IGMXExchangeRouter.CreateWithdrawalParams memory withdrawParams = createWithdrawParams();
-        bytes32 withdrawalKey = gmxExchange.createWithdrawal(withdrawParams);
+        gmxExchange.createWithdrawal(withdrawParams);
         depositedBTCAmount = depositedBTCAmount - _amount;
         (uint256 wbtcWithdraw, uint256 usdcWithdraw) = calculateGMPrice(gmAmountWithdraw);
         usdcAmount[_userAddress] += usdcWithdraw;
@@ -175,7 +175,7 @@ contract GMXV2BTC is Ownable, ReentrancyGuard {
             ISwapRouter.ExactInputSingleParams({
                 tokenIn: address(usdcToken),
                 tokenOut: address(wbtcGMX),
-                fee: feeAmt, // Uniswap V3 0.05 WBTC/WETH pool
+                fee: feeAmt, 
                 recipient: address(this),
                 deadline: block.timestamp,
                 amountIn: usdcVal,
@@ -211,7 +211,7 @@ contract GMXV2BTC is Ownable, ReentrancyGuard {
     }
 
     function calculateGMPrice(uint256 gmAmountWithdraw) view public returns (uint256, uint256) {
-        (int256 marketTokenPrice, ISyntheticReader.MarketPoolValueInfoProps memory marketPoolValueInfo) = gmxOracle.getMarketTokenInfo(
+        (,ISyntheticReader.MarketPoolValueInfoProps memory marketPoolValueInfo) = gmxOracle.getMarketTokenInfo(
             address(gmToken),
             address(usdcToken),
             address(wbtcGMX),
@@ -224,7 +224,7 @@ contract GMXV2BTC is Ownable, ReentrancyGuard {
         return getBtcNUsdcAmount(gmAmountWithdraw, adjustedSupply.div(totalGMSupply), marketPoolValueInfo.longTokenUsd.div(100), marketPoolValueInfo.shortTokenUsd, marketPoolValueInfo.longTokenUsd.div(marketPoolValueInfo.longTokenAmount), marketPoolValueInfo.shortTokenUsd.div(marketPoolValueInfo.shortTokenAmount));
     }
 
-    function getBtcNUsdcAmount(uint256 gmxWithdraw, uint256 price, uint256 wbtcVal, uint256 usdcVal, uint256 wbtcPrice, uint256 usdcPrice) internal view returns (uint256, uint256) {
+    function getBtcNUsdcAmount(uint256 gmxWithdraw, uint256 price, uint256 wbtcVal, uint256 usdcVal, uint256 wbtcPrice, uint256 usdcPrice) internal pure returns (uint256, uint256) {
         uint256 wbtcAmountUSD = gmxWithdraw.mul(price).div(10e5).mul(wbtcVal);
         wbtcAmountUSD = wbtcAmountUSD.div(wbtcVal.add(usdcVal));
 
@@ -233,7 +233,7 @@ contract GMXV2BTC is Ownable, ReentrancyGuard {
         return(wbtcAmountUSD.mul(10e8).div(wbtcPrice), usdcAmountUSD.mul(10e6).div(usdcPrice));
     }
 
-    function getAdjustedSupply(uint256 wbtcPool, uint256 usdcPool, uint256 totalBorrowingFees, int256 pnl, uint256 impactPoolPrice) view internal returns (uint256) {
+    function getAdjustedSupply(uint256 wbtcPool, uint256 usdcPool, uint256 totalBorrowingFees, int256 pnl, uint256 impactPoolPrice) pure internal returns (uint256) {
         wbtcPool = wbtcPool.div(10e2);
         usdcPool = usdcPool.div(10);
         totalBorrowingFees = totalBorrowingFees.div(10e6);
@@ -253,3 +253,21 @@ contract GMXV2BTC is Ownable, ReentrancyGuard {
 
     receive() external payable{}
 }
+
+// PS CHECK
+// struct MarketPoolValueInfoProps {
+//     int256 poolValue; 30297859937182975781353382593557078314
+//     int256 longPnl; -30256194486684016933915089809167659866
+//     int256 shortPnl; 57958940031103509964560000000000
+//     int256 netPnl; -30256136527743985830405125249167659866
+
+//     uint256 longTokenAmount; 177282026099
+//     uint256 shortTokenAmount; 72438845087601
+//     uint256 longTokenUsd; 7621624829125607562252570000000000
+//     uint256 shortTokenUsd; 72448675038879387455700000000000
+
+//     uint256 totalBorrowingFees; 54014820524637842323983133951457854
+//     uint256 borrowingFeePoolFactor; 630000000000000000000000000000n
+
+//     uint256 impactPoolAmount; 995561279n
+//   }117473871830231827571983404

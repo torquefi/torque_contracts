@@ -15,6 +15,7 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
 import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
+import "@uniswap/v3-periphery/contracts/interfaces/IQuoterV2.sol";
 
 contract UniswapBTC is Ownable, ReentrancyGuard {
 
@@ -23,17 +24,20 @@ contract UniswapBTC is Ownable, ReentrancyGuard {
     IERC20 public wbtcToken;
     IERC20 public wethToken;
     ISwapRouter public swapRouter;
+    IQuoterV2 public quoter = IQuoterV2(0x61fFE014bA17989E743c5F6cB21bF9697530B21e);
 
     address treasury;
     uint256 performanceFee;
     uint24 poolFee = 100;
 
     INonfungiblePositionManager positionManager;
-    uint256 slippage;
+    uint256 slippage = 20;
+    uint128 liquiditySlippage = 1;
     int24 tickLower = -887220;
     int24 tickUpper = 887220;
     uint256 tokenId;
     uint256 liquidity;
+    address controller;
 
     bool poolInitialised = false;
 
@@ -55,6 +59,7 @@ contract UniswapBTC is Ownable, ReentrancyGuard {
     }
 
     function deposit(uint256 amount) external nonReentrant {
+        require(msg.sender == controller, "Only controller can call this!");
         wbtcToken.transferFrom(msg.sender, address(this), amount);
         uint256 wbtcToConvert = amount / 2; 
         uint256 wbtcToKeep = amount - wbtcToConvert;
@@ -75,38 +80,33 @@ contract UniswapBTC is Ownable, ReentrancyGuard {
         emit Deposited(amount);
     }
 
-    function withdraw(uint128 amount) external nonReentrant {
+    function withdraw(uint128 amount, uint256 totalAsset) external nonReentrant {
+        require(msg.sender == controller, "Only controller can call this!");
         require(amount > 0, "Invalid amount");
         require(liquidity >= amount, "Insufficient liquidity");
-        // (uint256 expectedwbtcAmount, uint256 expectedWethAmount) = calculateExpectedTokenAmounts(amount);
-        // uint256 amount0Min = expectedwbtcAmount * (10000 - slippage) / 10000;
-        // uint256 amount1Min = expectedWethAmount * (10000 - slippage) / 10000;
-        uint256 amount0Min = 0;
-        uint256 amount1Min = 0;
+        (uint256 expectedwbtcAmount, uint256 expectedWethAmount) = calculateExpectedTokenAmounts(amount);
+        uint256 amount0Min = expectedwbtcAmount * (10000 - slippage) / 10000;
+        uint256 amount1Min = expectedWethAmount * (10000 - slippage) / 10000;
         uint256 deadline = block.timestamp + 2 minutes;
+        uint128 liquidtyAmount = uint128(liquidity)*(amount)/(uint128(totalAsset));
+        liquidtyAmount = liquidtyAmount*(1000 - liquiditySlippage)/(1000);
         INonfungiblePositionManager.DecreaseLiquidityParams memory decreaseLiquidityParams = INonfungiblePositionManager.DecreaseLiquidityParams({
             tokenId: tokenId,
-            liquidity: amount,
+            liquidity: liquidtyAmount,
             amount0Min: amount0Min,
             amount1Min: amount1Min,
             deadline: deadline
         });
+        liquidity -= liquidtyAmount;
         (uint256 amount0, uint256 amount1) = positionManager.decreaseLiquidity(decreaseLiquidityParams);
-        INonfungiblePositionManager.CollectParams memory collectParams = INonfungiblePositionManager.CollectParams({
-            tokenId: tokenId,
-            recipient: address(this),
-            amount0Max: uint128(amount0),
-            amount1Max: uint128(amount1)
-        });
-        positionManager.collect(collectParams);
-        liquidity -= amount;
         uint256 convertedwbtcAmount = convertWETHtowbtc(amount1);
         amount0 = amount0.add(convertedwbtcAmount);
         wbtcToken.transfer(msg.sender, amount0);
         emit Withdrawal(amount);
     }
 
-    function compound() external onlyOwner() {
+    function compound() external {
+        require(msg.sender == controller, "Only controller can call this!");
         INonfungiblePositionManager.CollectParams memory collectParams =
             INonfungiblePositionManager.CollectParams({
                 tokenId: tokenId,
@@ -120,7 +120,11 @@ contract UniswapBTC is Ownable, ReentrancyGuard {
         wbtcToken.transfer(msg.sender, wbtcAmount);
     }
 
-    function createMintParams(uint256 wbtcToKeep, uint256 wethAmount, uint256 amount0Min, uint256 amount1Min) internal returns (INonfungiblePositionManager.MintParams memory) {
+    function setController(address _controller) external onlyOwner() {
+        controller = _controller;
+    }
+
+    function createMintParams(uint256 wbtcToKeep, uint256 wethAmount, uint256 amount0Min, uint256 amount1Min) internal view returns (INonfungiblePositionManager.MintParams memory) {
         return INonfungiblePositionManager.MintParams({
             token0: address(wbtcToken),
             token1: address(wethToken),
@@ -136,7 +140,7 @@ contract UniswapBTC is Ownable, ReentrancyGuard {
         });
     }
 
-    function createIncreaseLiquidityParams(uint256 wbtcToKeep, uint256 wethAmount, uint256 amount0Min, uint256 amount1Min) internal returns (INonfungiblePositionManager.IncreaseLiquidityParams memory) {
+    function createIncreaseLiquidityParams(uint256 wbtcToKeep, uint256 wethAmount, uint256 amount0Min, uint256 amount1Min) internal view returns (INonfungiblePositionManager.IncreaseLiquidityParams memory) {
         return INonfungiblePositionManager.IncreaseLiquidityParams({
             tokenId: tokenId,
             amount0Desired: wbtcToKeep,
@@ -157,6 +161,10 @@ contract UniswapBTC is Ownable, ReentrancyGuard {
         slippage = _slippage;
     }
 
+    function setLiquiditySlippage(uint128 _slippage) external onlyOwner {
+        liquiditySlippage = _slippage;
+    }
+
     function setTreasury(address _treasury) external onlyOwner {
         treasury = _treasury;
     }
@@ -169,9 +177,23 @@ contract UniswapBTC is Ownable, ReentrancyGuard {
         poolFee = _poolFee;
     }
 
-    function calculateExpectedTokenAmounts(uint256 liquidityAmount) internal view returns (uint256 expectedwbtcAmount, uint256 expectedWethAmount) {
-        // Calculate the expected amount of WBTC and WETH tokens to receive
-        return (0, 0);
+    function calculateExpectedTokenAmounts(uint256 liquidityAmount) public returns (uint256, uint256) {
+        uint256 expectedwbtcAmount = liquidityAmount.div(2);
+        uint256 expectedwethAmount = convertValWbtcToWeth(liquidityAmount.sub(expectedwbtcAmount));
+        return (expectedwbtcAmount, expectedwethAmount);
+    }
+
+    function convertValWbtcToWeth(uint256 inputWbtc) public returns (uint256) {
+        IQuoterV2.QuoteExactInputSingleParams memory params = 
+            IQuoterV2.QuoteExactInputSingleParams({
+                tokenIn: address(wbtcToken),
+                tokenOut: address(wethToken),
+                amountIn: inputWbtc,
+                fee: poolFee,
+                sqrtPriceLimitX96: 0
+            });
+            (uint256 inputWeth,,,) = quoter.quoteExactInputSingle(params);
+            return inputWeth;
     }
 
     function convertwbtctoWETH(uint256 wbtcAmount) internal returns (uint256) {

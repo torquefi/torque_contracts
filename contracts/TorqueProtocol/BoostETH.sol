@@ -9,7 +9,7 @@ pragma solidity ^0.8.9;
 //       \ \__\ \ \_______\ \__\\ _\\ \_____  \ \_______\ \_______\
 //        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
 
-import "@chainlink/contracts/src/v0.8/automation/AutomationCompatible.sol";
+import "@chainlink/contracts/src/v0.8/AutomationCompatible.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -37,7 +37,7 @@ contract BoostETH is AutomationCompatible, Ownable, ReentrancyGuard, ERC20{
     
     uint256 public totalAssetsAmount;
 
-    constructor(string memory _name, string memory _symbol, address payable weth_, address payable gmxV2ETH_, address payable stargateETH_, address treasury_) ERC20(_name, _symbol){
+    constructor(string memory _name, string memory _symbol, address payable weth_, address payable gmxV2ETH_, address payable stargateETH_, address treasury_) ERC20(_name, _symbol) Ownable(msg.sender) {
         weth = IWETH9(weth_);
         gmxV2ETH = GMXV2ETH(gmxV2ETH_);
         stargateETH = StargateETH(stargateETH_);
@@ -147,12 +147,12 @@ contract BoostETH is AutomationCompatible, Ownable, ReentrancyGuard, ERC20{
         }
     }
 
-    // Remove for prod deployment
+    // PS CHECK Remove for prod deployment
     function updateStargate(address payable _address) external onlyOwner {
         stargateETH = StargateETH(_address);
     }
 
-    // Remove for prod deployment
+    // PS CHECK Remove for prod deployment
     function updateGMXV2(address payable _address) external onlyOwner {
         gmxV2ETH = GMXV2ETH(_address);
     }
