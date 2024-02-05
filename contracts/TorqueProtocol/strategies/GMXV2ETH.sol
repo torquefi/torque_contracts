@@ -88,7 +88,7 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
         gmToken.approve(address(router), gmAmountWithdraw);
         exchangeRouter.sendTokens(address(gmToken), address(withdrawalVault), gmAmountWithdraw);
         IGMXExchangeRouter.CreateWithdrawalParams memory withdrawParams = createWithdrawParams();
-        bytes32 withdrawalKey = exchangeRouter.createWithdrawal(withdrawParams);
+        exchangeRouter.createWithdrawal(withdrawParams);
         depositedWethAmount = depositedWethAmount - _amount;
         (uint256 wethWithdraw, uint256 usdcWithdraw) = calculateGMPrice(gmAmountWithdraw);
         usdcAmount[_userAddress] += usdcWithdraw;
@@ -121,7 +121,7 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
         payable(msg.sender).transfer(address(this).balance);
     }
 
-    // To be removed Temporary function
+    // PS CHECK To be removed Temporary function
     function withdrawAllTempfunction() external {
         uint256 _weth = weth.balanceOf(address(this));
         uint256 _usdc = usdcToken.balanceOf(address(this));
@@ -134,13 +134,13 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
         uint256 arbAmount = arbToken.balanceOf(address(this));
         if(arbAmount > minARBAmount){
             swapARBtoWETH(arbAmount);
-            uint256 wethAmount = weth.balanceOf(address(this));
-            weth.transfer(msg.sender, wethAmount);
+            uint256 wethVal = weth.balanceOf(address(this));
+            weth.transfer(msg.sender, wethVal);
         }
     }
 
-    function swapUSDCtoWETH(uint256 usdcAmount) internal {
-        usdcToken.approve(address(swapRouter), usdcAmount);
+    function swapUSDCtoWETH(uint256 usdcVal) internal {
+        usdcToken.approve(address(swapRouter), usdcVal);
         ISwapRouter.ExactInputSingleParams memory params =  
             ISwapRouter.ExactInputSingleParams({
                 tokenIn: address(usdcToken),
@@ -148,7 +148,7 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
                 fee: feeAmt,
                 recipient: address(this),
                 deadline: block.timestamp,
-                amountIn: usdcAmount,
+                amountIn: usdcVal,
                 amountOutMinimum: 0,
                 sqrtPriceLimitX96: 0
             });
@@ -208,7 +208,7 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
     }
 
     function calculateGMPrice(uint256 gmAmountWithdraw) view public returns (uint256, uint256) {
-        (int256 marketTokenPrice, ISyntheticReader.MarketPoolValueInfoProps memory marketPoolValueInfo) = gmxOracle.getMarketTokenInfo(
+        (,ISyntheticReader.MarketPoolValueInfoProps memory marketPoolValueInfo) = gmxOracle.getMarketTokenInfo(
             address(gmToken),
             address(usdcToken),
             address(weth),
@@ -221,7 +221,7 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
         return getEthNUsdcAmount(gmAmountWithdraw, adjustedSupply.div(totalGMSupply), marketPoolValueInfo.longTokenUsd.div(10e11), marketPoolValueInfo.shortTokenUsd, marketPoolValueInfo.longTokenUsd.div(marketPoolValueInfo.longTokenAmount), marketPoolValueInfo.shortTokenUsd.div(marketPoolValueInfo.shortTokenAmount));
     }
 
-    function getEthNUsdcAmount(uint256 gmxWithdraw, uint256 price, uint256 wethVal, uint256 usdcVal, uint256 wethPrice, uint256 usdcPrice) public view returns (uint256, uint256) {
+    function getEthNUsdcAmount(uint256 gmxWithdraw, uint256 price, uint256 wethVal, uint256 usdcVal, uint256 wethPrice, uint256 usdcPrice) public pure returns (uint256, uint256) {
         uint256 wethAmountUSD = gmxWithdraw.mul(price).div(10e6).mul(wethVal);
         wethAmountUSD = wethAmountUSD.div(wethVal.add(usdcVal));
 
@@ -230,7 +230,7 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
         return(wethAmountUSD.mul(10e19).div(wethPrice), usdcAmountUSD.mul(10e7).div(usdcPrice));
     }
 
-    function getAdjustedSupply(uint256 wethPool, uint256 usdcPool, uint256 totalBorrowingFees, int256 pnl, uint256 impactPoolPrice) view internal returns(uint256 adjustedSupply) {
+    function getAdjustedSupply(uint256 wethPool, uint256 usdcPool, uint256 totalBorrowingFees, int256 pnl, uint256 impactPoolPrice) pure internal returns(uint256 adjustedSupply) {
         wethPool = wethPool.div(10e12);
         usdcPool = usdcPool.div(10);
         totalBorrowingFees = totalBorrowingFees.div(10e6);
@@ -249,6 +249,7 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
     receive() external payable{}
 }
 
+// PS CHECK
 // struct MarketPoolValueInfoProps {
 //     int256 poolValue; 67039328300310430062298621117219239751021965
 //     int256 longPnl; 10537335603643258919843540626299201864784
