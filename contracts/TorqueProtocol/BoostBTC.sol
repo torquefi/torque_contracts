@@ -74,9 +74,10 @@ contract BoostBTC is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
         uint256 uniswapWithdrawAmount = withdrawAmount.mul(uniswapAllocation).div(100);
         uint256 gmxWithdrawAmount = withdrawAmount.sub(uniswapWithdrawAmount);
         _burn(msg.sender, sharesAmount);
+        uint256 totalUniSwapAllocation = totalAssetsAmount.mul(uniswapAllocation).div(100);
         totalAssetsAmount = totalAssetsAmount.sub(withdrawAmount);
 
-        uniswapBtc.withdraw(uint128(uniswapWithdrawAmount));
+        uniswapBtc.withdraw(uint128(uniswapWithdrawAmount), totalUniSwapAllocation);
         gmxV2Btc.withdraw{value: gmxV2Btc.executionFee()}(gmxWithdrawAmount, msg.sender);
         uint256 wbtcAmount = wbtcToken.balanceOf(address(this));
         wbtcToken.transfer(msg.sender, wbtcAmount);
