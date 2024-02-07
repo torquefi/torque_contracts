@@ -30,7 +30,6 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
     IERC20 public arbToken;
 
     address public marketAddress = 0x70d95587d40A2caf56bd97485aB3Eec10Bee6336;
-    uint256 public executionFee; 
     address depositVault;
     address withdrawalVault;
     address router;
@@ -42,6 +41,7 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
     uint256 minUSDCAmount = 0;
     uint256 minARBAmount = 1000000000000000000;
     uint24 feeAmt = 500;
+    address controller;
 
     mapping (address => uint256) public usdcAmount;
     mapping (address => uint256) public wethAmount;
@@ -66,13 +66,13 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
         withdrawalVault = withdrawalVault_;
         router = router_;
         depositedWethAmount = 0;
-        executionFee = 1000000000000000;
         gmxOracle = new GMXOracle(dataStore, syntheticReader,  chainlinkOracle);
     }
 
     function deposit(uint256 _amount) external payable{
-        require(msg.value >= executionFee, "You must pay GMX v2 execution fee");
-        exchangeRouter.sendWnt{value: executionFee}(address(depositVault), executionFee);
+        require(msg.sender == controller, "Only Controller can call this");
+        require(msg.value > 0, "You must pay GMX v2 execution fee");
+        exchangeRouter.sendWnt{value: msg.value}(address(depositVault), msg.value);
         weth.transferFrom(msg.sender, address(this), _amount);
         weth.approve(address(router), _amount);
         exchangeRouter.sendTokens(address(weth), address(depositVault), _amount);
@@ -81,9 +81,10 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
         depositedWethAmount = depositedWethAmount + _amount;
     }
 
-    function withdraw(uint256 _amount, address _userAddress) external payable onlyOwner() {
-        require(msg.value >= executionFee, "You must pay GMX V2 execution fee");
-        exchangeRouter.sendWnt{value: executionFee}(address(withdrawalVault), executionFee);
+    function withdraw(uint256 _amount, address _userAddress) external payable {
+        require(msg.sender == controller, "Only Controller can call this");
+        require(msg.value > 0, "You must pay GMX V2 execution fee");
+        exchangeRouter.sendWnt{value: msg.value}(address(withdrawalVault), msg.value);
         uint256 gmAmountWithdraw = _amount * gmToken.balanceOf(address(this)) / depositedWethAmount;
         gmToken.approve(address(router), gmAmountWithdraw);
         exchangeRouter.sendTokens(address(gmToken), address(withdrawalVault), gmAmountWithdraw);
@@ -122,7 +123,7 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
     }
 
     // PS CHECK To be removed Temporary function
-    function withdrawAllTempfunction() external {
+    function withdrawAllTempfunction() external onlyOwner() {
         uint256 _weth = weth.balanceOf(address(this));
         uint256 _usdc = usdcToken.balanceOf(address(this));
         weth.transfer(msg.sender, _weth);
@@ -130,13 +131,18 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
         payable(msg.sender).transfer(address(this).balance);
     }
 
-    function compound() external onlyOwner() {
+    function compound() external {
+        require(msg.sender == controller, "Only Controller can call this");
         uint256 arbAmount = arbToken.balanceOf(address(this));
         if(arbAmount > minARBAmount){
             swapARBtoWETH(arbAmount);
             uint256 wethVal = weth.balanceOf(address(this));
             weth.transfer(msg.sender, wethVal);
         }
+    }
+
+    function setController(address _controller) external onlyOwner() {
+        controller = _controller;
     }
 
     function swapUSDCtoWETH(uint256 usdcVal) internal {
@@ -153,10 +159,6 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
                 sqrtPriceLimitX96: 0
             });
         swapRouter.exactInputSingle(params);
-    }
-
-    function updateExecutionFee(uint256 _executionFee) public onlyOwner{
-        executionFee = _executionFee;
     }
 
     function swapARBtoWETH(uint256 arbAmount) internal returns (uint256 amountOut){
@@ -182,7 +184,7 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
         depositParams.market = marketAddress;
         depositParams.minMarketTokens = 0;
         depositParams.shouldUnwrapNativeToken = false;
-        depositParams.executionFee = executionFee;
+        depositParams.executionFee = msg.value;
         depositParams.callbackGasLimit = 0;
         depositParams.initialLongToken = address(weth);
         depositParams.initialShortToken = address(usdcToken);
@@ -195,7 +197,7 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
         withdrawParams.callbackContract = address(this);
         withdrawParams.market = marketAddress;
         withdrawParams.callbackGasLimit = 0;
-        withdrawParams.executionFee = executionFee;
+        withdrawParams.executionFee = msg.value;
         withdrawParams.shouldUnwrapNativeToken = false;
         withdrawParams.callbackGasLimit = 0;
         withdrawParams.minLongTokenAmount = 0;

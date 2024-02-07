@@ -52,7 +52,7 @@ contract BoostBTC is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
     }
 
     function depositBTC(uint256 depositAmount) external payable nonReentrant() {
-        require(msg.value >= gmxV2Btc.executionFee(), "You must pay GMX v2 execution fee");
+        require(msg.value > 0, "Please pass GMX execution fees");
         wbtcToken.transferFrom(msg.sender, address(this), depositAmount);
         uint256 uniswapDepositAmount = depositAmount.mul(uniswapAllocation).div(100);
         uint256 gmxDepositAmount = depositAmount.sub(uniswapDepositAmount);
@@ -60,7 +60,7 @@ contract BoostBTC is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
         uniswapBtc.deposit(uniswapDepositAmount);
 
         wbtcToken.approve(address(gmxV2Btc), gmxDepositAmount);
-        gmxV2Btc.deposit{value: gmxV2Btc.executionFee()}(gmxDepositAmount);
+        gmxV2Btc.deposit{value: msg.value}(gmxDepositAmount);
 
         uint256 shares = _convertToShares(depositAmount);
         _mint(msg.sender, shares);
@@ -69,7 +69,7 @@ contract BoostBTC is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
     }
 
     function withdrawBTC(uint256 sharesAmount) external payable nonReentrant() {
-        require(msg.value >= gmxV2Btc.executionFee(), "You must pay GMX v2 execution fee");
+        require(msg.value > 0, "Please pass GMX execution fees");
         uint256 withdrawAmount = _convertToAssets(sharesAmount);
         uint256 uniswapWithdrawAmount = withdrawAmount.mul(uniswapAllocation).div(100);
         uint256 gmxWithdrawAmount = withdrawAmount.sub(uniswapWithdrawAmount);
@@ -78,7 +78,7 @@ contract BoostBTC is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
         totalAssetsAmount = totalAssetsAmount.sub(withdrawAmount);
 
         uniswapBtc.withdraw(uint128(uniswapWithdrawAmount), totalUniSwapAllocation);
-        gmxV2Btc.withdraw{value: gmxV2Btc.executionFee()}(gmxWithdrawAmount, msg.sender);
+        gmxV2Btc.withdraw{value: msg.value}(gmxWithdrawAmount, msg.sender);
         uint256 wbtcAmount = wbtcToken.balanceOf(address(this));
         wbtcToken.transfer(msg.sender, wbtcAmount);
         payable(msg.sender).transfer(address(this).balance);
@@ -118,6 +118,10 @@ contract BoostBTC is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
 
     function setTreasury(address _treasury) public onlyOwner {
         treasury = _treasury;
+    }
+
+    function decimals() public view override returns (uint8) {
+        return 8;
     }
 
     function _convertToShares(uint256 assets) internal view returns (uint256) {
