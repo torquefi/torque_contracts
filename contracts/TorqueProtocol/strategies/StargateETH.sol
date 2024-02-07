@@ -17,11 +17,11 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import "../interfaces/IStargateLPStakingTime.sol";
 import "../interfaces/IStargateRouterETH.sol";
-import "../../StargateContracts/interfaces/IStargateRouter.sol";
-import "../../StargateContracts/LPStakingTime.sol";
+import "../interfaces/IStargateRouter.sol";
+import "../utils/LPStakingTime.sol";
 import "../interfaces/IWETH9.sol";
 
-import "../../UniswapContracts/ISwapRouter.sol";
+import "../interfaces/ISwapRouter.sol";
 
 contract StargateETH is Ownable, ReentrancyGuard{
     using SafeMath for uint256;
@@ -36,9 +36,10 @@ contract StargateETH is Ownable, ReentrancyGuard{
     ISwapRouter public swapRouter;
 
     uint256 public depositedWethAmount;
+    address controller;
     uint256 minARBAmount = 1000000000000000000;
     
-    constructor(address payable weth_, address wethSTG_, address arbToken_, address payable routerETH_, address lpStakingTime_, address router_, address swapRouter_){
+    constructor(address payable weth_, address wethSTG_, address arbToken_, address payable routerETH_, address lpStakingTime_, address router_, address swapRouter_) Ownable(msg.sender) {
         weth = IWETH9(weth_);
         wethSTG = IERC20(wethSTG_);
         arbToken = IERC20(arbToken_);
@@ -50,6 +51,7 @@ contract StargateETH is Ownable, ReentrancyGuard{
     }
 
     function deposit(uint256 _amount) external {
+        require(msg.sender == controller, "Only Controller can call this");
         weth.transferFrom(msg.sender, address(this), _amount);
         weth.withdraw(_amount);
         routerETH.addLiquidityETH{value: _amount}();
@@ -59,7 +61,8 @@ contract StargateETH is Ownable, ReentrancyGuard{
         depositedWethAmount = depositedWethAmount + _amount;
     }
 
-    function withdraw(uint256 _amount) external onlyOwner() {
+    function withdraw(uint256 _amount) external {
+        require(msg.sender == controller, "Only Controller can call this");
         (uint256 realWethSTGDepositedAmount, ) = lpStakingTime.userInfo(2, address(this));
         uint256 withdrawAmount = _amount * realWethSTGDepositedAmount / depositedWethAmount;
         lpStakingTime.withdraw(2, withdrawAmount);
@@ -70,7 +73,8 @@ contract StargateETH is Ownable, ReentrancyGuard{
         depositedWethAmount = depositedWethAmount - _amount;
     }
 
-    function compound() external onlyOwner() {
+    function compound() external {
+        require(msg.sender == controller, "Only Controller can call this");
         lpStakingTime.deposit(2, 0);
         uint256 arbAmount = arbToken.balanceOf(address(this));
         if(arbAmount > minARBAmount){
@@ -78,6 +82,10 @@ contract StargateETH is Ownable, ReentrancyGuard{
             uint256 wethAmount = weth.balanceOf(address(this));
             weth.transfer(msg.sender, wethAmount);
         }
+    }
+
+    function setController(address _controller) external onlyOwner() {
+        controller = _controller;
     }
 
     function swapARBtoWETH(uint256 arbAmount) internal returns (uint256 amountOut){
