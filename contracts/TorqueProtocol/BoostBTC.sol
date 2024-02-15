@@ -32,6 +32,7 @@ contract BoostBTC is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
     uint256 public uniswapAllocation;
     uint256 public lastCompoundTimestamp;
     uint256 public performanceFee;
+    uint256 public minWbtcAmount = 20000;
 
     uint256 public totalAssetsAmount = 0;
 
@@ -93,6 +94,9 @@ contract BoostBTC is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
         uniswapBtc.compound(); // uniswap compound
         gmxV2Btc.compound();
         uint256 postWbtcAmount = wbtcToken.balanceOf(address(this));
+        if(postWbtcAmount - prevWbtcAmount < minWbtcAmount){
+            return;
+        }
         uint256 treasuryFee = (postWbtcAmount - prevWbtcAmount).mul(performanceFee).div(100);
         wbtcToken.transfer(treasury ,treasuryFee);
         uint256 wbtcAmount = postWbtcAmount - treasuryFee;
@@ -110,6 +114,10 @@ contract BoostBTC is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
         require(_gmxAllocation + _uniswapAllocation == 100, "Allocation has to be exactly 100");
         gmxAllocation = _gmxAllocation;
         uniswapAllocation = _uniswapAllocation;
+    }
+
+    function setMinWbtc(uint256 _minWbtc) public onlyOwner() {
+        minWbtcAmount = _minWbtc;
     }
 
     function setPerformanceFee(uint256 _performanceFee) public onlyOwner {
