@@ -34,6 +34,7 @@ contract BoostETH is AutomationCompatible, Ownable, ReentrancyGuard, ERC20{
     uint256 public stargateAllocation;
     uint256 public lastCompoundTimestamp;
     uint256 public performanceFee;
+    uint256 public minWethAmount = 4000000000000000;
     
     uint256 public totalAssetsAmount;
 
@@ -109,6 +110,9 @@ contract BoostETH is AutomationCompatible, Ownable, ReentrancyGuard, ERC20{
         stargateETH.compound();
         gmxV2ETH.compound();
         uint256 postWethAmount = weth.balanceOf(address(this));
+        if(postWethAmount - prevWethAmount < minWethAmount){
+            return;
+        }
         uint256 treasuryFee = (postWethAmount - prevWethAmount).mul(performanceFee).div(100);
         weth.withdraw(treasuryFee);
         payable(treasury).transfer(treasuryFee);
@@ -121,6 +125,10 @@ contract BoostETH is AutomationCompatible, Ownable, ReentrancyGuard, ERC20{
         weth.approve(address(gmxV2ETH), gmxDepositAmount);
         gmxV2ETH.deposit(gmxDepositAmount);
         lastCompoundTimestamp = block.timestamp;
+    }
+
+    function setMinWeth(uint256 _minWeth) public onlyOwner() {
+        minWethAmount = _minWeth;
     }
 
     function setAllocation(uint256 _stargateAllocation, uint256 _gmxAllocation) public onlyOwner {
