@@ -36,7 +36,6 @@ contract UniswapBTC is Ownable, ReentrancyGuard {
     int24 tickLower = -887220;
     int24 tickUpper = 887220;
     uint256 tokenId;
-    uint256 liquidity;
     address controller;
 
     bool poolInitialised = false;
@@ -71,11 +70,11 @@ contract UniswapBTC is Ownable, ReentrancyGuard {
 
         if(!poolInitialised){
             INonfungiblePositionManager.MintParams memory params = createMintParams(wbtcToKeep, wethAmount, amount0Min, amount1Min);
-            (tokenId, liquidity,,) = positionManager.mint(params);
+            (tokenId,,,) = positionManager.mint(params);
             poolInitialised = true;
         } else {
             INonfungiblePositionManager.IncreaseLiquidityParams memory increaseLiquidityParams = createIncreaseLiquidityParams(wbtcToKeep, wethAmount, amount0Min, amount1Min);
-            (liquidity,,) = positionManager.increaseLiquidity(increaseLiquidityParams);
+            positionManager.increaseLiquidity(increaseLiquidityParams);
         }
         emit Deposited(amount);
     }
@@ -83,10 +82,7 @@ contract UniswapBTC is Ownable, ReentrancyGuard {
     function withdraw(uint128 amount, uint256 totalAsset) external nonReentrant {
         require(msg.sender == controller, "Only controller can call this!");
         require(amount > 0, "Invalid amount");
-        require(liquidity >= amount, "Insufficient liquidity");
-        // (uint256 expectedwbtcAmount, uint256 expectedWethAmount) = calculateExpectedTokenAmounts(amount);
-        // uint256 amount0Min = expectedwbtcAmount * (10000 - slippage) / 10000;
-        // uint256 amount1Min = expectedWethAmount * (10000 - slippage) / 10000;
+        (,,,,,,,uint128 liquidity,,,,) = positionManager.positions(tokenId);
         uint256 deadline = block.timestamp + 2 minutes;
         uint128 liquidtyAmount = uint128(liquidity)*(amount)/(uint128(totalAsset));
         liquidtyAmount = liquidtyAmount*(1000 - liquiditySlippage)/(1000);
@@ -97,7 +93,6 @@ contract UniswapBTC is Ownable, ReentrancyGuard {
             amount1Min: 0,
             deadline: deadline
         });
-        liquidity -= liquidtyAmount;
         (uint256 amount0, uint256 amount1) = positionManager.decreaseLiquidity(decreaseLiquidityParams);
         INonfungiblePositionManager.CollectParams memory collectParams = INonfungiblePositionManager.CollectParams({
             tokenId: tokenId,
