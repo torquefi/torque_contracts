@@ -135,8 +135,7 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
         require(msg.sender == controller, "Only Controller can call this");
         uint256 arbAmount = arbToken.balanceOf(address(this));
         if(arbAmount > minARBAmount){
-            swapARBtoWETH(arbAmount);
-            uint256 wethVal = weth.balanceOf(address(this));
+            uint256 wethVal = swapARBtoWETH(arbAmount);
             weth.transfer(msg.sender, wethVal);
         }
     }
