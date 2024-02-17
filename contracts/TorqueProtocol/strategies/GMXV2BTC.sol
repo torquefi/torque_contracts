@@ -128,8 +128,7 @@ contract GMXV2BTC is Ownable, ReentrancyGuard {
         require(msg.sender == controller, "Only controller can call this!");
         uint256 arbAmount = arbToken.balanceOf(address(this));
         if(arbAmount > minARBAmount){
-            swapARBtoBTC(arbAmount);
-            uint256 wbtcVal = wbtcGMX.balanceOf(address(this));
+            uint256 wbtcVal = swapARBtoBTC(arbAmount);
             wbtcGMX.transfer(msg.sender, wbtcVal);
         }
     }
@@ -262,21 +261,3 @@ contract GMXV2BTC is Ownable, ReentrancyGuard {
 
     receive() external payable{}
 }
-
-// PS CHECK
-// struct MarketPoolValueInfoProps {
-//     int256 poolValue; 30297859937182975781353382593557078314
-//     int256 longPnl; -30256194486684016933915089809167659866
-//     int256 shortPnl; 57958940031103509964560000000000
-//     int256 netPnl; -30256136527743985830405125249167659866
-
-//     uint256 longTokenAmount; 177282026099
-//     uint256 shortTokenAmount; 72438845087601
-//     uint256 longTokenUsd; 7621624829125607562252570000000000
-//     uint256 shortTokenUsd; 72448675038879387455700000000000
-
-//     uint256 totalBorrowingFees; 54014820524637842323983133951457854
-//     uint256 borrowingFeePoolFactor; 630000000000000000000000000000n
-
-//     uint256 impactPoolAmount; 995561279n
-//   }117473871830231827571983404
