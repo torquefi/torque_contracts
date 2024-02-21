@@ -10,7 +10,7 @@ pragma solidity ^0.8.9;
 //        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
 
 import "@chainlink/contracts/src/v0.8/AutomationCompatible.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -79,11 +79,6 @@ contract BoostETH is AutomationCompatible, Ownable, ReentrancyGuard, ERC20{
         gmxV2ETH.withdraw{value: msg.value}(gmxWithdrawAmount, msg.sender);
         uint256 wethAmount = weth.balanceOf(address(this));
         weth.transfer(msg.sender, wethAmount);
-        payable(msg.sender).transfer(address(this).balance);
-    }
-
-    function withdrawGMXETHFee() external onlyOwner() {
-        gmxV2ETH.withdrawETH();
         payable(msg.sender).transfer(address(this).balance);
     }
 
