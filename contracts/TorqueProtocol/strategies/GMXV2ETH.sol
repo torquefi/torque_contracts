@@ -43,6 +43,7 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
     uint24 feeAmt = 500;
     address controller;
 
+    address public treasury = 0x0f773B3d518d0885DbF0ae304D87a718F68EEED5;
     mapping (address => uint256) public usdcAmount;
     mapping (address => uint256) public wethAmount;
     
@@ -118,17 +119,12 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
         return _wethAmount;
     }
 
-    function withdrawETH() external onlyOwner() {
-        payable(msg.sender).transfer(address(this).balance);
+    function withdrawTreasuryFees() external onlyOwner() {
+        payable(treasury).transfer(address(this).balance);
     }
 
-    // PS CHECK To be removed Temporary function
-    function withdrawAllTempfunction() external onlyOwner() {
-        uint256 _weth = weth.balanceOf(address(this));
-        uint256 _usdc = usdcToken.balanceOf(address(this));
-        weth.transfer(msg.sender, _weth);
-        usdcToken.transfer(msg.sender, _usdc);
-        payable(msg.sender).transfer(address(this).balance);
+    function setTreasury(address _treasury) public onlyOwner {
+        treasury = _treasury;
     }
 
     function compound() external {
