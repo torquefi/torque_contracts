@@ -24,7 +24,7 @@ contract UniswapComp is Ownable, ReentrancyGuard {
     IERC20 public wethToken;
     ISwapRouter public swapRouter;
 
-    uint24 poolFee = 100;
+    uint24 poolFee = 3000;
 
     INonfungiblePositionManager positionManager;
     uint256 slippage = 20;
