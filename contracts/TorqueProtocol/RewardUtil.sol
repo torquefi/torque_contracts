@@ -33,7 +33,6 @@ contract RewardUtil is ReentrancyGuard, Ownable {
     address public governor;
 
     mapping(address => bool) public distributionContract;
-
     mapping(address => RewardConfig) public rewardConfig; // Distribution Contract --> Reward Config
     mapping(address => mapping(address => UserRewardConfig)) public rewardsClaimed; // Distribution Contract --> User Address --> Rewards 
 
@@ -41,6 +40,7 @@ contract RewardUtil is ReentrancyGuard, Ownable {
     event GovernorTransferred(address indexed oldGovernor, address indexed newGovernor);
     event RewardClaimed(address indexed user, address indexed torqueContract, uint256 amount);
     event RewardFactorUpdated(address indexed torqueContract, uint256 newSpeed);
+    event TorquePoolUpdated(address torqueContract,uint256 _poolAmount);
 
     error NotPermitted(address);
     error InvalidTorqueContract(address);
@@ -60,6 +60,7 @@ contract RewardUtil is ReentrancyGuard, Ownable {
         require(distributionContract[msg.sender], "Unauthorised!");
         _calculateAndUpdateReward(msg.sender, _userAddress);
         rewardsClaimed[msg.sender][_userAddress].depositAmount = rewardsClaimed[msg.sender][_userAddress].depositAmount.add(_depositAmount);
+        rewardsClaimed[msg.sender][_userAddress].lastRewardBlock = block.number;
         rewardsClaimed[msg.sender][_userAddress].isActive = true;
     }
 
@@ -72,29 +73,32 @@ contract RewardUtil is ReentrancyGuard, Ownable {
         }
     }
 
-    function setrewardFactor(address torqueContract, uint256 _speed) external onlyGovernor {
-        rewardConfig[torqueContract].rewardFactor = _speed;
-        emit RewardFactorUpdated(torqueContract, _speed);
+    function setrewardFactor(address torqueContract, uint256 _rewardFactor) public onlyGovernor() {
+        rewardConfig[torqueContract].rewardFactor = _rewardFactor;
+        emit RewardFactorUpdated(torqueContract, _rewardFactor);
     }
 
-    function depositTorque(address _torqueContract, uint256 _depositAmount) external {
-        torqToken.transferFrom(msg.sender, address(this), _depositAmount);
-        rewardConfig[_torqueContract].torquePool = rewardConfig[_torqueContract].torquePool.add(_depositAmount);
+    function setTorquePool(address _torqueContract, uint256 _poolAmount) public onlyGovernor() {
+        rewardConfig[_torqueContract].torquePool = _poolAmount;
+        emit TorquePoolUpdated(_torqueContract, _poolAmount);
     }
 
     function updateReward(address torqueContract, address user) public nonReentrant {
         _calculateAndUpdateReward(torqueContract, user);
     }
 
-    function setDistributionContract(address _address) public onlyOwner { // Can update to governor contract later
+    function setDistributionContract(address _address, uint256 _rewardFactor, uint256 _rewardPool) public onlyOwner { // Can update to governor contract later
+        if (_rewardFactor == 0) revert InvalidTorqueContract(_address);
         distributionContract[_address] = true;
+        setrewardFactor(_address, _rewardFactor);
+        setTorquePool(_address, _rewardPool);
     }
 
     function _calculateAndUpdateReward(address _torqueContract, address _userAddress) internal {
         if(!rewardsClaimed[_torqueContract][_userAddress].isActive){
             return;
         }
-        uint256 blocks = block.number - rewardsClaimed[_torqueContract][_userAddress].lastRewardBlock;
+        uint256 blocks = block.number - rewardsClaimed[_torqueContract][_userAddress].lastRewardBlock; // 288000 daily blocks
         uint256 userReward = blocks.mul(rewardsClaimed[_torqueContract][_userAddress].depositAmount); // Fix formula
         userReward = userReward.mul(rewardConfig[_torqueContract].torquePool);
         userReward = userReward.div(rewardConfig[_torqueContract].rewardFactor);
@@ -118,5 +122,9 @@ contract RewardUtil is ReentrancyGuard, Ownable {
         address oldGovernor = governor;
         governor = newGovernor;
         emit GovernorTransferred(oldGovernor, newGovernor);
+    }
+
+    function getRewardConfig(address _torqueContract, address _user) public view returns (UserRewardConfig memory){
+        return rewardsClaimed[_torqueContract][_user];
     }
 }
