@@ -61,8 +61,9 @@ contract BoostETH is AutomationCompatible, Ownable, ReentrancyGuard, ERC20{
 
     function depositETH(uint256 depositAmount) external payable nonReentrant() {
         require(msg.value > 0, "You must pay GMX v2 execution fee");
-        weth.transferFrom(msg.sender, address(this), depositAmount);
+        require(weth.balanceOf(address(this)) >= compoundWethAmount, "Insufficient compound balance");
         
+        weth.transferFrom(msg.sender, address(this), depositAmount);
         uint256 depositAndCompound = depositAmount + compoundWethAmount;
         compoundWethAmount = 0;
         uint256 stargateDepositAmount = depositAndCompound.mul(stargateAllocation).div(100);
@@ -86,10 +87,12 @@ contract BoostETH is AutomationCompatible, Ownable, ReentrancyGuard, ERC20{
         uint256 gmxWithdrawAmount = withdrawAmount.sub(stargateWithdrawAmount);
         _burn(msg.sender, sharesAmount);
         totalAssetsAmount = totalAssetsAmount.sub(withdrawAmount);
-
+       
+        uint256 prevWethAmount = weth.balanceOf(address(this));
         stargateETH.withdraw(stargateWithdrawAmount);
         gmxV2ETH.withdraw{value: msg.value}(gmxWithdrawAmount, msg.sender);
-        uint256 wethAmount = weth.balanceOf(address(this));
+        uint256 postWethAmount = weth.balanceOf(address(this));
+        uint256 wethAmount = postWethAmount - prevWethAmount;
         weth.transfer(msg.sender, wethAmount);
         rewardsUtil.userWithdrawReward(msg.sender, sharesAmount);
     }

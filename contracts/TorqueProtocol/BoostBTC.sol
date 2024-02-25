@@ -64,8 +64,8 @@ contract BoostBTC is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
 
     function depositBTC(uint256 depositAmount) external payable nonReentrant() {
         require(msg.value > 0, "Please pass GMX execution fees");
+        require(wbtcToken.balanceOf(address(this)) >= compoundWbtcAmount, "Insufficient compound balance");
         wbtcToken.transferFrom(msg.sender, address(this), depositAmount);
-
         uint256 depositAndCompound = depositAmount + compoundWbtcAmount;
         compoundWbtcAmount = 0;
         uint256 uniswapDepositAmount = depositAndCompound.mul(uniswapAllocation).div(100);
@@ -91,9 +91,11 @@ contract BoostBTC is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
         uint256 totalUniSwapAllocation = totalAssetsAmount.mul(uniswapAllocation).div(100);
         totalAssetsAmount = totalAssetsAmount.sub(withdrawAmount);
 
+        uint256 prevWbtcAmount = wbtcToken.balanceOf(address(this));
         uniswapBtc.withdraw(uint128(uniswapWithdrawAmount), totalUniSwapAllocation);
         gmxV2Btc.withdraw{value: msg.value}(gmxWithdrawAmount, msg.sender);
-        uint256 wbtcAmount = wbtcToken.balanceOf(address(this));
+        uint256 postWbtcAmount = wbtcToken.balanceOf(address(this));
+        uint256 wbtcAmount = postWbtcAmount - prevWbtcAmount;
         wbtcToken.transfer(msg.sender, wbtcAmount);
         rewardsUtil.userWithdrawReward(msg.sender, sharesAmount);
     }
