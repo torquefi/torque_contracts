@@ -41,8 +41,8 @@ const {
 
         it("Should authorize contract", async function () {
             const _amount = await ethers.parseUnits('10', 10);
-            await rewardContract.setDistributionContract(owner,_amount, _amount);
-            expect(await rewardContract.distributionContract(owner)).to.equal(true);
+            await rewardContract.addTorqueContract(owner,_amount,_amount);
+            expect(await rewardContract.isTorqueContract(owner)).to.equal(true);
         });
 
         it("Should get Reward Config ", async function () {
@@ -57,8 +57,16 @@ const {
         it("Should get Reward Config ", async function () {
             console.log(await rewardContract.getRewardConfig(owner, "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"));
         });
+
+        it("Should update rewards ", async function() {
+            for(let i = 0; i < 10; i++) {
+                await ethers.provider.send("evm_mine", []);
+            }
+            await rewardContract.updateReward(owner, "0x70997970C51812dc3A010C7d01b50e0d17dc79C8");
+            console.log(await rewardContract.getRewardConfig(owner, "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"));
+        })
         
-        it("Should get Withdraw ", async function () {
+        it("Should do Withdraw ", async function () {
             const _amount = await ethers.parseUnits('10', 10);
             await rewardContract.userWithdrawReward("0x70997970C51812dc3A010C7d01b50e0d17dc79C8",_amount);
         });
@@ -66,26 +74,51 @@ const {
         it("Should get Reward Config ", async function () {
             console.log(await rewardContract.getRewardConfig(owner, "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"));
         });
-  
-    //   it("should deploy library", async function(){ 
-    //     const oracleLib = await ethers.getContractFactory("OracleLib");
-    //     const oracleLibInstance = await oracleLib.deploy();
-    //   })
-  
-    //   it("Should deploy Engine", async function () {
-    //     engineContract = await loadFixture(deployEngineContract);
-    //     await hre.link("OracleiLib", await engineContract.target);
-    //     expect(await tusdContract.owner()).to.equal(owner.address);
-    //     console.log("Engine Address ", await engineContract.target);
-    //     engineAddress = await engineContract.target;
-    //   });
-  
-    //   it("Should transfer ownership of TUSD", async function() {
-    //     await tusdContract.transferOwnership(engineAddress);
-    //     expect(await tusdContract.owner()).to.equal(engineAddress);
-    //   })
-  
-  
+
+        it("Should set userDepositReward ", async function () {
+            const _amount = await ethers.parseUnits('10', 5);
+            await rewardContract.userDepositReward("0x70997970C51812dc3A010C7d01b50e0d17dc79C8",_amount);
+            console.log(await rewardContract.getRewardConfig(owner, "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"));
+        });
+
+        it("Should update rewards ", async function() {
+            for(let i = 0; i < 10; i++) {
+                await ethers.provider.send("evm_mine", []);
+            }
+            await rewardContract.updateReward(owner, "0x70997970C51812dc3A010C7d01b50e0d17dc79C8");
+            console.log(await rewardContract.getRewardConfig(owner, "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"));
+        })
+
+        it("Should add userDepositReward ", async function () {
+            const _amount = await ethers.parseUnits('10', 5);
+            await rewardContract.userDepositReward("0x70997970C51812dc3A010C7d01b50e0d17dc79C8",_amount);
+            console.log(await rewardContract.getRewardConfig(owner, "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"));
+        });
+
+        // it("Should do mid claim ", async function () {
+        //     await rewardContract.connect(otherAccount).claimReward(owner);
+        //     console.log(await rewardContract.getRewardConfig(owner, "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"));
+        // });
+
+        it("Should update rewards ", async function() {
+            for(let i = 0; i < 10; i++) {
+                await ethers.provider.send("evm_mine", []);
+            }
+            await rewardContract.updateReward(owner, "0x70997970C51812dc3A010C7d01b50e0d17dc79C8");
+            console.log(await rewardContract.getRewardConfig(owner, "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"));
+        })
+
+        it("Should do Withdraw ", async function () {
+            const _amount = await ethers.parseUnits('20', 5);
+            await rewardContract.userWithdrawReward("0x70997970C51812dc3A010C7d01b50e0d17dc79C8",_amount);
+            console.log(await rewardContract.getRewardConfig(owner, "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"));
+        });
+
+        // it("Should do claim ", async function () {
+        //     await rewardContract.connect(otherAccount).claimReward(owner);
+        //     console.log(await rewardContract.getRewardConfig(owner, "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"));
+        // });
+
     });
   });
   
