@@ -31,16 +31,18 @@ contract RewardUtil is ReentrancyGuard, Ownable {
 
     IERC20 public torqToken;
     address public governor;
+    bool public claimsPaused = false;
 
-    mapping(address => bool) public distributionContract;
+    mapping(address => bool) public isTorqueContract;
     mapping(address => RewardConfig) public rewardConfig; // Distribution Contract --> Reward Config
     mapping(address => mapping(address => UserRewardConfig)) public rewardsClaimed; // Distribution Contract --> User Address --> Rewards 
 
 
     event GovernorTransferred(address indexed oldGovernor, address indexed newGovernor);
     event RewardClaimed(address indexed user, address indexed torqueContract, uint256 amount);
-    event RewardFactorUpdated(address indexed torqueContract, uint256 newSpeed);
+    event RewardFactorUpdated(address indexed torqueContract, uint256 rewardFactor);
     event TorquePoolUpdated(address torqueContract,uint256 _poolAmount);
+    event TorqueContractAdded(address torqueContract,uint256 _poolAmount,uint256 rewardFactor);
 
     error NotPermitted(address);
     error InvalidTorqueContract(address);
@@ -57,7 +59,7 @@ contract RewardUtil is ReentrancyGuard, Ownable {
     }
 
     function userDepositReward(address _userAddress, uint256 _depositAmount) external {
-        require(distributionContract[msg.sender], "Unauthorised!");
+        require(isTorqueContract[msg.sender], "Unauthorised!");
         _calculateAndUpdateReward(msg.sender, _userAddress);
         rewardsClaimed[msg.sender][_userAddress].depositAmount = rewardsClaimed[msg.sender][_userAddress].depositAmount.add(_depositAmount);
         rewardsClaimed[msg.sender][_userAddress].lastRewardBlock = block.number;
@@ -65,7 +67,8 @@ contract RewardUtil is ReentrancyGuard, Ownable {
     }
 
     function userWithdrawReward(address _userAddress, uint256 _withdrawAmount) external {
-        require(distributionContract[msg.sender], "Unauthorised!");
+        require(isTorqueContract[msg.sender], "Unauthorised!");
+        require(_withdrawAmount <= rewardsClaimed[msg.sender][_userAddress].depositAmount, "Cannot withdraw more than deposit!");
         _calculateAndUpdateReward(msg.sender, _userAddress);
         rewardsClaimed[msg.sender][_userAddress].depositAmount = rewardsClaimed[msg.sender][_userAddress].depositAmount.sub(_withdrawAmount);
         if(rewardsClaimed[msg.sender][_userAddress].depositAmount == 0){
@@ -87,11 +90,19 @@ contract RewardUtil is ReentrancyGuard, Ownable {
         _calculateAndUpdateReward(torqueContract, user);
     }
 
-    function setDistributionContract(address _address, uint256 _rewardFactor, uint256 _rewardPool) public onlyOwner { // Can update to governor contract later
-        if (_rewardFactor == 0) revert InvalidTorqueContract(_address);
-        distributionContract[_address] = true;
-        setrewardFactor(_address, _rewardFactor);
-        setTorquePool(_address, _rewardPool);
+    function updateTorqueToken(address _torqueToken) external onlyOwner() {
+        torqToken = IERC20(_torqueToken);
+    }
+
+    function addTorqueContract(address _address, uint256 _rewardPool, uint256 _rewardFactor) public onlyOwner {
+        if (_rewardFactor == 0) {
+            revert InvalidTorqueContract(_address);
+        }
+        isTorqueContract[_address] = true;
+        rewardConfig[_address].rewardFactor = _rewardFactor;
+        rewardConfig[_address].torquePool = _rewardPool;
+
+        emit TorqueContractAdded(_address, _rewardPool, _rewardFactor);
     }
 
     function _calculateAndUpdateReward(address _torqueContract, address _userAddress) internal {
@@ -99,20 +110,19 @@ contract RewardUtil is ReentrancyGuard, Ownable {
             return;
         }
         uint256 blocks = block.number - rewardsClaimed[_torqueContract][_userAddress].lastRewardBlock; // 288000 daily blocks
-        uint256 userReward = blocks.mul(rewardsClaimed[_torqueContract][_userAddress].depositAmount); // Fix formula
+        uint256 userReward = blocks.mul(rewardsClaimed[_torqueContract][_userAddress].depositAmount);
         userReward = userReward.mul(rewardConfig[_torqueContract].torquePool);
         userReward = userReward.div(rewardConfig[_torqueContract].rewardFactor);
         rewardsClaimed[_torqueContract][_userAddress].lastRewardBlock = block.number;
         rewardsClaimed[_torqueContract][_userAddress].rewardAmount = rewardsClaimed[_torqueContract][_userAddress].rewardAmount.add(userReward);
     }
 
-    function claimReward(address _torqueContract) external nonReentrant {
-        if (rewardConfig[_torqueContract].rewardFactor == 0) revert InvalidTorqueContract(_torqueContract);
-        require(rewardsClaimed[_torqueContract][msg.sender].isActive, "Rewards are not activated!");
-        
+    function claimReward(address _torqueContract) external {
+        require(!claimsPaused, "Claims are paused!");
         updateReward(_torqueContract, msg.sender);
         uint256 rewardAmount = rewardsClaimed[_torqueContract][msg.sender].rewardAmount;
         require(torqToken.balanceOf(address(this)) >= rewardAmount, "Insufficient TORQ");
+        require(rewardAmount > 0 ,"No rewards found!");
         rewardsClaimed[_torqueContract][msg.sender].rewardAmount = 0;
         torqToken.transfer(msg.sender, rewardAmount);
         emit RewardClaimed(msg.sender, _torqueContract, rewardAmount);
@@ -122,6 +132,10 @@ contract RewardUtil is ReentrancyGuard, Ownable {
         address oldGovernor = governor;
         governor = newGovernor;
         emit GovernorTransferred(oldGovernor, newGovernor);
+    }
+
+    function pauseClaims(bool _pause) external onlyGovernor {
+        claimsPaused = _pause;
     }
 
     function getRewardConfig(address _torqueContract, address _user) public view returns (UserRewardConfig memory){
