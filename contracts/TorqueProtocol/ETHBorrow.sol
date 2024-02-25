@@ -11,8 +11,14 @@ pragma solidity ^0.8.19;
 
 import "./BorrowAbstract.sol";
 
+interface RewardsUtil {
+    function userDepositReward(address _userAddress, uint256 _depositAmount) external;
+    function userWithdrawReward(address _userAddress, uint256 _withdrawAmount) external;
+}
+
 contract ETHBorrow is BorrowAbstract {
     using SafeMath for uint256;
+    RewardsUtil public rewardsUtil;
 
     constructor(
         address _initialOwner,
@@ -24,6 +30,7 @@ contract ETHBorrow is BorrowAbstract {
         address _engine, 
         address _tusd, 
         address _treasury, 
+        address _rewardsUtil,
         uint _repaySlippage
     ) BorrowAbstract(
         _initialOwner,
@@ -36,7 +43,9 @@ contract ETHBorrow is BorrowAbstract {
         _tusd,
         _treasury,
         _repaySlippage
-    ) Ownable(msg.sender) {}
+    ) Ownable(msg.sender) {
+        rewardsUtil = RewardsUtil(_rewardsUtil);
+    }
     // Approve the contract of WETH usage
     function borrow(uint supplyAmount, uint borrowAmountUSDC, uint tUSDBorrowAmount) public nonReentrant(){
         require(supplyAmount > 0, "Supply amount must be greater than 0");
@@ -84,6 +93,7 @@ contract ETHBorrow is BorrowAbstract {
         // Final State Update
         totalBorrow = totalBorrow.add(tUSDBorrowAmount);
         totalSupplied = totalSupplied.add(supplyAmount);
+        rewardsUtil.userDepositReward(msg.sender, supplyAmount);
     }
 
     function repay(uint tusdRepayAmount, uint256 WETHWithdraw) public nonReentrant {
@@ -133,6 +143,7 @@ contract ETHBorrow is BorrowAbstract {
         // Final State Update
         totalBorrow = totalBorrow.sub(tusdRepayAmount);
         totalSupplied = totalSupplied.sub(WETHWithdraw);
+        rewardsUtil.userWithdrawReward(msg.sender, WETHWithdraw);
     }
 
     function mintableTUSD(uint supplyAmount, address _address) external view returns (uint) {
@@ -205,5 +216,15 @@ contract ETHBorrow is BorrowAbstract {
         
         // Final State Update
         totalBorrow = totalBorrow.add(_amountToMint);
+    }
+
+    function maxMoreMintable(address _address) public view returns (uint256) {
+        BorrowInfo storage userBorrowInfo = borrowInfoMap[_address];
+        uint256 borrowedTUSD = userBorrowInfo.baseBorrowed;
+        uint256 borrowedAmount = borrowHealth[_address];
+        borrowedAmount =  borrowedAmount.mul(decimalAdjust)
+            .mul(LIQUIDATION_PRECISION)
+            .div(LIQUIDATION_THRESHOLD);
+        return borrowedAmount - borrowedTUSD;
     }
 }

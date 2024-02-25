@@ -11,8 +11,14 @@ pragma solidity ^0.8.19;
 
 import "./BorrowAbstract.sol";
 
+interface RewardsUtil {
+    function userDepositReward(address _userAddress, uint256 _depositAmount) external;
+    function userWithdrawReward(address _userAddress, uint256 _withdrawAmount) external;
+}
+
 contract BTCBorrow is BorrowAbstract {
     using SafeMath for uint256;
+    RewardsUtil public rewardsUtil;
 
     constructor(
         address _initialOwner,
@@ -23,7 +29,8 @@ contract BTCBorrow is BorrowAbstract {
         address _bulker, 
         address _engine, 
         address _tusd, 
-        address _treasury, 
+        address _treasury,
+        address _rewardsUtil, 
         uint _repaySlippage
     ) BorrowAbstract(
         _initialOwner,
@@ -36,7 +43,9 @@ contract BTCBorrow is BorrowAbstract {
         _tusd,
         _treasury,
         _repaySlippage
-    ) Ownable(msg.sender) {}
+    ) Ownable(msg.sender) {
+        rewardsUtil = RewardsUtil(_rewardsUtil);
+    }
     // Approve the contract of WBTC usage
     function borrow(uint supplyAmount, uint borrowAmountUSDC, uint tUSDBorrowAmount) public nonReentrant(){
         require(supplyAmount > 0, "Supply amount must be greater than 0");
@@ -84,6 +93,7 @@ contract BTCBorrow is BorrowAbstract {
         // Final State Update
         totalBorrow = totalBorrow.add(tUSDBorrowAmount);
         totalSupplied = totalSupplied.add(supplyAmount);
+        rewardsUtil.userDepositReward(msg.sender, supplyAmount);
     }
 
     function repay(uint tusdRepayAmount, uint256 WbtcWithdraw) public nonReentrant {
@@ -133,6 +143,7 @@ contract BTCBorrow is BorrowAbstract {
         // Final State Update
         totalBorrow = totalBorrow.sub(tusdRepayAmount);
         totalSupplied = totalSupplied.sub(WbtcWithdraw);
+        rewardsUtil.userWithdrawReward(msg.sender, WbtcWithdraw);
     }
 
     function mintableTUSD(uint supplyAmount, address _address) external view returns (uint) {
@@ -201,5 +212,15 @@ contract BTCBorrow is BorrowAbstract {
         
         // Final State Update
         totalBorrow = totalBorrow.add(_amountToMint);
+    }
+
+    function maxMoreMintable(address _address) public view returns (uint256) {
+        BorrowInfo storage userBorrowInfo = borrowInfoMap[_address];
+        uint256 borrowedTUSD = userBorrowInfo.baseBorrowed;
+        uint256 borrowedAmount = borrowHealth[_address];
+        borrowedAmount =  borrowedAmount.mul(decimalAdjust)
+            .mul(LIQUIDATION_PRECISION)
+            .div(LIQUIDATION_THRESHOLD);
+        return borrowedAmount - borrowedTUSD;
     }
 }
