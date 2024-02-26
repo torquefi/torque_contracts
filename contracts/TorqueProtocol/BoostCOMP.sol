@@ -19,9 +19,9 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 import "./interfaces/IWETH9.sol";
 
-import "./strategies/UniswapComp.sol";
+import "./strategies/UniswapCOMP.sol";
 
-contract BoostComp is AutomationCompatible, Ownable, ReentrancyGuard, ERC20{
+contract BoostCOMP is AutomationCompatible, Ownable, ReentrancyGuard, ERC20{
     using SafeMath for uint256;
     using Math for uint256;
 
