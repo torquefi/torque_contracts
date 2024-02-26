@@ -17,7 +17,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
 import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 
-contract UniswapComp is Ownable, ReentrancyGuard {
+contract UniswapCOMP is Ownable, ReentrancyGuard {
     using SafeMath for uint256;
 
     IERC20 public compToken;
