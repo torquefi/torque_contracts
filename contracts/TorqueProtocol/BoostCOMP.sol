@@ -19,15 +19,15 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 import "./interfaces/IWETH9.sol";
 
-import "./strategies/UniswapComp.sol";
+import "./strategies/UniswapCOMP.sol";
 
-contract BoostComp is AutomationCompatible, Ownable, ReentrancyGuard, ERC20{
+contract BoostCOMP is AutomationCompatible, Ownable, ReentrancyGuard, ERC20{
     using SafeMath for uint256;
     using Math for uint256;
 
     IERC20 public compToken;
-    UniswapComp public uniswapComp;
-    UniswapComp public sushiComp;
+    UniswapCOMP public uniswapComp;
+    UniswapCOMP public sushiComp;
 
     address public treasury;
     uint256 public uniswapAllocation;
@@ -47,8 +47,8 @@ contract BoostComp is AutomationCompatible, Ownable, ReentrancyGuard, ERC20{
         address _treasury
     ) ERC20(_name, _symbol) {
         compToken = IERC20(_compAddress);
-        uniswapComp = UniswapComp(_uniswapCompAddress);
-        sushiComp = UniswapComp(_sushiCompAddress);
+        uniswapComp = UniswapCOMP(_uniswapCompAddress);
+        sushiComp = UniswapCOMP(_sushiCompAddress);
         uniswapAllocation = 50;
         sushiAllocation = 50;
         treasury = _treasury;
