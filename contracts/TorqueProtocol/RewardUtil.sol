@@ -177,6 +177,10 @@ contract RewardUtil is ReentrancyGuard, Ownable {
         claimsPaused = _pause;
     }
 
+    function withdrawTorque(uint256 _amount) external onlyOwner() {
+        torqToken.transfer(msg.sender, _amount);
+    }
+
     function getRewardConfig(address _torqueContract, address _user) public view returns (UserRewardConfig memory){
         return rewardsClaimed[_torqueContract][_user];
     }
