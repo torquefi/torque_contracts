@@ -20,11 +20,13 @@ contract RewardUtil is ReentrancyGuard, Ownable {
     struct RewardConfig {
         uint256 rewardFactor;
         uint256 torquePool;
+        uint256 borrowFactor; // Only needed for borrow contract
     }
 
     struct UserRewardConfig {
         uint256 rewardAmount;
         uint256 depositAmount;
+        uint256 borrowAmount;
         uint256 lastRewardBlock;
         bool isActive;
     }
@@ -41,8 +43,9 @@ contract RewardUtil is ReentrancyGuard, Ownable {
     event GovernorTransferred(address indexed oldGovernor, address indexed newGovernor);
     event RewardClaimed(address indexed user, address indexed torqueContract, uint256 amount);
     event RewardFactorUpdated(address indexed torqueContract, uint256 rewardFactor);
+    event BorrowFactorUpdated(address indexed torqueContract, uint256 borrowFactor);
     event TorquePoolUpdated(address torqueContract,uint256 _poolAmount);
-    event TorqueContractAdded(address torqueContract,uint256 _poolAmount,uint256 rewardFactor);
+    event TorqueContractAdded(address torqueContract,uint256 _poolAmount, uint256 rewardFactor, uint256 borrowFactor);
 
     error NotPermitted(address);
     error InvalidTorqueContract(address);
@@ -66,12 +69,30 @@ contract RewardUtil is ReentrancyGuard, Ownable {
         rewardsClaimed[msg.sender][_userAddress].isActive = true;
     }
 
+    function userDepositBorrowReward(address _userAddress, uint256 _borrowAmount) external {
+        require(isTorqueContract[msg.sender], "Unauthorised!");
+        _calculateAndUpdateReward(msg.sender, _userAddress);
+        rewardsClaimed[msg.sender][_userAddress].borrowAmount = rewardsClaimed[msg.sender][_userAddress].borrowAmount.add(_borrowAmount);
+        rewardsClaimed[msg.sender][_userAddress].lastRewardBlock = block.number;
+        rewardsClaimed[msg.sender][_userAddress].isActive = true;
+    }
+
     function userWithdrawReward(address _userAddress, uint256 _withdrawAmount) external {
         require(isTorqueContract[msg.sender], "Unauthorised!");
         require(_withdrawAmount <= rewardsClaimed[msg.sender][_userAddress].depositAmount, "Cannot withdraw more than deposit!");
         _calculateAndUpdateReward(msg.sender, _userAddress);
         rewardsClaimed[msg.sender][_userAddress].depositAmount = rewardsClaimed[msg.sender][_userAddress].depositAmount.sub(_withdrawAmount);
-        if(rewardsClaimed[msg.sender][_userAddress].depositAmount == 0){
+        if(rewardsClaimed[msg.sender][_userAddress].depositAmount == 0 && rewardsClaimed[msg.sender][_userAddress].borrowAmount == 0){
+            rewardsClaimed[msg.sender][_userAddress].isActive = false;
+        }
+    }
+
+    function userWithdrawBorrowReward(address _userAddress, uint256 _withdrawBorrowAmount) external {
+        require(isTorqueContract[msg.sender], "Unauthorised!");
+        require(_withdrawBorrowAmount <= rewardsClaimed[msg.sender][_userAddress].borrowAmount, "Cannot withdraw more than deposit!");
+        _calculateAndUpdateReward(msg.sender, _userAddress);
+        rewardsClaimed[msg.sender][_userAddress].borrowAmount = rewardsClaimed[msg.sender][_userAddress].borrowAmount.sub(_withdrawBorrowAmount);
+        if(rewardsClaimed[msg.sender][_userAddress].depositAmount == 0 && rewardsClaimed[msg.sender][_userAddress].borrowAmount == 0){
             rewardsClaimed[msg.sender][_userAddress].isActive = false;
         }
     }
@@ -86,6 +107,11 @@ contract RewardUtil is ReentrancyGuard, Ownable {
         emit TorquePoolUpdated(_torqueContract, _poolAmount);
     }
 
+    function setBorrowFactor(address _torqueContract, uint256 _borrowFactor) public onlyGovernor() {
+        rewardConfig[_torqueContract].borrowFactor = _borrowFactor;
+        emit BorrowFactorUpdated(_torqueContract, _borrowFactor);
+    }
+
     function updateReward(address torqueContract, address user) public nonReentrant {
         _calculateAndUpdateReward(torqueContract, user);
     }
@@ -94,15 +120,25 @@ contract RewardUtil is ReentrancyGuard, Ownable {
         torqToken = IERC20(_torqueToken);
     }
 
-    function addTorqueContract(address _address, uint256 _rewardPool, uint256 _rewardFactor) public onlyOwner {
+    // Set Borrow Factor 0 for BoostContracts
+    function addTorqueContract(address _address, uint256 _rewardPool, uint256 _rewardFactor, uint256 _borrowFactor) public onlyOwner {
         if (_rewardFactor == 0) {
             revert InvalidTorqueContract(_address);
         }
         isTorqueContract[_address] = true;
         rewardConfig[_address].rewardFactor = _rewardFactor;
+        rewardConfig[_address].borrowFactor = _borrowFactor;
         rewardConfig[_address].torquePool = _rewardPool;
 
-        emit TorqueContractAdded(_address, _rewardPool, _rewardFactor);
+        emit TorqueContractAdded(_address, _rewardPool, _rewardFactor, _borrowFactor);
+    }
+
+    function _calculateAndUpdateBorrowReward(address _torqueContract, address _userAddress) internal {
+        uint256 blocks = block.number - rewardsClaimed[_torqueContract][_userAddress].lastRewardBlock; // 288000 daily blocks
+        uint256 userReward = blocks.mul(rewardsClaimed[_torqueContract][_userAddress].borrowAmount);
+        userReward = userReward.mul(rewardConfig[_torqueContract].torquePool);
+        userReward = userReward.div(rewardConfig[_torqueContract].borrowFactor);
+        rewardsClaimed[_torqueContract][_userAddress].rewardAmount = rewardsClaimed[_torqueContract][_userAddress].rewardAmount.add(userReward);
     }
 
     function _calculateAndUpdateReward(address _torqueContract, address _userAddress) internal {
@@ -113,6 +149,9 @@ contract RewardUtil is ReentrancyGuard, Ownable {
         uint256 userReward = blocks.mul(rewardsClaimed[_torqueContract][_userAddress].depositAmount);
         userReward = userReward.mul(rewardConfig[_torqueContract].torquePool);
         userReward = userReward.div(rewardConfig[_torqueContract].rewardFactor);
+        if(rewardConfig[_torqueContract].borrowFactor > 0 && rewardsClaimed[_torqueContract][_userAddress].borrowAmount > 0){
+            _calculateAndUpdateBorrowReward(_torqueContract, _userAddress);
+        }
         rewardsClaimed[_torqueContract][_userAddress].lastRewardBlock = block.number;
         rewardsClaimed[_torqueContract][_userAddress].rewardAmount = rewardsClaimed[_torqueContract][_userAddress].rewardAmount.add(userReward);
     }
