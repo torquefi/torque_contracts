@@ -13,7 +13,9 @@ import "./BorrowAbstract.sol";
 
 interface RewardsUtil {
     function userDepositReward(address _userAddress, uint256 _depositAmount) external;
+    function userDepositBorrowReward(address _userAddress, uint256 _borrowAmount) external;
     function userWithdrawReward(address _userAddress, uint256 _withdrawAmount) external;
+    function userWithdrawBorrowReward(address _userAddress, uint256 _withdrawBorrowAmount) external;
 }
 
 contract ETHBorrow is BorrowAbstract {
@@ -94,6 +96,7 @@ contract ETHBorrow is BorrowAbstract {
         totalBorrow = totalBorrow.add(tUSDBorrowAmount);
         totalSupplied = totalSupplied.add(supplyAmount);
         rewardsUtil.userDepositReward(msg.sender, supplyAmount);
+        rewardsUtil.userDepositBorrowReward(msg.sender, tUSDBorrowAmount);
     }
 
     function repay(uint tusdRepayAmount, uint256 WETHWithdraw) public nonReentrant {
@@ -144,6 +147,7 @@ contract ETHBorrow is BorrowAbstract {
         totalBorrow = totalBorrow.sub(tusdRepayAmount);
         totalSupplied = totalSupplied.sub(WETHWithdraw);
         rewardsUtil.userWithdrawReward(msg.sender, WETHWithdraw);
+        rewardsUtil.userWithdrawBorrowReward(msg.sender, tusdRepayAmount);
     }
 
     function mintableTUSD(uint supplyAmount, address _address) external view returns (uint) {
@@ -216,6 +220,7 @@ contract ETHBorrow is BorrowAbstract {
         
         // Final State Update
         totalBorrow = totalBorrow.add(_amountToMint);
+        rewardsUtil.userDepositBorrowReward(msg.sender, _amountToMint);
     }
 
     function maxMoreMintable(address _address) public view returns (uint256) {
