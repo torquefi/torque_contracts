@@ -161,6 +161,10 @@ contract BoostBTC is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
         return totalAssetsAmount;
     }
 
+    function updateRewardsUtil(address _rewardsUtil) external onlyOwner() {
+        rewardsUtil = RewardsUtil(_rewardsUtil);
+    }
+
     function checkUpkeep(bytes calldata) external view override returns (bool upkeepNeeded, bytes memory performData) {
         upkeepNeeded = (block.timestamp >= lastCompoundTimestamp + 12 hours);
     }
