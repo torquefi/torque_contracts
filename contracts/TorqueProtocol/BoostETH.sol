@@ -154,6 +154,10 @@ contract BoostETH is AutomationCompatible, Ownable, ReentrancyGuard, ERC20{
         payable(treasury).transfer(address(this).balance);
     }
 
+    function updateRewardsUtil(address _rewardsUtil) external onlyOwner() {
+        rewardsUtil = RewardsUtil(_rewardsUtil);
+    }
+
     function checkUpkeep(bytes calldata) external view override returns (bool upkeepNeeded, bytes memory performData) {
         upkeepNeeded = (block.timestamp >= lastCompoundTimestamp + 12 hours);
     }

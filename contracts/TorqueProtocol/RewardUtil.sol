@@ -146,7 +146,7 @@ contract RewardUtil is ReentrancyGuard, Ownable {
             return;
         }
         uint256 blocks = block.number - rewardsClaimed[_torqueContract][_userAddress].lastRewardBlock; // 288000 daily blocks
-        uint256 userReward = blocks.mul(rewardsClaimed[_torqueContract][_userAddress].depositAmount);
+        uint256 userReward = blocks.mul(rewardsClaimed[_torqueContract][_userAddress].depositAmount); // 2000*
         userReward = userReward.mul(rewardConfig[_torqueContract].torquePool);
         userReward = userReward.div(rewardConfig[_torqueContract].rewardFactor);
         if(rewardConfig[_torqueContract].borrowFactor > 0 && rewardsClaimed[_torqueContract][_userAddress].borrowAmount > 0){
@@ -156,15 +156,17 @@ contract RewardUtil is ReentrancyGuard, Ownable {
         rewardsClaimed[_torqueContract][_userAddress].rewardAmount = rewardsClaimed[_torqueContract][_userAddress].rewardAmount.add(userReward);
     }
 
-    function claimReward(address _torqueContract) external {
+    function claimReward(address[] memory _torqueContract) external {
         require(!claimsPaused, "Claims are paused!");
-        updateReward(_torqueContract, msg.sender);
-        uint256 rewardAmount = rewardsClaimed[_torqueContract][msg.sender].rewardAmount;
+        uint256 rewardAmount = 0;
+        for(uint i=0;i<_torqueContract.length;i++){
+            updateReward(_torqueContract[i], msg.sender);
+            rewardAmount = rewardAmount.add(rewardsClaimed[_torqueContract[i]][msg.sender].rewardAmount);
+            rewardsClaimed[_torqueContract[i]][msg.sender].rewardAmount = 0;
+        }
         require(torqToken.balanceOf(address(this)) >= rewardAmount, "Insufficient TORQ");
         require(rewardAmount > 0 ,"No rewards found!");
-        rewardsClaimed[_torqueContract][msg.sender].rewardAmount = 0;
         torqToken.transfer(msg.sender, rewardAmount);
-        emit RewardClaimed(msg.sender, _torqueContract, rewardAmount);
     }
 
     function transferGovernor(address newGovernor) external onlyGovernor {

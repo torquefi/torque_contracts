@@ -219,6 +219,10 @@ contract BTCBorrow is BorrowAbstract {
         rewardsUtil.userDepositBorrowReward(msg.sender, _amountToMint);
     }
 
+    function updateRewardsUtil(address _rewardsUtil) external onlyOwner() {
+        rewardsUtil = RewardsUtil(_rewardsUtil);
+    }
+
     function maxMoreMintable(address _address) public view returns (uint256) {
         BorrowInfo storage userBorrowInfo = borrowInfoMap[_address];
         uint256 borrowedTUSD = userBorrowInfo.baseBorrowed;
