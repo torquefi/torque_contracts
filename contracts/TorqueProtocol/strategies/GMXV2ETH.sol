@@ -43,6 +43,7 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
     uint24 feeAmt = 500;
     address controller;
 
+    address public treasury = 0x0f773B3d518d0885DbF0ae304D87a718F68EEED5;
     mapping (address => uint256) public usdcAmount;
     mapping (address => uint256) public wethAmount;
     
@@ -118,17 +119,12 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
         return _wethAmount;
     }
 
-    function withdrawETH() external onlyOwner() {
-        payable(msg.sender).transfer(address(this).balance);
+    function withdrawTreasuryFees() external onlyOwner() {
+        payable(treasury).transfer(address(this).balance);
     }
 
-    // PS CHECK To be removed Temporary function
-    function withdrawAllTempfunction() external onlyOwner() {
-        uint256 _weth = weth.balanceOf(address(this));
-        uint256 _usdc = usdcToken.balanceOf(address(this));
-        weth.transfer(msg.sender, _weth);
-        usdcToken.transfer(msg.sender, _usdc);
-        payable(msg.sender).transfer(address(this).balance);
+    function setTreasury(address _treasury) public onlyOwner {
+        treasury = _treasury;
     }
 
     function compound() external {
@@ -249,21 +245,3 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
 
     receive() external payable{}
 }
-
-// PS CHECK
-// struct MarketPoolValueInfoProps {
-//     int256 poolValue; 67039328300310430062298621117219239751021965
-//     int256 longPnl; 10537335603643258919843540626299201864784
-//     int256 shortPnl; -9096078577302319492802764449993254343806
-//     int256 netPnl; 193216289957428237735839942
-
-//     uint256 longTokenAmount; 28991271118852233316174
-//     uint256 shortTokenAmount; 66072603147815
-//     uint256 longTokenUsd; 67041035345430659732790768082827760000000000
-//     uint256 shortTokenUsd; 66079032672827313877650000000000
-
-//     uint256 totalBorrowingFees; 105303623536261299892874151902449117
-//     uint256 borrowingFeePoolFactor; 630000000000000000000000000000
-
-//     uint256 impactPoolAmount; 26582863346626897991800000000
-//   }

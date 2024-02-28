@@ -179,25 +179,6 @@ contract UniswapBTC is Ownable, ReentrancyGuard {
         poolFee = _poolFee;
     }
 
-    // function calculateExpectedTokenAmounts(uint256 liquidityAmount) public returns (uint256, uint256) {
-    //     uint256 expectedwbtcAmount = liquidityAmount.div(2);
-    //     uint256 expectedwethAmount = convertValWbtcToWeth(liquidityAmount.sub(expectedwbtcAmount));
-    //     return (expectedwbtcAmount, expectedwethAmount);
-    // }
-
-    // function convertValWbtcToWeth(uint256 inputWbtc) public returns (uint256) {
-    //     IQuoterV2.QuoteExactInputSingleParams memory params = 
-    //         IQuoterV2.QuoteExactInputSingleParams({
-    //             tokenIn: address(wbtcToken),
-    //             tokenOut: address(wethToken),
-    //             amountIn: inputWbtc,
-    //             fee: poolFee,
-    //             sqrtPriceLimitX96: 0
-    //         });
-    //         (uint256 inputWeth,,,) = quoter.quoteExactInputSingle(params);
-    //         return inputWeth;
-    // }
-
     function convertwbtctoWETH(uint256 wbtcAmount) internal returns (uint256) {
         wbtcToken.approve(address(swapRouter), wbtcAmount);
         ISwapRouter.ExactInputSingleParams memory params =  
