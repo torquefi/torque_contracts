@@ -26,8 +26,8 @@ contract BoostCOMP is AutomationCompatible, Ownable, ReentrancyGuard, ERC20{
     using Math for uint256;
 
     IERC20 public compToken;
-    UniswapComp public uniswapComp;
-    UniswapComp public sushiComp;
+    UniswapCOMP public uniswapComp;
+    UniswapCOMP public sushiComp;
 
     address public treasury;
     uint256 public uniswapAllocation;
@@ -35,7 +35,6 @@ contract BoostCOMP is AutomationCompatible, Ownable, ReentrancyGuard, ERC20{
     uint256 public lastCompoundTimestamp;
     uint256 public performanceFee;
     uint256 public minCompAmount = 20000;
-    
     uint256 public totalAssetsAmount = 0;
 
     constructor(
@@ -47,8 +46,8 @@ contract BoostCOMP is AutomationCompatible, Ownable, ReentrancyGuard, ERC20{
         address _treasury
     ) ERC20(_name, _symbol) {
         compToken = IERC20(_compAddress);
-        uniswapComp = UniswapComp(_uniswapCompAddress);
-        sushiComp = UniswapComp(_sushiCompAddress);
+        uniswapComp = UniswapCOMP(_uniswapCompAddress);
+        sushiComp = UniswapCOMP(_sushiCompAddress);
         uniswapAllocation = 50;
         sushiAllocation = 50;
         treasury = _treasury;
