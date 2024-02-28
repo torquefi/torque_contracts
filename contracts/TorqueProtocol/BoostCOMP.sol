@@ -35,7 +35,6 @@ contract BoostCOMP is AutomationCompatible, Ownable, ReentrancyGuard, ERC20{
     uint256 public lastCompoundTimestamp;
     uint256 public performanceFee;
     uint256 public minCompAmount = 20000;
-    
     uint256 public totalAssetsAmount = 0;
 
     constructor(
