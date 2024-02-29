@@ -19,7 +19,7 @@ import "@openzeppelin/contracts/governance/extensions/GovernorTimelockCompound.s
 contract Hamilton is Governor, GovernorSettings, GovernorCountingSimple, GovernorVotes, GovernorVotesQuorumFraction, GovernorTimelockCompound {
     constructor(IVotes _token, ICompoundTimelock _timelock)
         Governor("Hamilton")
-        GovernorSettings(50400 /* 7 day */, 50400 /* 1 week */, 10000000e18)
+        GovernorSettings(50400 /* 7 day */, 50400 /* 1 week */, 100000000e18) // 100M tokens for proposal
         GovernorVotes(_token)
         GovernorVotesQuorumFraction(10)
         GovernorTimelockCompound(_timelock)
