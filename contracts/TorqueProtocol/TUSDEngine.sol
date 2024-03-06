@@ -29,14 +29,14 @@ contract TUSDEngine is Ownable, ReentrancyGuard {
     IERC20 public immutable usdcToken; // 0xaf88d065e77c8cC2239327C5EDb3A432268e5831
     AggregatorV3Interface public immutable usdcPriceFeed; // 0x50834f3163758fcc1df9973b6e91f0f0f0434ad3
 
-    uint256 public constant LIQUIDATION_THRESHOLD = 98;
-    uint256 public constant LIQUIDATION_BONUS = 20;
-    uint256 public constant LIQUIDATION_PRECISION = 100;
-    uint256 public constant MIN_HEALTH_FACTOR = 1e18;
-    uint256 public constant PRECISION = 1e18;
-    uint256 public constant ADDITIONAL_FEED_PRECISION = 1e10;
-    uint256 public constant FEED_PRECISION = 1e8;
-    uint256 public constant USDC_DECIMAL = 1e6;
+    uint256 private constant LIQUIDATION_THRESHOLD = 98;
+    uint256 private constant LIQUIDATION_BONUS = 20;
+    uint256 private constant LIQUIDATION_PRECISION = 100;
+    uint256 private constant MIN_HEALTH_FACTOR = 1e18;
+    uint256 private constant PRECISION = 1e18;
+    uint256 private constant ADDITIONAL_FEED_PRECISION = 1e10;
+    uint256 private constant FEED_PRECISION = 1e8;
+    uint256 private constant USDC_DECIMAL = 1e6;
 
     mapping(address => uint256) private s_collateralDeposited;
     mapping(address => uint256) private s_TUSDMinted;
