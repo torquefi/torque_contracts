@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity 0.8.19;
 
 //  _________  ________  ________  ________  ___  ___  _______
 // |\___   ___\\   __  \|\   __  \|\   __  \|\  \|\  \|\  ___ \
@@ -16,7 +16,6 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 
-import "./../interfaces/IGMX.sol";
 import "../interfaces/IGMXExchangeRouter.sol";
 import "../utils/GMXOracle.sol";
 

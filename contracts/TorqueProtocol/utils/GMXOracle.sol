@@ -1,13 +1,9 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity 0.8.19;
 
-import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
-import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { ISyntheticReader } from "../interfaces/ISyntheticReader.sol";
 import { IChainlinkOracle } from "../interfaces/IChainlinkOracle.sol";
 import { Errors } from "./Errors.sol";
-
-import { console } from "./console.sol";
 
 contract GMXOracle {
 
@@ -309,8 +305,8 @@ contract GMXOracle {
     * @return tokenPriceMinMaxFormatted
   */
   function _getTokenPriceMinMaxFormatted(address token) internal view returns (uint256) {
-    (int256 _price, uint8 _priceDecimals) = chainlinkOracle.consult(token);
-
-    return uint256(_price) * 10 ** (30 - IERC20Metadata(token).decimals() - _priceDecimals);
+    uint256 _price = chainlinkOracle.consultIn18Decimals(token);
+    return _price;
+    // return uint256(_price) * 10 ** (30 - IERC20Metadata(token).decimals() - _priceDecimals);
   }
 }
