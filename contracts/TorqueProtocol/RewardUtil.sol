@@ -186,7 +186,7 @@ contract RewardUtil is ReentrancyGuard, Ownable {
         }
         require(torqToken.balanceOf(address(this)) >= rewardAmount, "Insufficient TORQ");
         require(rewardAmount > 0 ,"No rewards found!");
-        torqToken.transfer(msg.sender, rewardAmount);
+        require(torqToken.transfer(msg.sender, rewardAmount), "Transfer Asset Failed");
     }
 
     function transferGovernor(address newGovernor) external onlyGovernor {
@@ -200,7 +200,7 @@ contract RewardUtil is ReentrancyGuard, Ownable {
     }
 
     function withdrawTorque(uint256 _amount) external onlyOwner() {
-        torqToken.transfer(msg.sender, _amount);
+        require(torqToken.transfer(msg.sender, _amount), "Transfer Asset Failed");
     }
 
     function getRewardConfig(address _torqueContract, address _user) public view returns (UserRewardConfig memory){

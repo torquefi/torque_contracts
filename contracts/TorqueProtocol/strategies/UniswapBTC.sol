@@ -59,7 +59,7 @@ contract UniswapBTC is Ownable, ReentrancyGuard {
 
     function deposit(uint256 amount) external nonReentrant {
         require(msg.sender == controller, "Only controller can call this!");
-        wbtcToken.transferFrom(msg.sender, address(this), amount);
+        require(wbtcToken.transferFrom(msg.sender, address(this), amount), "Transfer Asset Failed");
         uint256 wbtcToConvert = amount / 2; 
         uint256 wbtcToKeep = amount - wbtcToConvert;
         uint256 wethAmount = convertwbtctoWETH(wbtcToConvert);
@@ -103,7 +103,7 @@ contract UniswapBTC is Ownable, ReentrancyGuard {
         positionManager.collect(collectParams);
         uint256 convertedwbtcAmount = convertWETHtowbtc(amount1);
         amount0 = amount0.add(convertedwbtcAmount);
-        wbtcToken.transfer(msg.sender, amount0);
+        require(wbtcToken.transfer(msg.sender, amount0), "Transfer Asset Failed");
         emit Withdrawal(amount);
     }
 
@@ -119,7 +119,7 @@ contract UniswapBTC is Ownable, ReentrancyGuard {
         (, uint256 wethVal) = positionManager.collect(collectParams);
         convertWETHtowbtc(wethVal);
         uint256 wbtcAmount = wbtcToken.balanceOf(address(this));
-        wbtcToken.transfer(msg.sender, wbtcAmount);
+        require(wbtcToken.transfer(msg.sender, wbtcAmount), "Transfer Asset Failed");
     }
 
     function setController(address _controller) external onlyOwner() {

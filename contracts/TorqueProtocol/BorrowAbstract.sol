@@ -10,7 +10,6 @@ pragma solidity 0.8.19;
 //        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
 
 import "./interfaces/IComet.sol";
-import "./interfaces/IWETH9.sol";
 import "./interfaces/IBulker.sol";
 import "./interfaces/ICometRewards.sol";
 import "./interfaces/ITUSDEngine.sol";
@@ -38,7 +37,7 @@ abstract contract BorrowAbstract is Ownable, ReentrancyGuard {
     uint public totalSupplied;
     uint public lastClaimCometTime;
 
-    mapping (address => uint256) borrowHealth;
+    mapping (address => uint256) public borrowHealth;
 
     uint256 public decimalAdjust = 1000000000000;
     
@@ -163,7 +162,7 @@ abstract contract BorrowAbstract is Ownable, ReentrancyGuard {
         bytes memory withdrawAssetCalldata = abi.encode(comet, address(this), asset, withdrawAmount);
         callData[0] = withdrawAssetCalldata;
         IBulker(bulker).invoke(buildWithdraw(), callData);
-        IERC20(asset).transfer(msg.sender, withdrawAmount);
+        require(IERC20(asset).transfer(msg.sender, withdrawAmount), "Transfer Asset Failed");
         totalSupplied = totalSupplied.sub(withdrawAmount);
     } 
     

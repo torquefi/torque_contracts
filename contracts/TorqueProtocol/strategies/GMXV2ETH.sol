@@ -74,7 +74,7 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
         require(msg.sender == controller, "Only Controller can call this");
         require(msg.value > 0, "You must pay GMX v2 execution fee");
         exchangeRouter.sendWnt{value: msg.value}(address(depositVault), msg.value);
-        weth.transferFrom(msg.sender, address(this), _amount);
+        require(weth.transferFrom(msg.sender, address(this), _amount), "Transfer Asset Failed");
         weth.approve(address(router), _amount);
         exchangeRouter.sendTokens(address(weth), address(depositVault), _amount);
         IGMXExchangeRouter.CreateDepositParams memory depositParams = createDepositParams();
@@ -115,7 +115,7 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
         uint256 _wethAmount = wethAmount[msg.sender] + wethAmountAfter - wethAmountBefore;
         require(_wethAmount <= wethAmountAfter, "Not enough balance");
         wethAmount[msg.sender] = 0;
-        weth.transfer(msg.sender, _wethAmount);
+        require(weth.transfer(msg.sender, _wethAmount), "Transfer Asset Failed");
         return _wethAmount;
     }
 
@@ -132,7 +132,7 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
         uint256 arbAmount = arbToken.balanceOf(address(this));
         if(arbAmount > minARBAmount){
             uint256 wethVal = swapARBtoWETH(arbAmount);
-            weth.transfer(msg.sender, wethVal);
+            require(weth.transfer(msg.sender, wethVal), "Transfer Asset Failed");
         }
     }
 

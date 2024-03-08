@@ -52,7 +52,7 @@ contract StargateETH is Ownable, ReentrancyGuard{
 
     function deposit(uint256 _amount) external {
         require(msg.sender == controller, "Only Controller can call this");
-        weth.transferFrom(msg.sender, address(this), _amount);
+        require(weth.transferFrom(msg.sender, address(this), _amount), "Transfer Asset Failed");
         weth.withdraw(_amount);
         routerETH.addLiquidityETH{value: _amount}();
         uint256 wethSTGAmount = wethSTG.balanceOf(address(this));
@@ -69,7 +69,7 @@ contract StargateETH is Ownable, ReentrancyGuard{
         wethSTG.approve(address(router), withdrawAmount);
         uint256 withdrawETHAmount = router.instantRedeemLocal(13, withdrawAmount, address(this));
         weth.deposit{value: withdrawETHAmount}();
-        weth.transfer(address(msg.sender), withdrawETHAmount);
+        require(weth.transfer(address(msg.sender), withdrawETHAmount), "Transfer Asset Failed");
         depositedWethAmount = depositedWethAmount - _amount;
     }
 
@@ -80,7 +80,7 @@ contract StargateETH is Ownable, ReentrancyGuard{
         if(arbAmount > minARBAmount){
             swapARBtoWETH(arbAmount);
             uint256 wethAmount = weth.balanceOf(address(this));
-            weth.transfer(msg.sender, wethAmount);
+            require(weth.transfer(msg.sender, wethAmount), "Transfer Asset Failed");
         }
     }
 

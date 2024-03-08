@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.9;
+pragma solidity 0.8.19;
 
 //  _________  ________  ________  ________  ___  ___  _______
 // |\___   ___\\   __  \|\   __  \|\   __  \|\  \|\  \|\  ___ \
@@ -62,7 +62,7 @@ contract BoostETH is AutomationCompatible, Ownable, ReentrancyGuard, ERC20{
         require(msg.value > 0, "You must pay GMX v2 execution fee");
         require(weth.balanceOf(address(this)) >= compoundWethAmount, "Insufficient compound balance");
         
-        weth.transferFrom(msg.sender, address(this), depositAmount);
+        require(weth.transferFrom(msg.sender, address(this), depositAmount), "Transfer Asset Failed");
         uint256 depositAndCompound = depositAmount + compoundWethAmount;
         compoundWethAmount = 0;
         uint256 stargateDepositAmount = depositAndCompound.mul(stargateAllocation).div(100);
@@ -92,7 +92,7 @@ contract BoostETH is AutomationCompatible, Ownable, ReentrancyGuard, ERC20{
         gmxV2ETH.withdraw{value: msg.value}(gmxWithdrawAmount, msg.sender);
         uint256 postWethAmount = weth.balanceOf(address(this));
         uint256 wethAmount = postWethAmount - prevWethAmount;
-        weth.transfer(msg.sender, wethAmount);
+        require(weth.transfer(msg.sender, wethAmount), "Transfer Asset Failed");
         rewardsUtil.userWithdrawReward(msg.sender, sharesAmount);
     }
 
@@ -122,7 +122,7 @@ contract BoostETH is AutomationCompatible, Ownable, ReentrancyGuard, ERC20{
         uint256 treasuryAmount = (postWethAmount - prevWethAmount).mul(performanceFee).div(1000);
         treasuryFee = treasuryFee.add(treasuryAmount);
         if(treasuryFee >= minWethAmount){
-            weth.transfer(treasury, treasuryFee);
+            require(weth.transfer(treasury, treasuryFee), "Transfer Asset Failed");
             treasuryFee = 0;
         }
         uint256 wethAmount = postWethAmount - prevWethAmount - treasuryAmount;
