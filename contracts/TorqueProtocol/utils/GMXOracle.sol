@@ -307,6 +307,5 @@ contract GMXOracle {
   function _getTokenPriceMinMaxFormatted(address token) internal view returns (uint256) {
     uint256 _price = chainlinkOracle.consultIn18Decimals(token);
     return _price;
-    // return uint256(_price) * 10 ** (30 - IERC20Metadata(token).decimals() - _priceDecimals);
   }
 }

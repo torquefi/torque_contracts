@@ -53,7 +53,6 @@ contract GMXV2BTC is Ownable, ReentrancyGuard {
     ISyntheticReader syntheticReader = ISyntheticReader(0xf60becbba223EEA9495Da3f606753867eC10d139);
     GMXOracle gmxOracle;
     
-    address private constant UNISWAP_V3_ROUTER = 0x2f5e87C9312fa29aed5c179E456625D79015299c;
     bytes32 public constant MAX_PNL_FACTOR_FOR_WITHDRAWALS = keccak256(abi.encode("MAX_PNL_FACTOR_FOR_WITHDRAWALS"));
 
     constructor(

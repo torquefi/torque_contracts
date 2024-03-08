@@ -142,7 +142,7 @@ abstract contract BorrowAbstract is Ownable, ReentrancyGuard {
             .div(SCALE);
     }
 
-    function withdraw(uint withdrawAmount) public nonReentrant {
+    function withdraw(uint withdrawAmount) public nonReentrant() {
         BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
         require(userBorrowInfo.supplied > 0, "User does not have asset");
         if (userBorrowInfo.borrowed > 0) {
@@ -188,7 +188,7 @@ abstract contract BorrowAbstract is Ownable, ReentrancyGuard {
         return borowRate.mul(31536000);
     }
 
-    function claimCReward() public onlyOwner{
+    function claimCReward() public onlyOwner {
         require(lastClaimCometTime + claimPeriod < block.timestamp, "Already claimed");
         require(treasury != address(0), "Invalid treasury");
         lastClaimCometTime = block.timestamp;

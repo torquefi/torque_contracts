@@ -48,8 +48,8 @@ contract ETHBorrow is BorrowAbstract {
     ) Ownable(msg.sender) {
         rewardsUtil = RewardsUtil(_rewardsUtil);
     }
-    // Approve the contract of WETH usage
-    function borrow(uint supplyAmount, uint borrowAmountUSDC, uint tUSDBorrowAmount) public nonReentrant(){
+
+    function borrow(uint supplyAmount, uint borrowAmountUSDC, uint tUSDBorrowAmount) public nonReentrant() {
         require(supplyAmount > 0, "Supply amount must be greater than 0");
         BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
         uint maxBorrowUSDC = getBorrowableUsdc(supplyAmount.add(userBorrowInfo.supplied));
@@ -99,7 +99,7 @@ contract ETHBorrow is BorrowAbstract {
         rewardsUtil.userDepositBorrowReward(msg.sender, tUSDBorrowAmount);
     }
 
-    function repay(uint tusdRepayAmount, uint256 WETHWithdraw) public nonReentrant {
+    function repay(uint tusdRepayAmount, uint256 WETHWithdraw) public nonReentrant() {
         // Checks
         require(tusdRepayAmount > 0, "Repay amount must be greater than 0");
         BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
@@ -171,8 +171,6 @@ contract ETHBorrow is BorrowAbstract {
         return a < b ? a : b;
     }
 
-
-    // Calculate withdrawableWETH supplying TUSD, please take into account slippage based on Compound Finance
     function getWETHWithdraw(uint256 tusdRepayAmount, address _address) public view returns (uint256) {
         require(tusdRepayAmount > 0, "Repay amount must be greater than 0");
         BorrowInfo storage userBorrowInfo = borrowInfoMap[_address];
@@ -199,7 +197,7 @@ contract ETHBorrow is BorrowAbstract {
         return asset;
     }
 
-    function mintTUSD(uint256 _amountToMint) public {
+    function mintTUSD(uint256 _amountToMint) public nonReentrant() {
         BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
         uint256 mintTUSDTotal = userBorrowInfo.baseBorrowed + _amountToMint;
         uint256 borrowedAmount = borrowHealth[msg.sender];

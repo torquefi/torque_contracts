@@ -97,8 +97,9 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
         wethAmount[_userAddress] += wethWithdraw;
     }
 
-    // slippage is 0.1% for input 1
-    // slippage is 1% for input 10
+    /** 
+        @notice Slippage for input 1 is 0.1% & Slippage for input 10 is 1% 
+    */
     function withdrawAmount(uint16 _slippage) external returns (uint256) {
         require(_slippage < 1000, "Slippage cant be 1000");
         usdcAmount[msg.sender] = usdcAmount[msg.sender].mul(1000-_slippage).div(1000);

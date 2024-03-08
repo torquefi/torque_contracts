@@ -20,7 +20,7 @@ contract RewardUtil is ReentrancyGuard, Ownable {
     struct RewardConfig {
         uint256 rewardFactor;
         uint256 torquePool;
-        uint256 borrowFactor; // Only needed for borrow contract
+        uint256 borrowFactor; 
     }
 
     struct UserRewardConfig {
@@ -36,8 +36,8 @@ contract RewardUtil is ReentrancyGuard, Ownable {
     bool public claimsPaused = false;
 
     mapping(address => bool) public isTorqueContract;
-    mapping(address => RewardConfig) public rewardConfig; // Distribution Contract --> Reward Config
-    mapping(address => mapping(address => UserRewardConfig)) public rewardsClaimed; // Distribution Contract --> User Address --> Rewards 
+    mapping(address => RewardConfig) public rewardConfig;
+    mapping(address => mapping(address => UserRewardConfig)) public rewardsClaimed;
 
 
     event GovernorTransferred(address indexed oldGovernor, address indexed newGovernor);
@@ -120,7 +120,6 @@ contract RewardUtil is ReentrancyGuard, Ownable {
         torqToken = IERC20(_torqueToken);
     }
 
-    // Set Borrow Factor 0 for BoostContracts
     function addTorqueContract(address _address, uint256 _rewardPool, uint256 _rewardFactor, uint256 _borrowFactor) public onlyOwner {
         if (_rewardFactor == 0) {
             revert InvalidTorqueContract(_address);
@@ -134,7 +133,7 @@ contract RewardUtil is ReentrancyGuard, Ownable {
     }
 
     function _calculateAndUpdateBorrowReward(address _torqueContract, address _userAddress) internal {
-        uint256 blocks = block.number - rewardsClaimed[_torqueContract][_userAddress].lastRewardBlock; // 288000 daily blocks
+        uint256 blocks = block.number - rewardsClaimed[_torqueContract][_userAddress].lastRewardBlock;
         uint256 userReward = blocks.mul(rewardsClaimed[_torqueContract][_userAddress].borrowAmount);
         userReward = userReward.mul(rewardConfig[_torqueContract].torquePool);
         userReward = userReward.div(rewardConfig[_torqueContract].borrowFactor);
@@ -145,8 +144,8 @@ contract RewardUtil is ReentrancyGuard, Ownable {
         if(!rewardsClaimed[_torqueContract][_userAddress].isActive){
             return;
         }
-        uint256 blocks = block.number - rewardsClaimed[_torqueContract][_userAddress].lastRewardBlock; // 288000 daily blocks
-        uint256 userReward = blocks.mul(rewardsClaimed[_torqueContract][_userAddress].depositAmount); // 2000*
+        uint256 blocks = block.number - rewardsClaimed[_torqueContract][_userAddress].lastRewardBlock;
+        uint256 userReward = blocks.mul(rewardsClaimed[_torqueContract][_userAddress].depositAmount);
         userReward = userReward.mul(rewardConfig[_torqueContract].torquePool);
         userReward = userReward.div(rewardConfig[_torqueContract].rewardFactor);
         if(rewardConfig[_torqueContract].borrowFactor > 0 && rewardsClaimed[_torqueContract][_userAddress].borrowAmount > 0){
@@ -157,7 +156,7 @@ contract RewardUtil is ReentrancyGuard, Ownable {
     }
 
     function _calculateBorrowReward(address _torqueContract, address _userAddress) internal view returns (uint256) {
-        uint256 blocks = block.number - rewardsClaimed[_torqueContract][_userAddress].lastRewardBlock; // 288000 daily blocks
+        uint256 blocks = block.number - rewardsClaimed[_torqueContract][_userAddress].lastRewardBlock;
         uint256 userReward = blocks.mul(rewardsClaimed[_torqueContract][_userAddress].borrowAmount);
         userReward = userReward.mul(rewardConfig[_torqueContract].torquePool);
         userReward = userReward.div(rewardConfig[_torqueContract].borrowFactor);
@@ -165,8 +164,8 @@ contract RewardUtil is ReentrancyGuard, Ownable {
     }
 
     function _calculateReward(address _torqueContract, address _userAddress) public view returns (uint256) {
-        uint256 blocks = block.number - rewardsClaimed[_torqueContract][_userAddress].lastRewardBlock; // 288000 daily blocks
-        uint256 userReward = blocks.mul(rewardsClaimed[_torqueContract][_userAddress].depositAmount); // 2000*
+        uint256 blocks = block.number - rewardsClaimed[_torqueContract][_userAddress].lastRewardBlock;
+        uint256 userReward = blocks.mul(rewardsClaimed[_torqueContract][_userAddress].depositAmount); 
         userReward = userReward.mul(rewardConfig[_torqueContract].torquePool);
         userReward = userReward.div(rewardConfig[_torqueContract].rewardFactor);
         uint256 borrowReward;

@@ -15,7 +15,6 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
 import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
-// import "@uniswap/v3-periphery/contracts/interfaces/IQuoterV2.sol";
 
 contract UniswapBTC is Ownable, ReentrancyGuard {
 
@@ -24,7 +23,6 @@ contract UniswapBTC is Ownable, ReentrancyGuard {
     IERC20 public wbtcToken;
     IERC20 public wethToken;
     ISwapRouter public swapRouter;
-    // IQuoterV2 public quoter = IQuoterV2(0x61fFE014bA17989E743c5F6cB21bF9697530B21e);
 
     address treasury;
     uint256 performanceFee;
@@ -46,8 +44,8 @@ contract UniswapBTC is Ownable, ReentrancyGuard {
     constructor(
         address _wbtcToken,
         address _wethToken,
-        address _positionManager, // 0xC36442b4a4522E871399CD717aBDD847Ab11FE88
-        address _swapRouter, // 0xe592427a0aece92de3edee1f18e0157c05861564
+        address _positionManager, 
+        address _swapRouter,
         address _treasury
     ) Ownable(msg.sender) {
         wbtcToken = IERC20(_wbtcToken);
