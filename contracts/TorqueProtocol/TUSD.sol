@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity 0.8.20;
 
 //  _________  ________  ________  ________  ___  ___  _______      
 // |\___   ___\\   __  \|\   __  \|\   __  \|\  \|\  \|\  ___ \     
@@ -20,7 +20,7 @@ contract TUSD is ERC20Burnable, Ownable {
     error TUSD__BurnAmountExceedsBalance();
     error TUSD__NotZeroAddress();
 
-    constructor() ERC20("Torque USD", "TUSD") Ownable(msg.sender) {}
+    constructor() ERC20("Torque USD", "TUSD") {}
 
 
     function setController(address _controller) external onlyOwner {

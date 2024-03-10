@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity 0.8.20;
 
 //  _________  ________  ________  ________  ___  ___  _______      
 // |\___   ___\\   __  \|\   __  \|\   __  \|\  \|\  \|\  ___ \     
@@ -25,9 +25,9 @@ contract TUSDEngine is Ownable, ReentrancyGuard {
 
     using OracleLib for AggregatorV3Interface;
 
-    TUSD public immutable i_tusd; // 0xf7F6718Cf69967203740cCb431F6bDBff1E0FB68
-    IERC20 public immutable usdcToken; // 0xaf88d065e77c8cC2239327C5EDb3A432268e5831
-    AggregatorV3Interface public immutable usdcPriceFeed; // 0x50834f3163758fcc1df9973b6e91f0f0f0434ad3
+    TUSD public immutable i_tusd; 
+    IERC20 public immutable usdcToken; 
+    AggregatorV3Interface public immutable usdcPriceFeed;
 
     uint256 private constant LIQUIDATION_THRESHOLD = 98;
     uint256 private constant LIQUIDATION_BONUS = 20;
