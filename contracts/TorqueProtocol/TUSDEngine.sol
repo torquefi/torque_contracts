@@ -25,9 +25,9 @@ contract TUSDEngine is Ownable, ReentrancyGuard {
 
     using OracleLib for AggregatorV3Interface;
 
-    TUSD private immutable i_tusd; // 0xf7F6718Cf69967203740cCb431F6bDBff1E0FB68
-    IERC20 private immutable usdcToken; // 0xaf88d065e77c8cC2239327C5EDb3A432268e5831
-    AggregatorV3Interface private immutable usdcPriceFeed; // 0x50834f3163758fcc1df9973b6e91f0f0f0434ad3
+    TUSD public immutable i_tusd; 
+    IERC20 public immutable usdcToken; 
+    AggregatorV3Interface public immutable usdcPriceFeed;
 
     uint256 private constant LIQUIDATION_THRESHOLD = 98;
     uint256 private constant LIQUIDATION_BONUS = 20;
@@ -41,7 +41,7 @@ contract TUSDEngine is Ownable, ReentrancyGuard {
     mapping(address => uint256) private s_collateralDeposited;
     mapping(address => uint256) private s_TUSDMinted;
     
-    address private treasuryAddress;
+    address public treasuryAddress;
 
     event CollateralDeposited(address indexed user, uint256 amount);
     event CollateralRedeemed(address indexed from, address indexed to, uint256 amount);
@@ -53,7 +53,7 @@ contract TUSDEngine is Ownable, ReentrancyGuard {
         _;
     }
 
-    constructor(address usdcTokenAddress, address usdcPriceFeedAddress, address tusdAddress) Ownable() {
+    constructor(address usdcTokenAddress, address usdcPriceFeedAddress, address tusdAddress) Ownable(msg.sender) {
         i_tusd = TUSD(tusdAddress);
         usdcToken = IERC20(usdcTokenAddress);
         usdcPriceFeed = AggregatorV3Interface(usdcPriceFeedAddress);

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity 0.8.19;
 
 //  _________  ________  ________  ________  ___  ___  _______
 // |\___   ___\\   __  \|\   __  \|\   __  \|\  \|\  \|\  ___ \
@@ -16,7 +16,6 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 
-import "./../interfaces/IGMX.sol";
 import "../interfaces/IGMXExchangeRouter.sol";
 import "../utils/GMXOracle.sol";
 
@@ -54,7 +53,6 @@ contract GMXV2BTC is Ownable, ReentrancyGuard {
     ISyntheticReader syntheticReader = ISyntheticReader(0xf60becbba223EEA9495Da3f606753867eC10d139);
     GMXOracle gmxOracle;
     
-    address private constant UNISWAP_V3_ROUTER = 0x2f5e87C9312fa29aed5c179E456625D79015299c;
     bytes32 public constant MAX_PNL_FACTOR_FOR_WITHDRAWALS = keccak256(abi.encode("MAX_PNL_FACTOR_FOR_WITHDRAWALS"));
 
     constructor(
@@ -82,7 +80,7 @@ contract GMXV2BTC is Ownable, ReentrancyGuard {
     function deposit(uint256 _amount) external payable {
         require(msg.sender == controller, "Only controller can call this!");
         gmxExchange.sendWnt{value: msg.value}(address(depositVault), msg.value);
-        wbtcGMX.transferFrom(msg.sender, address(this), _amount);
+        require(wbtcGMX.transferFrom(msg.sender, address(this), _amount), "Transfer Asset Failed");
         wbtcGMX.approve(address(router), _amount);
         gmxExchange.sendTokens(address(wbtcGMX), address(depositVault), _amount);
         IGMXExchangeRouter.CreateDepositParams memory depositParams = createDepositParams();
@@ -122,7 +120,7 @@ contract GMXV2BTC is Ownable, ReentrancyGuard {
         uint256 _wbtcAmount = wbtcAmount[msg.sender] + wbtcAmountAfter - wbtcAmountBefore;
         require(_wbtcAmount <= wbtcAmountAfter, "Not enough balance");
         wbtcAmount[msg.sender] = 0;
-        wbtcGMX.transfer(msg.sender, _wbtcAmount);
+        require(wbtcGMX.transfer(msg.sender, _wbtcAmount), "Transfer Asset Failed");
         return _wbtcAmount;
     }
 
@@ -131,7 +129,7 @@ contract GMXV2BTC is Ownable, ReentrancyGuard {
         uint256 arbAmount = arbToken.balanceOf(address(this));
         if(arbAmount > minARBAmount){
             uint256 wbtcVal = swapARBtoBTC(arbAmount);
-            wbtcGMX.transfer(msg.sender, wbtcVal);
+            require(wbtcGMX.transfer(msg.sender, wbtcVal), "Transfer Asset Failed");
         }
     }
 

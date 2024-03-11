@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity 0.8.19;
 
 interface ITUSDEngine {
     // function depositCollateralAndMintTusd(address tokenCollateralAddress, uint256 amountCollateral, uint256 amounUSDToMint, address onBehalfUser) external payable;
