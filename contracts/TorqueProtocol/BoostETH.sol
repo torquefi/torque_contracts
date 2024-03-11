@@ -17,8 +17,18 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 import "./interfaces/IWETH9.sol";
-import "./strategies/GMXV2ETH.sol";
-import "./strategies/StargateETH.sol";
+
+interface GMXV2ETH {
+    function deposit(uint256 _amount) external payable;
+    function withdraw(uint256 _amount, address _userAddress) external payable;
+    function compound() external;
+}
+
+interface StargateETH { 
+    function deposit(uint256 _amount) external;
+    function withdraw(uint256 _amount) external;
+    function compound() external;
+}
 
 interface RewardsUtil {
     function userDepositReward(address _userAddress, uint256 _depositAmount) external;
