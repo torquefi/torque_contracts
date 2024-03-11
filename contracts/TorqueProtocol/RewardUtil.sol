@@ -116,7 +116,7 @@ contract RewardUtil is ReentrancyGuard, Ownable {
         _calculateAndUpdateReward(torqueContract, user);
     }
 
-    function updateTorqueToken(address _torqueToken) external onlyOwner() {
+    function updateTorqueToken(address _torqueToken) external onlyGovernor() {
         torqToken = IERC20(_torqueToken);
     }
 
