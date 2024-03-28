@@ -18,7 +18,7 @@ contract SwapTorqueToken is Ownable {
     ISwapRouter private constant router = ISwapRouter(0xE592427A0AEce92De3Edee1F18E0157C05861564);
 
     address public treasury;
-    uint TorqueSwapFee = 10;
+    uint public TorqueSwapFee = 10;
 
     constructor(address _treasury) Ownable(msg.sender) {
         treasury = _treasury;
