@@ -1,7 +1,5 @@
 # Torque Protocol
 
-[Website](https://torque.fi) | [Twitter](https://twitter.com/torquefi) | [Telegram](https://t.me/torquefi) | [Docs](https://docs.torque.fi)
-
 | Contract       | Address       |
 | -------------  | ------------- |
 | BTCBorrow      | [0x9eD7f8115B3fA401cd7DdE5E59a8056a3Ec8cEB3](https://arbiscan.io/address/0x9eD7f8115B3fA401cd7DdE5E59a8056a3Ec8cEB3) |
@@ -20,3 +18,5 @@
 | Swap     | [0x6e38a9f0150C83d9A2db441F92F2A0B892C3464A](https://arbiscan.io/address/0x6e38a9f0150C83d9A2db441F92F2A0B892C3464A) |
 | TORQ         | [0xb56C29413AF8778977093B9B4947efEeA7136C36](https://arbiscan.io/token/0xb56c29413af8778977093b9b4947efeea7136c36) |
 | TUSD     | [0xf7F6718Cf69967203740cCb431F6bDBff1E0FB68](https://arbiscan.io/token/0xf7f6718cf69967203740ccb431f6bdbff1e0fb68) |
+
+[Website](https://torque.fi) | [Twitter](https://twitter.com/torquefi) | [Telegram](https://t.me/torquefi) | [Docs](https://docs.torque.fi)
