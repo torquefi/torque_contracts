@@ -50,7 +50,33 @@ contract SwapTorqueToken is Ownable {
         router.exactInputSingle(params);
     }
 
+    function swapExactInputMultiHop(uint amountIn, uint amountOutMin, bytes memory path ,address _tokenIn) external {
+        IERC20 tokenIn = IERC20(_tokenIn);
+        uint256 swapFeeAmt = amountIn*TorqueSwapFee/1000;
+        require(tokenIn.transferFrom(msg.sender, treasury, swapFeeAmt), "TX Failed!");
+        
+        amountIn = amountIn - swapFeeAmt;
+        require(tokenIn.transferFrom(msg.sender, address(this), amountIn), "TX Failed!");
+
+        tokenIn.approve(address(router), amountIn);
+
+        ISwapRouter.ExactInputParams memory params = ISwapRouter
+            .ExactInputParams({
+                path: path,
+                recipient: msg.sender,
+                deadline: block.timestamp,
+                amountIn: amountIn,
+                amountOutMinimum: amountOutMin
+            });
+
+        router.exactInput(params);
+    }
+
     function updateTorqueSwapFee(uint _fee) external onlyOwner {
         TorqueSwapFee = _fee;
+    }
+
+    function updateTreasury(address _treasury) external onlyOwner {
+        treasury = _treasury;
     }
 }
