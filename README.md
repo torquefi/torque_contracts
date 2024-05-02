@@ -4,6 +4,8 @@
 | -------------  | ------------- |
 | BTCBorrow      | [0x9eD7f8115B3fA401cd7DdE5E59a8056a3Ec8cEB3](https://arbiscan.io/address/0x9eD7f8115B3fA401cd7DdE5E59a8056a3Ec8cEB3) |
 | ETHBorrow      | [0x3B7cEF8320F0F3aF601eD33D0cC39a68b2fB37cA](https://arbiscan.io/address/0x3B7cEF8320F0F3aF601eD33D0cC39a68b2fB37cA) |
+| SimpleBTCBorrow      | [0xD2220d356F17e313FD49A40Ba122A05D769e191A](https://arbiscan.io/address/0xD2220d356F17e313FD49A40Ba122A05D769e191A) |
+| SimpleETHBorrow      | [0xaF9476122E3485cAb31883EE2c6AD8460DdA6021](https://arbiscan.io/address/0xaF9476122E3485cAb31883EE2c6AD8460DdA6021) |
 | TUSDEngine (V1)     | [0xfdf7b4486f5de843838EcFd254711E06aF1f0641](https://arbiscan.io/address/0xfdf7b4486f5de843838EcFd254711E06aF1f0641) |
 | TUSDEngine (V0)     | [0x867bF0476655Cf05934869B449a0be0ED534eA60](https://arbiscan.io/address/0x867bF0476655Cf05934869B449a0be0ED534eA60) |
 | BoostBTC      | [0xB0929fb58978aCB02E34aBf457E49A5Ec4262fe6](https://arbiscan.io/address/0xB0929fb58978aCB02E34aBf457E49A5Ec4262fe6) |
