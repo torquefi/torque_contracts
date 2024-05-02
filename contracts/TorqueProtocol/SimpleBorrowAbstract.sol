@@ -27,8 +27,6 @@ abstract contract SimpleBorrowAbstract is Ownable, ReentrancyGuard {
     address public asset;
     address public baseAsset;
     address public bulker;
-    address public engine;
-    address public tusd;
     address public treasury;
     address public controller;
     
@@ -46,11 +44,6 @@ abstract contract SimpleBorrowAbstract is Ownable, ReentrancyGuard {
     bytes32 public constant ACTION_WITHDRAW_ASSET = "ACTION_WITHDRAW_ASSET";
     bytes32 public constant ACTION_WITHDRAW_ETH = "ACTION_WITHDRAW_NATIVE_TOKEN";
     bytes32 public constant ACTION_CLAIM_REWARD = "ACTION_CLAIM_REWARD";
-
-    uint256 LIQUIDATION_THRESHOLD;
-    uint256 PRECISION;
-    uint256 LIQUIDATION_PRECISION;
-    uint256 MIN_HEALTH_FACTOR;
 
     constructor(
         address _initialOwner,

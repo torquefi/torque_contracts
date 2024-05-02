@@ -11,11 +11,11 @@ pragma solidity 0.8.19;
 
 import "./SimpleBorrowAbstract.sol";
 
-contract SimpleBTCBorrow is SimpleBorrowAbstract {
+contract SimpleETHBorrow is SimpleBorrowAbstract {
     using SafeMath for uint256;
 
     event Borrow(uint supplyAmount, uint borrowAmountUSDC);
-    event Repay(uint usdcRepay, uint256 WbtcWithdraw);
+    event Repay(uint usdcRepay, uint256 WethWithdraw);
 
     constructor(
         address _initialOwner,
@@ -23,7 +23,7 @@ contract SimpleBTCBorrow is SimpleBorrowAbstract {
         address _cometReward, 
         address _asset, 
         address _baseAsset, 
-        address _bulker,  
+        address _bulker, 
         address _treasury, 
         address _controller,
         uint _repaySlippage
@@ -70,12 +70,12 @@ contract SimpleBTCBorrow is SimpleBorrowAbstract {
         IBulker(bulker).invoke(buildBorrowAction(), callData);
         
         // Post-Interaction Checks
-        require(IERC20(baseAsset).transfer(_address, borrowAmountUSDC), "Transfer token failed");
+         require(IERC20(baseAsset).transfer(_address, borrowAmountUSDC), "Transfer token failed");
 
         emit Borrow(supplyAmount, borrowAmountUSDC);
     }
 
-    function repay(address _address, uint usdcRepay, uint256 WbtcWithdraw) public nonReentrant() {
+    function repay(address _address, uint usdcRepay, uint256 WETHWithdraw) public nonReentrant() {
         require(msg.sender == controller, "Cannot be called directly");
         
         // Checks
@@ -84,41 +84,41 @@ contract SimpleBTCBorrow is SimpleBorrowAbstract {
         // Effects
         uint accruedInterest = calculateInterest(borrowed, borrowTime);
         borrowed = borrowed.add(accruedInterest);
-        
-        uint withdrawAssetAmount = supplied.mul(usdcRepay).div(borrowed); 
-        
-        require(WbtcWithdraw <= withdrawAssetAmount, "Cannot withdraw this much WBTC");
 
-        supplied = supplied.sub(WbtcWithdraw);
+        uint withdrawAssetAmount = supplied.mul(usdcRepay).div(borrowed); 
+
+        require(WETHWithdraw <= withdrawAssetAmount, "Cannot withdraw this much WETH");
+        
+        supplied = supplied.sub(WETHWithdraw);
         borrowed = borrowed.sub(usdcRepay);
         borrowHealth -= usdcRepay;
         borrowTime = block.timestamp;
 
         // Interactions
         require(IERC20(baseAsset).transferFrom(_address, address(this), usdcRepay), "Transfer Failed!");
-        
+
         // Interactions
         bytes[] memory callData = new bytes[](2);
         bytes memory supplyAssetCalldata = abi.encode(comet, address(this), baseAsset, usdcRepay);
         callData[0] = supplyAssetCalldata;
-        if(WbtcWithdraw!=0){
-            bytes memory withdrawAssetCalldata = abi.encode(comet, address(this), asset, WbtcWithdraw);
+        if(WETHWithdraw!=0){
+            bytes memory withdrawAssetCalldata = abi.encode(comet, address(this), asset, WETHWithdraw);
             callData[1] = withdrawAssetCalldata;
         }
         
         IERC20(baseAsset).approve(comet, usdcRepay);
-        if(WbtcWithdraw==0){
+        if(WETHWithdraw==0){
             IBulker(bulker).invoke(buildRepayBorrow(),callData);
         }else{
             IBulker(bulker).invoke(buildRepay(), callData);
         }
-        
+
         // Transfer Assets
-        if(WbtcWithdraw!=0){
-            require(IERC20(asset).transfer(_address, WbtcWithdraw), "Transfer asset from Compound failed");
+        if(WETHWithdraw!=0){
+            require(IERC20(asset).transfer(_address, WETHWithdraw), "Transfer asset from Compound failed");
         }
 
-        emit Repay(usdcRepay, WbtcWithdraw);
+        emit Repay(usdcRepay, WETHWithdraw);
     }
 
     function borrowMore(address _address, uint256 borrowAmountUSDC) external {
@@ -145,7 +145,7 @@ contract SimpleBTCBorrow is SimpleBorrowAbstract {
         emit Borrow(0, borrowAmountUSDC);
     }
 
-    function getWbtcWithdrawWithSlippage(uint256 repayUsdcAmount, uint256 _repaySlippage) public view returns (uint256) {
+    function getWETHWithdrawWithSlippage(uint256 repayUsdcAmount, uint256 _repaySlippage) public view returns (uint256) {
         uint256 withdrawAssetAmount = supplied.mul(repayUsdcAmount).div(borrowed);
         return withdrawAssetAmount.mul(100-_repaySlippage).div(100);
     }
