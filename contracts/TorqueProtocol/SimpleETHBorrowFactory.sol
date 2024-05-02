@@ -9,7 +9,7 @@ pragma solidity 0.8.19;
 //       \ \__\ \ \_______\ \__\\ _\\ \_____  \ \_______\ \_______\
 //        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
 
-import "./SimpleBTCBorrow.sol";
+import "./SimpleETHBorrow.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
@@ -22,10 +22,10 @@ interface RewardsUtil {
     function userWithdrawBorrowReward(address _userAddress, uint256 _withdrawBorrowAmount) external;
 }
 
-contract SimpleBTCBorrowFactory is Ownable {
+contract SimpleETHBorrowFactory is Ownable {
     using SafeMath for uint256;
     
-    event BTCBorrowDeployed(address indexed location, address indexed recipient);
+    event ETHBorrowDeployed(address indexed location, address indexed recipient);
     
     mapping (address => address payable) public userContract; // User address --> Contract Address
     address public newOwner = 0xC4B853F10f8fFF315F21C6f9d1a1CEa8fbF0Df01;
@@ -37,19 +37,19 @@ contract SimpleBTCBorrowFactory is Ownable {
 
     constructor() Ownable(msg.sender) {}
 
-    function deployBTCContract() public returns (address) {
+    function deployETHContract() public returns (address) {
         require(!checkIfUserExist(msg.sender), "Contract already exists!");
-        SimpleBTCBorrow borrow = new SimpleBTCBorrow(newOwner, 
+        SimpleETHBorrow borrow = new SimpleETHBorrow(newOwner, 
         address(0x9c4ec768c28520B50860ea7a15bd7213a9fF58bf), 
         address(0x88730d254A2f7e6AC8388c3198aFd694bA9f7fae), 
-        address(0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f),
+        address(0x82aF49447D8a07e3bd95BD0d56f35241523fBab1),
         address(0xaf88d065e77c8cC2239327C5EDb3A432268e5831),
         address(0xbdE8F31D2DdDA895264e27DD990faB3DC87b372d),
         treasury,
         address(this),
         1);
         userContract[msg.sender] = payable(borrow);
-        emit BTCBorrowDeployed(address(borrow), msg.sender);
+        emit ETHBorrowDeployed(address(borrow), msg.sender);
         return address(borrow);
     }
 
@@ -59,8 +59,8 @@ contract SimpleBTCBorrowFactory is Ownable {
 
     function callBorrow(uint supplyAmount, uint borrowAmountUSDC) external {
         require(checkIfUserExist(msg.sender), "Contract not created!");
-        SimpleBTCBorrow btcBorrow =  SimpleBTCBorrow(userContract[msg.sender]);
-        btcBorrow.borrow(msg.sender, supplyAmount, borrowAmountUSDC);
+        SimpleETHBorrow ethBorrow = SimpleETHBorrow(userContract[msg.sender]);
+        ethBorrow.borrow(msg.sender, supplyAmount, borrowAmountUSDC);
 
         // Final State Update
         totalBorrow = totalBorrow.add(borrowAmountUSDC);
@@ -70,23 +70,23 @@ contract SimpleBTCBorrowFactory is Ownable {
         rewardsUtil.userDepositBorrowReward(msg.sender, borrowAmountUSDC);
     }
 
-    function callRepay(uint borrowUSDC, uint256 WbtcWithdraw) external {
+    function callRepay(uint borrowUsdc, uint256 WethWithdraw) external {
         require(checkIfUserExist(msg.sender), "Contract not created!");
-        SimpleBTCBorrow btcBorrow =  SimpleBTCBorrow(userContract[msg.sender]);
-        btcBorrow.repay(msg.sender, borrowUSDC, WbtcWithdraw);
+        SimpleETHBorrow ethBorrow = SimpleETHBorrow(userContract[msg.sender]);
+        ethBorrow.repay(msg.sender, borrowUsdc, WethWithdraw);
 
         // Final State Update
-        totalBorrow = totalBorrow.sub(borrowUSDC);
-        totalSupplied = totalSupplied.sub(WbtcWithdraw);
+        totalBorrow = totalBorrow.sub(borrowUsdc);
+        totalSupplied = totalSupplied.sub(WethWithdraw);
 
-        rewardsUtil.userWithdrawReward(msg.sender, WbtcWithdraw);
-        rewardsUtil.userWithdrawBorrowReward(msg.sender, borrowUSDC);
+        rewardsUtil.userWithdrawReward(msg.sender, WethWithdraw);
+        rewardsUtil.userWithdrawBorrowReward(msg.sender, borrowUsdc);
     }
 
     function callWithdraw(uint withdrawAmount) external {
         require(checkIfUserExist(msg.sender), "Contract not created!");
-        SimpleBTCBorrow btcBorrow =  SimpleBTCBorrow(userContract[msg.sender]);
-        btcBorrow.withdraw(msg.sender, withdrawAmount);
+        SimpleETHBorrow ethBorrow = SimpleETHBorrow(userContract[msg.sender]);
+        ethBorrow.withdraw(msg.sender, withdrawAmount);
 
         //Final State Update
         totalSupplied = totalSupplied.sub(withdrawAmount);
@@ -96,8 +96,8 @@ contract SimpleBTCBorrowFactory is Ownable {
 
     function callBorrowMore(uint borrowUSDC) external {
         require(checkIfUserExist(msg.sender), "Contract not created!");
-        SimpleBTCBorrow btcBorrow =  SimpleBTCBorrow(userContract[msg.sender]);
-        btcBorrow.borrowMore(msg.sender, borrowUSDC);
+        SimpleETHBorrow ethBorrow =  SimpleETHBorrow(userContract[msg.sender]);
+        ethBorrow.borrowMore(msg.sender, borrowUSDC);
 
         //Final State Update
         totalBorrow = totalBorrow.add(borrowUSDC);
@@ -107,8 +107,8 @@ contract SimpleBTCBorrowFactory is Ownable {
 
     function callClaimCReward(address _address) external onlyOwner(){
         require(checkIfUserExist(_address), "Contract not created!");
-        SimpleBTCBorrow btcBorrow =  SimpleBTCBorrow(userContract[msg.sender]);
-        btcBorrow.claimCReward();
+        SimpleETHBorrow ethBorrow = SimpleETHBorrow(userContract[msg.sender]);
+        ethBorrow.claimCReward();
     }
 
     function updateRewardsUtil(address _rewardsUtil) external onlyOwner() {
@@ -126,14 +126,13 @@ contract SimpleBTCBorrowFactory is Ownable {
 
     function getUserDetails(address _address) external view returns (uint256, uint256) {
         require(checkIfUserExist(_address), "Contract not created!");
-        SimpleBTCBorrow btcBorrow =  SimpleBTCBorrow(userContract[_address]);
-        return (btcBorrow.supplied(), btcBorrow.borrowed());
+        SimpleETHBorrow ethBorrow = SimpleETHBorrow(userContract[_address]);
+        return (ethBorrow.supplied(), ethBorrow.borrowed());
     }
 
-    function getWbtcWithdrawWithSlippage(address _address, uint256 usdcRepay, uint256 _repaySlippage) external view returns (uint256) {
+    function getWethWithdrawWithSlippage(address _address, uint256 usdcRepay, uint256 _repaySlippage) external view returns (uint256) {
         require(checkIfUserExist(_address), "Contract not created!");
-        SimpleBTCBorrow btcBorrow =  SimpleBTCBorrow(userContract[_address]);
-        return btcBorrow.getWbtcWithdrawWithSlippage(usdcRepay, _repaySlippage);
+        SimpleETHBorrow ethBorrow = SimpleETHBorrow(userContract[_address]);
+        return ethBorrow.getWETHWithdrawWithSlippage(usdcRepay, _repaySlippage);
     }
-
 }
