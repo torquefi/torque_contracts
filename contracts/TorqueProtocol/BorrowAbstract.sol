@@ -31,13 +31,12 @@ abstract contract BorrowAbstract is Ownable, ReentrancyGuard {
     address public engine;
     address public tusd;
     address public treasury;
+    address public controller;
     uint public claimPeriod;
     uint public repaySlippage;
-    uint public totalBorrow;
-    uint public totalSupplied;
     uint public lastClaimCometTime;
 
-    mapping (address => uint256) public borrowHealth;
+    uint256 public borrowHealth;
 
     uint256 public decimalAdjust = 1000000000000;
     
@@ -63,6 +62,7 @@ abstract contract BorrowAbstract is Ownable, ReentrancyGuard {
         address _engine, // Torque USD Engine 
         address _tusd, // TUSD Token
         address _treasury, // Fees Address
+        address _controller,
         uint _repaySlippage // Slippage %
     ) {
         Ownable.transferOwnership(_initialOwner);
@@ -77,6 +77,7 @@ abstract contract BorrowAbstract is Ownable, ReentrancyGuard {
         IComet(_comet).allow(_bulker, true);
         claimPeriod = 86400; // 1 day in seconds
         repaySlippage = _repaySlippage;
+        controller = _controller;
         fetchValues();
     }
     
@@ -87,15 +88,10 @@ abstract contract BorrowAbstract is Ownable, ReentrancyGuard {
     uint constant TUSD_DECIMAL_OFFSET = 1e12;
     uint constant PRICE_SCALE = 1e8;
 
-    struct BorrowInfo {
-        address user; // User Address
-        uint baseBorrowed; // TUSD borrowed 
-        uint borrowed; // USDC Borrowed 
-        uint supplied; // WBTC Supplied
-        uint borrowTime; // Borrow time
-    }
-
-    mapping(address => BorrowInfo) public borrowInfoMap;
+    uint public baseBorrowed; // TUSD borrowed 
+    uint public borrowed; // USDC Borrowed 
+    uint public supplied; // WBTC Supplied
+    uint public borrowTime; // Borrow time
 
     event UserBorrow(address user, address collateralAddress, uint amount);
     event UserRepay(address user, address collateralAddress, uint repayAmount, uint claimAmount);
@@ -113,20 +109,18 @@ abstract contract BorrowAbstract is Ownable, ReentrancyGuard {
         return info.borrowCollateralFactor;
     }
 
-    function getUserBorrowable(address _user) public view returns (uint){
-        BorrowInfo storage userBorrowInfo = borrowInfoMap[_user];
-        if(userBorrowInfo.supplied == 0) {
+    function getUserBorrowable() public view returns (uint){
+        if(supplied == 0) {
             return 0; 
         }
-        uint assetSupplyAmount = userBorrowInfo.supplied;
+        uint assetSupplyAmount = supplied;
         uint maxUsdc = getBorrowableUsdc(assetSupplyAmount);
-        uint maxTusd = getBorrowableV2(maxUsdc, _user); 
+        uint maxTusd = getBorrowableV2(maxUsdc); 
         return maxTusd;
     }
 
-    function getBorrowableV2(uint maxUSDC, address _user) public view returns (uint){
-        BorrowInfo storage userBorrowInfo = borrowInfoMap[_user];
-        uint mintable = getMintableToken(maxUSDC, userBorrowInfo.baseBorrowed, 0);
+    function getBorrowableV2(uint maxUSDC) public view returns (uint){
+        uint mintable = getMintableToken(maxUSDC, baseBorrowed, 0);
         return mintable;
     }
     
@@ -142,43 +136,41 @@ abstract contract BorrowAbstract is Ownable, ReentrancyGuard {
             .div(SCALE);
     }
 
-    function withdraw(uint withdrawAmount) public nonReentrant() {
-        BorrowInfo storage userBorrowInfo = borrowInfoMap[msg.sender];
-        require(userBorrowInfo.supplied > 0, "User does not have asset");
-        if (userBorrowInfo.borrowed > 0) {
-            uint accruedInterest = calculateInterest(userBorrowInfo.borrowed, userBorrowInfo.borrowTime);
-            userBorrowInfo.borrowed = userBorrowInfo.borrowed.add(accruedInterest);
-            userBorrowInfo.borrowTime = block.timestamp;
+    function withdraw(address _address, uint withdrawAmount) public nonReentrant() {
+        require(msg.sender == controller, "Cannot be called directly");
+        require(supplied > 0, "User does not have asset");
+        if (borrowed > 0) {
+            uint accruedInterest = calculateInterest(borrowed, borrowTime);
+            borrowed = borrowed.add(accruedInterest);
+            borrowTime = block.timestamp;
         }
         IComet icomet = IComet(comet);
         IComet.AssetInfo memory info = icomet.getAssetInfoByAddress(asset);
         uint price = icomet.getPrice(info.priceFeed);
         uint assetDecimal = ITokenDecimals(asset).decimals();
-        uint minRequireSupplyAmount = userBorrowInfo.borrowed.mul(SCALE).mul(10**assetDecimal).mul(PRICE_MANTISA).div(price).div(uint(info.borrowCollateralFactor).sub(WITHDRAW_OFFSET));
-        uint withdrawableAmount = userBorrowInfo.supplied - minRequireSupplyAmount;
+        uint minRequireSupplyAmount = borrowed.mul(SCALE).mul(10**assetDecimal).mul(PRICE_MANTISA).div(price).div(uint(info.borrowCollateralFactor).sub(WITHDRAW_OFFSET));
+        uint withdrawableAmount = supplied - minRequireSupplyAmount;
         require(withdrawAmount <= withdrawableAmount, "Exceeds asset supply");
-        userBorrowInfo.supplied = userBorrowInfo.supplied.sub(withdrawAmount);
+        supplied = supplied.sub(withdrawAmount);
         bytes[] memory callData = new bytes[](1);
         bytes memory withdrawAssetCalldata = abi.encode(comet, address(this), asset, withdrawAmount);
         callData[0] = withdrawAssetCalldata;
         IBulker(bulker).invoke(buildWithdraw(), callData);
-        require(IERC20(asset).transfer(msg.sender, withdrawAmount), "Transfer Asset Failed");
-        totalSupplied = totalSupplied.sub(withdrawAmount);
+        require(IERC20(asset).transfer(_address, withdrawAmount), "Transfer Asset Failed");
     } 
     
-    function borrowBalanceOf(address user) public view returns (uint) {
-        BorrowInfo storage userBorrowInfo = borrowInfoMap[user];
-        if(userBorrowInfo.borrowed == 0) {
+    function borrowBalanceOf() public view returns (uint) {
+        if(borrowed == 0) {
             return 0;
         }
-        uint borrowAmount = userBorrowInfo.borrowed;
-        uint interest = calculateInterest(borrowAmount, userBorrowInfo.borrowTime);
+        uint borrowAmount = borrowed;
+        uint interest = calculateInterest(borrowAmount, borrowTime);
         return borrowAmount + interest;
     }
 
-    function calculateInterest(uint borrowAmount, uint borrowTime) public view returns (uint) {
+    function calculateInterest(uint borrowAmount, uint _borrowTime) public view returns (uint) {
         IComet icomet = IComet(comet);
-        uint totalSecond = block.timestamp - borrowTime;
+        uint totalSecond = block.timestamp - _borrowTime;
         return borrowAmount.mul(icomet.getBorrowRate(icomet.getUtilization())).mul(totalSecond).div(1e18);
     }
 
@@ -188,7 +180,8 @@ abstract contract BorrowAbstract is Ownable, ReentrancyGuard {
         return borowRate.mul(31536000);
     }
 
-    function claimCReward() public onlyOwner {
+    function claimCReward() public {
+        require(msg.sender == controller, "Cannot be called directly");
         require(lastClaimCometTime + claimPeriod < block.timestamp, "Already claimed");
         require(treasury != address(0), "Invalid treasury");
         lastClaimCometTime = block.timestamp;
@@ -210,6 +203,11 @@ abstract contract BorrowAbstract is Ownable, ReentrancyGuard {
         bytes32[] memory actions = new bytes32[](2);
         actions[0] = ACTION_SUPPLY_ASSET;
         actions[1] = ACTION_WITHDRAW_ASSET;
+        return actions;
+    }
+    function buildRepayBorrow() pure public returns(bytes32[] memory) {
+        bytes32[] memory actions = new bytes32[](2);
+        actions[0] = ACTION_SUPPLY_ASSET;
         return actions;
     }
 

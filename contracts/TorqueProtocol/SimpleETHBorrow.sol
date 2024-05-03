@@ -13,6 +13,7 @@ import "./SimpleBorrowAbstract.sol";
 
 contract SimpleETHBorrow is SimpleBorrowAbstract {
     using SafeMath for uint256;
+    bool firstTimeFlag = true;
 
     event Borrow(uint supplyAmount, uint borrowAmountUSDC);
     event Repay(uint usdcRepay, uint256 WethWithdraw);
@@ -42,10 +43,19 @@ contract SimpleETHBorrow is SimpleBorrowAbstract {
     function borrow(address _address, uint supplyAmount, uint borrowAmountUSDC) public nonReentrant() {
         require(msg.sender == controller, "Cannot be called directly");
         require(supplyAmount > 0, "Supply amount must be greater than 0");
-        require(
-            IERC20(asset).transferFrom(_address, address(this), supplyAmount),
-            "Transfer asset failed"
-        );
+        if(firstTimeFlag){
+            require(
+                IERC20(asset).transferFrom(msg.sender, address(this), supplyAmount),
+                "Transfer asset failed"
+            );
+            firstTimeFlag = false;
+        }
+        else{
+            require(
+                IERC20(asset).transferFrom(_address, address(this), supplyAmount),
+                "Transfer asset failed"
+            );
+        }
 
         // Effects
         uint accruedInterest = 0;
