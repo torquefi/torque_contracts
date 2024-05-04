@@ -1,5 +1,9 @@
 # Torque Protocol
 
+## System Design
+![Torque](/gitbook/assets/torque-system.png)
+
+## Contract Addresses
 | Contract       | Address       |
 | -------------  | ------------- |
 | BTCBorrowFactory      | [0x838BAB799B1360baAd90e572405650B9a1BFF57A](https://arbiscan.io/address/0x838BAB799B1360baAd90e572405650B9a1BFF57A) |
