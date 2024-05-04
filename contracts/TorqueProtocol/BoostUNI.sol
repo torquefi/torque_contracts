@@ -9,15 +9,24 @@ pragma solidity 0.8.19;
 //       \ \__\ \ \_______\ \__\\ _\\ \_____  \ \_______\ \_______\
 //        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
 
-import "@chainlink/contracts/src/v0.8/automation/AutomationCompatible.sol";
+import "@chainlink/contracts/src/v0.8/AutomationCompatible.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-import "./strategies/GMXV2UNI.sol";
-import "./strategies/UniswapUNI.sol";
+interface GMXUNI {
+    function deposit(uint256 _amount) external payable;
+    function withdraw(uint256 _amount, address _userAddress) external payable;
+    function compound() external;
+}
+
+interface UniswapUNI { 
+    function deposit(uint256 _amount) external;
+    function withdraw(uint128 withdrawAmount, uint256 totalAllocation) external;
+    function compound() external;
+}
 
 interface RewardsUtil {
     function userDepositReward(address _userAddress, uint256 _depositAmount) external;
@@ -29,7 +38,7 @@ contract BoostUNI is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
     using Math for uint256;
     
     IERC20 public uniToken;
-    GMXV2UNI public gmxV2Uni;
+    GMXUNI public gmxV2Uni;
     UniswapUNI public uniswapUni;
     address public treasury;
     RewardsUtil public rewardsUtil;
@@ -38,7 +47,7 @@ contract BoostUNI is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
     uint256 public uniswapAllocation;
     uint256 public lastCompoundTimestamp;
     uint256 public performanceFee = 10;
-    uint256 public minUniAmount = 1000000000000000;
+    uint256 public minUniAmount = 1000000000000000000;
     uint256 public treasuryFee = 0;
 
     uint256 public totalAssetsAmount = 0;
@@ -52,9 +61,9 @@ contract BoostUNI is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
     address _uniswapUniAddress,
     address _treasury,
     address _rewardsUtil
-    ) ERC20(_name, _symbol) {
+    ) ERC20(_name, _symbol) Ownable(msg.sender) {
         uniToken = IERC20(_uniToken);
-        gmxV2Uni = GMXV2UNI(_gmxV2UniAddress);
+        gmxV2Uni = GMXUNI(_gmxV2UniAddress);
         uniswapUni = UniswapUNI(_uniswapUniAddress);
         gmxAllocation = 50;
         uniswapAllocation = 50;
