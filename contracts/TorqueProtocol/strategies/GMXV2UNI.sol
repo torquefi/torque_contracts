@@ -224,20 +224,20 @@ contract GMXV2UNI is Ownable, ReentrancyGuard {
             );
         uint256 totalGMSupply = gmToken.totalSupply(); 
         uint256 adjustedSupply = getAdjustedSupply(marketPoolValueInfo.longTokenUsd , marketPoolValueInfo.shortTokenUsd , marketPoolValueInfo.totalBorrowingFees, marketPoolValueInfo.netPnl, marketPoolValueInfo.impactPoolAmount);
-        return getUniNUsdcAmount(gmAmountWithdraw, adjustedSupply.div(totalGMSupply), marketPoolValueInfo.longTokenUsd.div(100), marketPoolValueInfo.shortTokenUsd, marketPoolValueInfo.longTokenUsd.div(marketPoolValueInfo.longTokenAmount), marketPoolValueInfo.shortTokenUsd.div(marketPoolValueInfo.shortTokenAmount));
+        return getUniNUsdcAmount(gmAmountWithdraw, adjustedSupply.div(totalGMSupply), marketPoolValueInfo.longTokenUsd.div(10e11), marketPoolValueInfo.shortTokenUsd, marketPoolValueInfo.longTokenUsd.div(marketPoolValueInfo.longTokenAmount), marketPoolValueInfo.shortTokenUsd.div(marketPoolValueInfo.shortTokenAmount));
     }
 
     function getUniNUsdcAmount(uint256 gmxWithdraw, uint256 price, uint256 uniVal, uint256 usdcVal, uint256 uniPrice, uint256 usdcPrice) internal pure returns (uint256, uint256) {
-        uint256 uniAmountUSD = gmxWithdraw.mul(price).div(10e5).mul(uniVal);
+        uint256 uniAmountUSD = gmxWithdraw.mul(price).div(10e6).mul(uniVal);
         uniAmountUSD = uniAmountUSD.div(uniVal.add(usdcVal));
 
-        uint256 usdcAmountUSD = gmxWithdraw.mul(price).div(10e5).mul(usdcVal);
+        uint256 usdcAmountUSD = gmxWithdraw.mul(price).div(10e6).mul(usdcVal);
         usdcAmountUSD = usdcAmountUSD.div(uniVal.add(usdcVal));
-        return(uniAmountUSD.mul(10e8).div(uniPrice), usdcAmountUSD.mul(10e6).div(usdcPrice));
+        return(uniAmountUSD.mul(10e19).div(uniPrice), usdcAmountUSD.mul(10e7).div(usdcPrice));
     }
 
     function getAdjustedSupply(uint256 uniPool, uint256 usdcPool, uint256 totalBorrowingFees, int256 pnl, uint256 impactPoolPrice) pure internal returns (uint256) {
-        uniPool = uniPool.div(10e2);
+        uniPool = uniPool.div(10e12);
         usdcPool = usdcPool.div(10);
         totalBorrowingFees = totalBorrowingFees.div(10e6);
         impactPoolPrice = impactPoolPrice.mul(10e6);
