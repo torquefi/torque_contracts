@@ -9,7 +9,7 @@ pragma solidity 0.8.19;
 //       \ \__\ \ \_______\ \__\\ _\\ \_____  \ \_______\ \_______\
 //        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
 
-import "./SimpleETHBorrow.sol";
+import "./ETHBorrow.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
@@ -22,9 +22,8 @@ interface RewardsUtil {
     function userWithdrawBorrowReward(address _userAddress, uint256 _withdrawBorrowAmount) external;
 }
 
-contract SimpleETHBorrowFactory is Ownable {
+contract ETHBorrowFactory is Ownable {
     using SafeMath for uint256;
-    
     event ETHBorrowDeployed(address indexed location, address indexed recipient);
     
     mapping (address => address payable) public userContract; // User address --> Contract Address
@@ -40,12 +39,14 @@ contract SimpleETHBorrowFactory is Ownable {
 
     function deployETHContract() internal returns (address) {
         require(!checkIfUserExist(msg.sender), "Contract already exists!");
-        SimpleETHBorrow borrow = new SimpleETHBorrow(newOwner, 
+        ETHBorrow borrow = new ETHBorrow(newOwner, 
         address(0x9c4ec768c28520B50860ea7a15bd7213a9fF58bf), 
         address(0x88730d254A2f7e6AC8388c3198aFd694bA9f7fae), 
         asset,
         address(0xaf88d065e77c8cC2239327C5EDb3A432268e5831),
         address(0xbdE8F31D2DdDA895264e27DD990faB3DC87b372d),
+        address(0xfdf7b4486f5de843838EcFd254711E06aF1f0641),
+        address(0xf7F6718Cf69967203740cCb431F6bDBff1E0FB68),
         treasury,
         address(this),
         1);
@@ -58,40 +59,50 @@ contract SimpleETHBorrowFactory is Ownable {
         newOwner = _owner;
     }
 
-    function callBorrow(uint supplyAmount, uint borrowAmountUSDC) external {
+    function callBorrow(uint supplyAmount, uint borrowAmountUSDC, uint tUSDBorrowAmount) external {
         if(!checkIfUserExist(msg.sender)){
             address userAddress = deployETHContract();
             IERC20(asset).transferFrom(msg.sender,address(this), supplyAmount);
             IERC20(asset).approve(userAddress, supplyAmount);
         }
-
-        SimpleETHBorrow ethBorrow = SimpleETHBorrow(userContract[msg.sender]);
-        ethBorrow.borrow(msg.sender, supplyAmount, borrowAmountUSDC);
+        ETHBorrow ethBorrow =  ETHBorrow(userContract[msg.sender]);
+        ethBorrow.borrow(msg.sender, supplyAmount, borrowAmountUSDC, tUSDBorrowAmount);
 
         // Final State Update
-        totalBorrow = totalBorrow.add(borrowAmountUSDC);
+        totalBorrow = totalBorrow.add(tUSDBorrowAmount);
         totalSupplied = totalSupplied.add(supplyAmount);
         
         rewardsUtil.userDepositReward(msg.sender, supplyAmount);
-        rewardsUtil.userDepositBorrowReward(msg.sender, borrowAmountUSDC);
+        rewardsUtil.userDepositBorrowReward(msg.sender, tUSDBorrowAmount);
     }
 
-    function callRepay(uint borrowUsdc, uint256 WethWithdraw) external {
+    function callRepay(uint tusdRepayAmount, uint256 WethWithdraw) external {
         require(checkIfUserExist(msg.sender), "Contract not created!");
-        SimpleETHBorrow ethBorrow = SimpleETHBorrow(userContract[msg.sender]);
-        ethBorrow.repay(msg.sender, borrowUsdc, WethWithdraw);
+        ETHBorrow ethBorrow = ETHBorrow(userContract[msg.sender]);
+        ethBorrow.repay(msg.sender, tusdRepayAmount, WethWithdraw);
 
         // Final State Update
-        totalBorrow = totalBorrow.sub(borrowUsdc);
+        totalBorrow = totalBorrow.sub(tusdRepayAmount);
         totalSupplied = totalSupplied.sub(WethWithdraw);
 
         rewardsUtil.userWithdrawReward(msg.sender, WethWithdraw);
-        rewardsUtil.userWithdrawBorrowReward(msg.sender, borrowUsdc);
+        rewardsUtil.userWithdrawBorrowReward(msg.sender, tusdRepayAmount);
+    }
+
+    function callMintTUSD(uint256 _amountToMint) external {
+        require(checkIfUserExist(msg.sender), "Contract not created!");
+        ETHBorrow ethBorrow = ETHBorrow(userContract[msg.sender]);
+        ethBorrow.mintTUSD(msg.sender, _amountToMint);
+
+        // Final State Update
+        totalBorrow = totalBorrow.add(_amountToMint);
+
+        rewardsUtil.userDepositBorrowReward(msg.sender, _amountToMint);
     }
 
     function callWithdraw(uint withdrawAmount) external {
         require(checkIfUserExist(msg.sender), "Contract not created!");
-        SimpleETHBorrow ethBorrow = SimpleETHBorrow(userContract[msg.sender]);
+        ETHBorrow ethBorrow = ETHBorrow(userContract[msg.sender]);
         ethBorrow.withdraw(msg.sender, withdrawAmount);
 
         //Final State Update
@@ -100,20 +111,9 @@ contract SimpleETHBorrowFactory is Ownable {
         rewardsUtil.userWithdrawReward(msg.sender, withdrawAmount);
     }
 
-    function callBorrowMore(uint borrowUSDC) external {
-        require(checkIfUserExist(msg.sender), "Contract not created!");
-        SimpleETHBorrow ethBorrow =  SimpleETHBorrow(userContract[msg.sender]);
-        ethBorrow.borrowMore(msg.sender, borrowUSDC);
-
-        //Final State Update
-        totalBorrow = totalBorrow.add(borrowUSDC);
-        
-        rewardsUtil.userDepositBorrowReward(msg.sender, borrowUSDC);
-    }
-
     function callClaimCReward(address _address) external onlyOwner(){
         require(checkIfUserExist(_address), "Contract not created!");
-        SimpleETHBorrow ethBorrow = SimpleETHBorrow(userContract[msg.sender]);
+        ETHBorrow ethBorrow = ETHBorrow(userContract[msg.sender]);
         ethBorrow.claimCReward();
     }
 
@@ -130,21 +130,40 @@ contract SimpleETHBorrowFactory is Ownable {
 
     }
 
-    function getUserDetails(address _address) external view returns (uint256, uint256) {
+    function getUserDetails(address _address) external view returns (uint256, uint256, uint256) {
         require(checkIfUserExist(_address), "Contract not created!");
-        SimpleETHBorrow ethBorrow = SimpleETHBorrow(userContract[_address]);
-        return (ethBorrow.supplied(), ethBorrow.borrowed());
+        ETHBorrow ethBorrow = ETHBorrow(userContract[_address]);
+        return (ethBorrow.supplied(), ethBorrow.borrowed(), ethBorrow.baseBorrowed());
     }
 
-    function getWethWithdrawWithSlippage(address _address, uint256 usdcRepay, uint256 _repaySlippage) external view returns (uint256) {
+    function getWethWithdraw(address _address, uint256 tusdRepayAmount) external view returns (uint256) {
         require(checkIfUserExist(_address), "Contract not created!");
-        SimpleETHBorrow ethBorrow = SimpleETHBorrow(userContract[_address]);
-        return ethBorrow.getWETHWithdrawWithSlippage(usdcRepay, _repaySlippage);
+        ETHBorrow ethBorrow = ETHBorrow(userContract[_address]);
+        return ethBorrow.getWETHWithdraw(tusdRepayAmount);
+    }
+
+    function getWethWithdrawWithSlippage(address _address, uint256 tusdRepayAmount, uint256 _repaySlippage) external view returns (uint256) {
+        require(checkIfUserExist(_address), "Contract not created!");
+        ETHBorrow ethBorrow = ETHBorrow(userContract[_address]);
+        return ethBorrow.getWETHWithdrawWithSlippage(tusdRepayAmount, _repaySlippage);
+    }
+
+    function maxMoreMintable(address _address) external view returns (uint256) {
+        require(checkIfUserExist(_address), "Contract not created!");
+        ETHBorrow ethBorrow = ETHBorrow(userContract[_address]);
+        return ethBorrow.maxMoreMintable();
+    }
+
+    function mintableTUSD(address _address, uint supplyAmount) external view returns (uint) {
+        require(checkIfUserExist(_address), "Contract not created!");
+        ETHBorrow ethBorrow = ETHBorrow(userContract[_address]);
+        return ethBorrow.mintableTUSD(supplyAmount);
     }
 
     function getBorrowableUsdc(address _address, uint256 supply) external view returns (uint256) {
         require(checkIfUserExist(_address), "Contract not created!");
-        SimpleETHBorrow ethBorrow =  SimpleETHBorrow(userContract[_address]);
+        ETHBorrow ethBorrow = ETHBorrow(userContract[_address]);
         return (ethBorrow.getBorrowableUsdc(supply));
     }
+
 }
