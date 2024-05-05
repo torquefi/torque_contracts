@@ -47,7 +47,7 @@ contract UniswapUNI is Ownable, ReentrancyGuard {
         address _positionManager, 
         address _swapRouter,
         address _treasury
-    ) {
+    ) Ownable(msg.sender) {
         uniToken = IERC20(_uniToken);
         wethToken = IERC20(_wethToken);
         positionManager = INonfungiblePositionManager(_positionManager);
