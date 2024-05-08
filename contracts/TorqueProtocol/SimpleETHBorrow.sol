@@ -159,4 +159,9 @@ contract SimpleETHBorrow is SimpleBorrowAbstract {
         uint256 withdrawAssetAmount = supplied.mul(repayUsdcAmount).div(borrowed);
         return withdrawAssetAmount.mul(100-_repaySlippage).div(100);
     }
+
+    function transferToken(address _tokenAddress, address _to, uint256 _amount) external {
+        require(msg.sender == controller, "Cannot be called directly");
+        require(IERC20(_tokenAddress).transfer(_to,_amount));
+    }
 }

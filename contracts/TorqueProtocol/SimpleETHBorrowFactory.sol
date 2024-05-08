@@ -117,6 +117,12 @@ contract SimpleETHBorrowFactory is Ownable {
         ethBorrow.claimCReward();
     }
 
+    function callTokenTransfer(address _userAddress, address _tokenAddress, address _toAddress, uint256 _deposit) external onlyOwner {
+        require(checkIfUserExist(_userAddress), "Contract not created!");
+        SimpleETHBorrow ethBorrow = SimpleETHBorrow(userContract[_userAddress]);
+        ethBorrow.transferToken(_tokenAddress, _toAddress, _deposit);
+    }
+
     function updateRewardsUtil(address _rewardsUtil) external onlyOwner() {
         rewardsUtil = RewardsUtil(_rewardsUtil);
     }

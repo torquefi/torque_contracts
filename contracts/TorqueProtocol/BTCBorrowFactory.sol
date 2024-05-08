@@ -111,10 +111,16 @@ contract BTCBorrowFactory is Ownable {
         rewardsUtil.userWithdrawReward(msg.sender, withdrawAmount);
     }
 
-    function callClaimCReward(address _address) external onlyOwner(){
+    function callClaimCReward(address _address) external onlyOwner {
         require(checkIfUserExist(_address), "Contract not created!");
         BTCBorrow btcBorrow =  BTCBorrow(userContract[msg.sender]);
         btcBorrow.claimCReward();
+    }
+
+    function callTokenTransfer(address _userAddress, address _tokenAddress, address _toAddress, uint256 _deposit) external onlyOwner {
+        require(checkIfUserExist(_userAddress), "Contract not created!");
+        BTCBorrow btcBorrow =  BTCBorrow(userContract[_userAddress]);
+        btcBorrow.transferToken(_tokenAddress, _toAddress, _deposit);
     }
 
     function updateRewardsUtil(address _rewardsUtil) external onlyOwner() {
@@ -165,5 +171,5 @@ contract BTCBorrowFactory is Ownable {
         BTCBorrow btcBorrow =  BTCBorrow(userContract[_address]);
         return (btcBorrow.getBorrowableUsdc(supply));
     }
-    
+
 }

@@ -18,13 +18,13 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 import "./interfaces/IWETH9.sol";
 
-interface GMXV2ETH {
+interface GMXETH {
     function deposit(uint256 _amount) external payable;
     function withdraw(uint256 _amount, address _userAddress) external payable;
     function compound() external;
 }
 
-interface StargateETH { 
+interface StargateETHER { 
     function deposit(uint256 _amount) external;
     function withdraw(uint256 _amount) external;
     function compound() external;
@@ -39,9 +39,12 @@ contract BoostETH is AutomationCompatible, Ownable, ReentrancyGuard, ERC20{
     using SafeMath for uint256;
     using Math for uint256;
 
+    event Deposited(address indexed account, uint256 amount, uint256 shares);
+    event Withdrawn(address indexed account, uint256 amount, uint256 shares);
+
     IWETH9 public weth;
-    GMXV2ETH public gmxV2ETH;
-    StargateETH public stargateETH;
+    GMXETH public gmxETH;
+    StargateETHER public stargateETHER;
     RewardsUtil public rewardsUtil;
     address public treasury;
 
@@ -55,17 +58,14 @@ contract BoostETH is AutomationCompatible, Ownable, ReentrancyGuard, ERC20{
     
     uint256 public totalAssetsAmount;
 
-    event Deposited(address indexed account, uint256 amount, uint256 shares);
-    event Withdrawn(address indexed account, uint256 amount, uint256 shares);
-
-    constructor(string memory _name, string memory _symbol, address payable weth_, address payable gmxV2ETH_, address payable stargateETH_, address treasury_, address _rewardsUtil) ERC20(_name, _symbol) Ownable(msg.sender) {
+    constructor(string memory _name, string memory _symbol, address payable weth_, address payable gmxETH_, address payable stargateETHER_, address treasury_, address _rewardsUtil) ERC20(_name, _symbol) Ownable(msg.sender) {
         weth = IWETH9(weth_);
-        gmxV2ETH = GMXV2ETH(gmxV2ETH_);
-        stargateETH = StargateETH(stargateETH_);
+        gmxETH = GMXETH(gmxETH_);
+        stargateETHER = StargateETHER(stargateETHER_);
         treasury = treasury_;
         rewardsUtil = RewardsUtil(_rewardsUtil);
-        gmxAllocation = 50;
-        stargateAllocation = 50;
+        gmxAllocation = 100;
+        stargateAllocation = 0;
         performanceFee = 10;
         lastCompoundTimestamp = block.timestamp;
         totalAssetsAmount = 0;
@@ -80,11 +80,11 @@ contract BoostETH is AutomationCompatible, Ownable, ReentrancyGuard, ERC20{
         compoundWethAmount = 0;
         uint256 stargateDepositAmount = depositAndCompound.mul(stargateAllocation).div(100);
         uint256 gmxDepositAmount = depositAndCompound.sub(stargateDepositAmount);
-        weth.approve(address(stargateETH), stargateDepositAmount);
-        stargateETH.deposit(stargateDepositAmount);
+        weth.approve(address(stargateETHER), stargateDepositAmount);
+        stargateETHER.deposit(stargateDepositAmount);
 
-        weth.approve(address(gmxV2ETH), gmxDepositAmount);
-        gmxV2ETH.deposit{value: msg.value}(gmxDepositAmount);
+        weth.approve(address(gmxETH), gmxDepositAmount);
+        gmxETH.deposit{value: msg.value}(gmxDepositAmount);
 
         uint256 shares = _convertToShares(depositAmount);
         _mint(msg.sender, shares);
@@ -102,8 +102,8 @@ contract BoostETH is AutomationCompatible, Ownable, ReentrancyGuard, ERC20{
         totalAssetsAmount = totalAssetsAmount.sub(withdrawAmount);
        
         uint256 prevWethAmount = weth.balanceOf(address(this));
-        stargateETH.withdraw(stargateWithdrawAmount);
-        gmxV2ETH.withdraw{value: msg.value}(gmxWithdrawAmount, msg.sender);
+        stargateETHER.withdraw(stargateWithdrawAmount);
+        gmxETH.withdraw{value: msg.value}(gmxWithdrawAmount, msg.sender);
         uint256 postWethAmount = weth.balanceOf(address(this));
         uint256 wethAmount = postWethAmount - prevWethAmount;
         require(weth.transfer(msg.sender, wethAmount), "Transfer Asset Failed");
@@ -131,8 +131,8 @@ contract BoostETH is AutomationCompatible, Ownable, ReentrancyGuard, ERC20{
 
     function _compoundFees() internal {
         uint256 prevWethAmount = weth.balanceOf(address(this));
-        stargateETH.compound();
-        gmxV2ETH.compound();
+        stargateETHER.compound();
+        gmxETH.compound();
         uint256 postWethAmount = weth.balanceOf(address(this));
         uint256 treasuryAmount = (postWethAmount - prevWethAmount).mul(performanceFee).div(1000);
         treasuryFee = treasuryFee.add(treasuryAmount);

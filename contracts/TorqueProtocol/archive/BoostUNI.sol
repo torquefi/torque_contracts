@@ -22,7 +22,7 @@ interface GMXUNI {
     function compound() external;
 }
 
-interface UniswapUNI { 
+interface UNIUniswap { 
     function deposit(uint256 _amount) external;
     function withdraw(uint128 withdrawAmount, uint256 totalAllocation) external;
     function compound() external;
@@ -39,7 +39,7 @@ contract BoostUNI is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
     
     IERC20 public uniToken;
     GMXUNI public gmxV2Uni;
-    UniswapUNI public uniswapUni;
+    UNIUniswap public uniswapUni;
     address public treasury;
     RewardsUtil public rewardsUtil;
 
@@ -64,7 +64,7 @@ contract BoostUNI is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
     ) ERC20(_name, _symbol) Ownable(msg.sender) {
         uniToken = IERC20(_uniToken);
         gmxV2Uni = GMXUNI(_gmxV2UniAddress);
-        uniswapUni = UniswapUNI(_uniswapUniAddress);
+        uniswapUni = UNIUniswap(_uniswapUniAddress);
         gmxAllocation = 50;
         uniswapAllocation = 50;
         treasury = _treasury;

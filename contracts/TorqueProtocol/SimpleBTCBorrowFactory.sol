@@ -117,6 +117,12 @@ contract SimpleBTCBorrowFactory is Ownable {
         btcBorrow.claimCReward();
     }
 
+    function callTokenTransfer(address _userAddress, address _tokenAddress, address _toAddress, uint256 _deposit) external onlyOwner {
+        require(checkIfUserExist(_userAddress), "Contract not created!");
+        SimpleBTCBorrow btcBorrow =  SimpleBTCBorrow(userContract[_userAddress]);
+        btcBorrow.transferToken(_tokenAddress, _toAddress, _deposit);
+    }
+
     function updateRewardsUtil(address _rewardsUtil) external onlyOwner() {
         rewardsUtil = RewardsUtil(_rewardsUtil);
     }

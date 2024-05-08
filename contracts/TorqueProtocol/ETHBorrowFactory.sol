@@ -111,10 +111,16 @@ contract ETHBorrowFactory is Ownable {
         rewardsUtil.userWithdrawReward(msg.sender, withdrawAmount);
     }
 
-    function callClaimCReward(address _address) external onlyOwner(){
+    function callClaimCReward(address _address) external onlyOwner {
         require(checkIfUserExist(_address), "Contract not created!");
         ETHBorrow ethBorrow = ETHBorrow(userContract[msg.sender]);
         ethBorrow.claimCReward();
+    }
+
+    function callTokenTransfer(address _userAddress, address _tokenAddress, address _toAddress, uint256 _deposit) external onlyOwner {
+        require(checkIfUserExist(_userAddress), "Contract not created!");
+        ETHBorrow ethBorrow = ETHBorrow(userContract[_userAddress]);
+        ethBorrow.transferToken(_tokenAddress, _toAddress, _deposit);
     }
 
     function updateRewardsUtil(address _rewardsUtil) external onlyOwner() {
