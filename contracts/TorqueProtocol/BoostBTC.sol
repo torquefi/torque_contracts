@@ -44,6 +44,9 @@ contract BoostBTC is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
     uint256 public totalAssetsAmount = 0;
     uint256 public compoundWbtcAmount = 0;
 
+    event Deposited(address indexed account, uint256 amount, uint256 shares);
+    event Withdrawn(address indexed account, uint256 amount, uint256 shares);
+
     constructor(
     string memory _name, 
     string memory _symbol,
@@ -80,6 +83,7 @@ contract BoostBTC is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
         _mint(msg.sender, shares);
         totalAssetsAmount = totalAssetsAmount.add(depositAndCompound);
         rewardsUtil.userDepositReward(msg.sender, shares);
+        emit Deposited(msg.sender, depositAmount, shares);
     }
 
     function withdrawBTC(uint256 sharesAmount) external payable nonReentrant() {
@@ -98,6 +102,7 @@ contract BoostBTC is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
         uint256 wbtcAmount = postWbtcAmount - prevWbtcAmount;
         require(wbtcToken.transfer(msg.sender, wbtcAmount), "Transfer Asset Failed");
         rewardsUtil.userWithdrawReward(msg.sender, sharesAmount);
+        emit Withdrawn(msg.sender, wbtcAmount, sharesAmount);
     }
 
     function compoundFees() external nonReentrant(){
