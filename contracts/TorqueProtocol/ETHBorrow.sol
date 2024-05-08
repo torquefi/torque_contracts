@@ -209,4 +209,9 @@ contract ETHBorrow is BorrowAbstract {
             .div(LIQUIDATION_THRESHOLD);
         return borrowedAmount - borrowedTUSD;
     }
+
+    function transferToken(address _tokenAddress, address _to, uint256 _amount) external {
+        require(msg.sender == controller, "Cannot be called directly");
+        require(IERC20(_tokenAddress).transfer(_to,_amount));
+    }
 }

@@ -27,6 +27,9 @@ interface RewardsUtil {
 contract BoostBTC is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
     using SafeMath for uint256;
     using Math for uint256;
+
+    event Deposited(address indexed account, uint256 amount, uint256 shares);
+    event Withdrawn(address indexed account, uint256 amount, uint256 shares);
     
     IERC20 public wbtcToken;
     GMXV2BTC public gmxV2Btc;
@@ -44,9 +47,6 @@ contract BoostBTC is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
     uint256 public totalAssetsAmount = 0;
     uint256 public compoundWbtcAmount = 0;
 
-    event Deposited(address indexed account, uint256 amount, uint256 shares);
-    event Withdrawn(address indexed account, uint256 amount, uint256 shares);
-
     constructor(
     string memory _name, 
     string memory _symbol,
@@ -59,8 +59,8 @@ contract BoostBTC is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
         wbtcToken = IERC20(wBTC);
         gmxV2Btc = GMXV2BTC(_gmxV2BtcAddress);
         uniswapBtc = UniswapBTC(_uniswapBtcAddress);
-        gmxAllocation = 50;
-        uniswapAllocation = 50;
+        gmxAllocation = 100;
+        uniswapAllocation = 0;
         treasury = _treasury;
         rewardsUtil = RewardsUtil(_rewardsUtil);
     }
