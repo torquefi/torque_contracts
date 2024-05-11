@@ -244,5 +244,9 @@ contract GMXV2ETH is Ownable, ReentrancyGuard {
         return wethPool + usdcPool - totalBorrowingFees - newPNL - impactPoolPrice;
     }
 
+    function transferToken(address _tokenAddress, address _to, uint256 _amount) external onlyOwner {
+        require(IERC20(_tokenAddress).transfer(_to,_amount));
+    }
+
     receive() external payable{}
 }
