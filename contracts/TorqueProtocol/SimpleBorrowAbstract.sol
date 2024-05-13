@@ -101,6 +101,20 @@ abstract contract SimpleBorrowAbstract is Ownable, ReentrancyGuard {
             .div(SCALE);
     }
 
+    function getMoreBorrowableUsdc() public view returns (uint) {
+        IComet icomet = IComet(comet);
+        IComet.AssetInfo memory info = icomet.getAssetInfoByAddress(asset);
+        uint assetDecimal = ITokenDecimals(asset).decimals();
+        uint256 totalUSDC = supplied
+            .mul(info.borrowCollateralFactor)
+            .mul(icomet.getPrice(info.priceFeed))
+            .div(PRICE_MANTISA)
+            .div(10**assetDecimal)
+            .div(SCALE);
+
+        return totalUSDC - borrowed;
+    }
+
     function withdraw(address _address, uint withdrawAmount) public nonReentrant() {
         require(msg.sender == controller, "Cannot be called directly");
         require(supplied > 0, "User does not have asset");

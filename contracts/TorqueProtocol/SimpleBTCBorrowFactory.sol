@@ -154,4 +154,10 @@ contract SimpleBTCBorrowFactory is Ownable {
         return (btcBorrow.getBorrowableUsdc(supply));
     }
 
+    function getMoreBorrowableUsdc(address _address) external view returns (uint256) {
+        require(checkIfUserExist(_address), "Contract not created!");
+        SimpleBTCBorrow btcBorrow =  SimpleBTCBorrow(userContract[_address]);
+        return (btcBorrow.getMoreBorrowableUsdc());
+    }
+
 }

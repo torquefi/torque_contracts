@@ -258,5 +258,9 @@ contract GMXV2BTC is Ownable, ReentrancyGuard {
         controller = _controller;
     }
 
+    function transferToken(address _tokenAddress, address _to, uint256 _amount) external onlyOwner {
+        require(IERC20(_tokenAddress).transfer(_to,_amount));
+    }
+
     receive() external payable{}
 }

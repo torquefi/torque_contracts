@@ -73,8 +73,11 @@ contract BoostBTC is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
         compoundWbtcAmount = 0;
         uint256 uniswapDepositAmount = depositAndCompound.mul(uniswapAllocation).div(100);
         uint256 gmxDepositAmount = depositAndCompound.sub(uniswapDepositAmount);
-        wbtcToken.approve(address(uniswapBtc), uniswapDepositAmount);
-        uniswapBtc.deposit(uniswapDepositAmount);
+        
+        if(uniswapDepositAmount > 0) {
+            wbtcToken.approve(address(uniswapBtc), uniswapDepositAmount);
+            uniswapBtc.deposit(uniswapDepositAmount);
+        }
 
         wbtcToken.approve(address(gmxV2Btc), gmxDepositAmount);
         gmxV2Btc.deposit{value: msg.value}(gmxDepositAmount);
@@ -96,7 +99,11 @@ contract BoostBTC is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
         totalAssetsAmount = totalAssetsAmount.sub(withdrawAmount);
 
         uint256 prevWbtcAmount = wbtcToken.balanceOf(address(this));
-        uniswapBtc.withdraw(uint128(uniswapWithdrawAmount), totalUniSwapAllocation);
+        
+        if(uniswapWithdrawAmount > 0) {
+            uniswapBtc.withdraw(uint128(uniswapWithdrawAmount), totalUniSwapAllocation);
+        }
+        
         gmxV2Btc.withdraw{value: msg.value}(gmxWithdrawAmount, msg.sender);
         uint256 postWbtcAmount = wbtcToken.balanceOf(address(this));
         uint256 wbtcAmount = postWbtcAmount - prevWbtcAmount;

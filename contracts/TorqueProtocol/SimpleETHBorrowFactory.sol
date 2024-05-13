@@ -153,4 +153,10 @@ contract SimpleETHBorrowFactory is Ownable {
         SimpleETHBorrow ethBorrow =  SimpleETHBorrow(userContract[_address]);
         return (ethBorrow.getBorrowableUsdc(supply));
     }
+
+    function getMoreBorrowableUsdc(address _address) external view returns (uint256) {
+        require(checkIfUserExist(_address), "Contract not created!");
+        SimpleETHBorrow ethBorrow =  SimpleETHBorrow(userContract[_address]);
+        return (ethBorrow.getMoreBorrowableUsdc());
+    }
 }

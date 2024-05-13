@@ -80,8 +80,11 @@ contract BoostETH is AutomationCompatible, Ownable, ReentrancyGuard, ERC20{
         compoundWethAmount = 0;
         uint256 stargateDepositAmount = depositAndCompound.mul(stargateAllocation).div(100);
         uint256 gmxDepositAmount = depositAndCompound.sub(stargateDepositAmount);
-        weth.approve(address(stargateETHER), stargateDepositAmount);
-        stargateETHER.deposit(stargateDepositAmount);
+        
+        if (stargateDepositAmount > 0){
+            weth.approve(address(stargateETHER), stargateDepositAmount);
+            stargateETHER.deposit(stargateDepositAmount);
+        }
 
         weth.approve(address(gmxETH), gmxDepositAmount);
         gmxETH.deposit{value: msg.value}(gmxDepositAmount);
@@ -102,7 +105,9 @@ contract BoostETH is AutomationCompatible, Ownable, ReentrancyGuard, ERC20{
         totalAssetsAmount = totalAssetsAmount.sub(withdrawAmount);
        
         uint256 prevWethAmount = weth.balanceOf(address(this));
-        stargateETHER.withdraw(stargateWithdrawAmount);
+        if (stargateWithdrawAmount > 0) {
+            stargateETHER.withdraw(stargateWithdrawAmount);
+        }
         gmxETH.withdraw{value: msg.value}(gmxWithdrawAmount, msg.sender);
         uint256 postWethAmount = weth.balanceOf(address(this));
         uint256 wethAmount = postWethAmount - prevWethAmount;
