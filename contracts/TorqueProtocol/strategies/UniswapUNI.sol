@@ -63,15 +63,15 @@ contract UniswapUNI is Ownable, ReentrancyGuard {
         uint256 wethAmount = convertUnitoWETH(uniToConvert);
         uniToken.approve(address(positionManager), uniToKeep);
         wethToken.approve(address(positionManager), wethAmount);
-        uint256 amount0Min = uniToKeep * (1000 - slippage) / 1000;
-        uint256 amount1Min = wethAmount * (1000 - slippage) / 1000;
+        uint256 amount0Min = wethAmount * (1000 - slippage) / 1000;
+        uint256 amount1Min = uniToKeep * (1000 - slippage) / 1000;
 
         if(!poolInitialised){
-            INonfungiblePositionManager.MintParams memory params = createMintParams(uniToKeep, wethAmount, amount0Min, amount1Min);
+            INonfungiblePositionManager.MintParams memory params = createMintParams(wethAmount, uniToKeep, amount0Min, amount1Min);
             (tokenId,,,) = positionManager.mint(params);
             poolInitialised = true;
         } else {
-            INonfungiblePositionManager.IncreaseLiquidityParams memory increaseLiquidityParams = createIncreaseLiquidityParams(uniToKeep, wethAmount, amount0Min, amount1Min);
+            INonfungiblePositionManager.IncreaseLiquidityParams memory increaseLiquidityParams = createIncreaseLiquidityParams(wethAmount, uniToKeep, amount0Min, amount1Min);
             positionManager.increaseLiquidity(increaseLiquidityParams);
         }
         emit Deposited(amount);
@@ -99,14 +99,17 @@ contract UniswapUNI is Ownable, ReentrancyGuard {
             amount1Max: uint128(amount1)
         });
         positionManager.collect(collectParams);
-        uint256 convertedUniAmount = convertWETHtoUni(amount1);
-        amount0 = amount0.add(convertedUniAmount);
-        require(uniToken.transfer(msg.sender, amount0), "Transfer Asset Failed");
+        uint256 convertedUniAmount = convertWETHtoUni(amount0);
+        amount1 = amount1.add(convertedUniAmount);
+        require(uniToken.transfer(msg.sender, amount1), "Transfer Asset Failed");
         emit Withdrawal(amount);
     }
 
     function compound() external {
         require(msg.sender == controller, "Only controller can call this!");
+        if(!poolInitialised){
+            return;
+        }
         INonfungiblePositionManager.CollectParams memory collectParams =
             INonfungiblePositionManager.CollectParams({
                 tokenId: tokenId,
@@ -114,7 +117,7 @@ contract UniswapUNI is Ownable, ReentrancyGuard {
                 amount0Max: type(uint128).max,
                 amount1Max: type(uint128).max
         });
-        (, uint256 wethVal) = positionManager.collect(collectParams);
+        (uint256 wethVal,) = positionManager.collect(collectParams);
         convertWETHtoUni(wethVal);
         uint256 uniAmount = uniToken.balanceOf(address(this));
         require(uniToken.transfer(msg.sender, uniAmount), "Transfer Asset Failed");
@@ -124,15 +127,15 @@ contract UniswapUNI is Ownable, ReentrancyGuard {
         controller = _controller;
     }
 
-    function createMintParams(uint256 uniToKeep, uint256 wethAmount, uint256 amount0Min, uint256 amount1Min) internal view returns (INonfungiblePositionManager.MintParams memory) {
+    function createMintParams(uint256 wethAmount, uint256 uniToKeep, uint256 amount0Min, uint256 amount1Min) internal view returns (INonfungiblePositionManager.MintParams memory) {
         return INonfungiblePositionManager.MintParams({
-            token0: address(uniToken),
-            token1: address(wethToken),
+            token0: address(wethToken),
+            token1: address(uniToken),
             fee: poolFee,
             tickLower: tickLower,
             tickUpper: tickUpper,
-            amount0Desired: uniToKeep,
-            amount1Desired: wethAmount,
+            amount0Desired: wethAmount,
+            amount1Desired: uniToKeep,
             amount0Min: amount0Min,
             amount1Min: amount1Min,
             recipient: address(this),
@@ -140,11 +143,11 @@ contract UniswapUNI is Ownable, ReentrancyGuard {
         });
     }
 
-    function createIncreaseLiquidityParams(uint256 uniToKeep, uint256 wethAmount, uint256 amount0Min, uint256 amount1Min) internal view returns (INonfungiblePositionManager.IncreaseLiquidityParams memory) {
+    function createIncreaseLiquidityParams(uint256 wethAmount, uint256 uniToKeep, uint256 amount0Min, uint256 amount1Min) internal view returns (INonfungiblePositionManager.IncreaseLiquidityParams memory) {
         return INonfungiblePositionManager.IncreaseLiquidityParams({
             tokenId: tokenId,
-            amount0Desired: uniToKeep,
-            amount1Desired: wethAmount,
+            amount0Desired: wethAmount,
+            amount1Desired: uniToKeep,
             amount0Min: amount0Min,
             amount1Min: amount1Min,
             deadline: block.timestamp + 2 minutes

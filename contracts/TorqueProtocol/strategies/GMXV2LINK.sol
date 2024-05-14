@@ -64,7 +64,7 @@ contract GMXV2LINK is Ownable, ReentrancyGuard {
         address swapRouter_, 
         address depositVault_, 
         address withdrawalVault_, 
-        address router_) {
+        address router_) Ownable(msg.sender) {
             linkToken = IERC20(linkToken_);
             gmToken = IERC20(gmToken_);
             usdcToken = IERC20(usdcToken_);
@@ -224,7 +224,7 @@ contract GMXV2LINK is Ownable, ReentrancyGuard {
             );
         uint256 totalGMSupply = gmToken.totalSupply(); 
         uint256 adjustedSupply = getAdjustedSupply(marketPoolValueInfo.longTokenUsd , marketPoolValueInfo.shortTokenUsd , marketPoolValueInfo.totalBorrowingFees, marketPoolValueInfo.netPnl, marketPoolValueInfo.impactPoolAmount);
-        return getLinkNUsdcAmount(gmAmountWithdraw, adjustedSupply.div(totalGMSupply), marketPoolValueInfo.longTokenUsd.div(100), marketPoolValueInfo.shortTokenUsd, marketPoolValueInfo.longTokenUsd.div(marketPoolValueInfo.longTokenAmount), marketPoolValueInfo.shortTokenUsd.div(marketPoolValueInfo.shortTokenAmount));
+        return getLinkNUsdcAmount(gmAmountWithdraw, adjustedSupply.div(totalGMSupply), marketPoolValueInfo.longTokenUsd.div(10e11), marketPoolValueInfo.shortTokenUsd, marketPoolValueInfo.longTokenUsd.div(marketPoolValueInfo.longTokenAmount), marketPoolValueInfo.shortTokenUsd.div(marketPoolValueInfo.shortTokenAmount));
     }
 
     function getLinkNUsdcAmount(uint256 gmxWithdraw, uint256 price, uint256 linkVal, uint256 usdcVal, uint256 linkPrice, uint256 usdcPrice) internal pure returns (uint256, uint256) {
@@ -233,13 +233,12 @@ contract GMXV2LINK is Ownable, ReentrancyGuard {
 
         uint256 usdcAmountUSD = gmxWithdraw.mul(price).div(10e5).mul(usdcVal);
         usdcAmountUSD = usdcAmountUSD.div(linkVal.add(usdcVal));
-        return(linkAmountUSD.mul(10e8).div(linkPrice), usdcAmountUSD.mul(10e6).div(usdcPrice));
+        return(linkAmountUSD.mul(10e17).div(linkPrice), usdcAmountUSD.mul(10e5).div(usdcPrice));
     }
 
     function getAdjustedSupply(uint256 linkPool, uint256 usdcPool, uint256 totalBorrowingFees, int256 pnl, uint256 impactPoolPrice) pure internal returns (uint256) {
-        linkPool = linkPool.div(10e2);
-        usdcPool = usdcPool.div(10);
-        totalBorrowingFees = totalBorrowingFees.div(10e6);
+        linkPool = linkPool.div(10e11);
+        totalBorrowingFees = totalBorrowingFees.div(10e4);
         impactPoolPrice = impactPoolPrice.mul(10e6);
         uint256 newPNL;
         if(pnl>0){
@@ -256,6 +255,10 @@ contract GMXV2LINK is Ownable, ReentrancyGuard {
 
     function setController(address _controller) external onlyOwner() {
         controller = _controller;
+    }
+
+    function transferToken(address _tokenAddress, address _to, uint256 _amount) external onlyOwner {
+        require(IERC20(_tokenAddress).transfer(_to,_amount));
     }
 
     receive() external payable{}

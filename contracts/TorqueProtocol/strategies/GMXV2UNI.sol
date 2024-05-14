@@ -226,7 +226,7 @@ contract GMXV2UNI is Ownable, ReentrancyGuard {
         uint256 adjustedSupply = getAdjustedSupply(marketPoolValueInfo.longTokenUsd , marketPoolValueInfo.shortTokenUsd , marketPoolValueInfo.totalBorrowingFees, marketPoolValueInfo.netPnl, marketPoolValueInfo.impactPoolAmount);
         return getUniNUsdcAmount(gmAmountWithdraw, adjustedSupply.div(totalGMSupply), marketPoolValueInfo.longTokenUsd.div(10e11), marketPoolValueInfo.shortTokenUsd, marketPoolValueInfo.longTokenUsd.div(marketPoolValueInfo.longTokenAmount), marketPoolValueInfo.shortTokenUsd.div(marketPoolValueInfo.shortTokenAmount));
     }
-    
+
     function getUniNUsdcAmount(uint256 gmxWithdraw, uint256 price, uint256 uniVal, uint256 usdcVal, uint256 uniPrice, uint256 usdcPrice) internal pure returns (uint256, uint256) {
         uint256 uniAmountUSD = gmxWithdraw.mul(price).div(10e5).mul(uniVal);
         uniAmountUSD = uniAmountUSD.div(uniVal.add(usdcVal));
@@ -255,6 +255,10 @@ contract GMXV2UNI is Ownable, ReentrancyGuard {
 
     function setController(address _controller) external onlyOwner() {
         controller = _controller;
+    }
+
+    function transferToken(address _tokenAddress, address _to, uint256 _amount) external onlyOwner {
+        require(IERC20(_tokenAddress).transfer(_to,_amount));
     }
 
     receive() external payable{}
