@@ -16,8 +16,17 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-import "./strategies/GMXV2LINK.sol";
-import "./strategies/UniswapLINK.sol";
+interface GMXLINK {
+    function deposit(uint256 _amount) external payable;
+    function withdraw(uint256 _amount, address _userAddress) external payable;
+    function compound() external;
+}
+
+interface LINKUniswap { 
+    function deposit(uint256 _amount) external;
+    function withdraw(uint128 withdrawAmount, uint256 totalAllocation) external;
+    function compound() external;
+}
 
 interface RewardsUtil {
     function userDepositReward(address _userAddress, uint256 _depositAmount) external;
@@ -27,10 +36,13 @@ interface RewardsUtil {
 contract BoostLINK is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
     using SafeMath for uint256;
     using Math for uint256;
+
+    event Deposited(address indexed account, uint256 amount, uint256 shares);
+    event Withdrawn(address indexed account, uint256 amount, uint256 shares);
     
     IERC20 public linkToken;
-    GMXV2LINK public gmxV2Link;
-    UniswapLINK public uniswapLink;
+    GMXLINK public gmxV2Link;
+    LINKUniswap public uniswapLink;
     address public treasury;
     RewardsUtil public rewardsUtil;
 
@@ -52,12 +64,12 @@ contract BoostLINK is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
     address _uniswapLinkAddress,
     address _treasury,
     address _rewardsUtil
-    ) ERC20(_name, _symbol) {
+    ) ERC20(_name, _symbol) Ownable(msg.sender) {
         linkToken = IERC20(_linkToken);
-        gmxV2Link = GMXV2LINK(_gmxV2LinkAddress);
-        uniswapLink = UniswapLINK(_uniswapLinkAddress);
-        gmxAllocation = 50;
-        uniswapAllocation = 50;
+        gmxV2Link = GMXLINK(_gmxV2LinkAddress);
+        uniswapLink = LINKUniswap(_uniswapLinkAddress);
+        gmxAllocation = 100;
+        uniswapAllocation = 0;
         treasury = _treasury;
         rewardsUtil = RewardsUtil(_rewardsUtil);
     }
@@ -68,10 +80,14 @@ contract BoostLINK is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
         require(linkToken.transferFrom(msg.sender, address(this), depositAmount), "Transfer Asset Failed");
         uint256 depositAndCompound = depositAmount + compoundLinkAmount;
         compoundLinkAmount = 0;
+       
         uint256 uniswapDepositAmount = depositAndCompound.mul(uniswapAllocation).div(100);
         uint256 gmxDepositAmount = depositAndCompound.sub(uniswapDepositAmount);
-        linkToken.approve(address(uniswapLink), uniswapDepositAmount);
-        uniswapLink.deposit(uniswapDepositAmount);
+        
+        if (uniswapDepositAmount > 0) {
+            linkToken.approve(address(uniswapLink), uniswapDepositAmount);
+            uniswapLink.deposit(uniswapDepositAmount);
+        }
 
         linkToken.approve(address(gmxV2Link), gmxDepositAmount);
         gmxV2Link.deposit{value: msg.value}(gmxDepositAmount);
@@ -80,6 +96,7 @@ contract BoostLINK is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
         _mint(msg.sender, shares);
         totalAssetsAmount = totalAssetsAmount.add(depositAndCompound);
         rewardsUtil.userDepositReward(msg.sender, shares);
+        emit Deposited(msg.sender, depositAmount, shares);
     }
 
     function withdrawLINK(uint256 sharesAmount) external payable nonReentrant() {
@@ -90,14 +107,18 @@ contract BoostLINK is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
         _burn(msg.sender, sharesAmount);
         uint256 totalUniSwapAllocation = totalAssetsAmount.mul(uniswapAllocation).div(100);
         totalAssetsAmount = totalAssetsAmount.sub(withdrawAmount);
-
         uint256 prevLinkAmount = linkToken.balanceOf(address(this));
-        uniswapLink.withdraw(uint128(uniswapWithdrawAmount), totalUniSwapAllocation);
+
+        if (uniswapWithdrawAmount > 0) {
+            uniswapLink.withdraw(uint128(uniswapWithdrawAmount), totalUniSwapAllocation);
+        }
+
         gmxV2Link.withdraw{value: msg.value}(gmxWithdrawAmount, msg.sender);
         uint256 postLinkAmount = linkToken.balanceOf(address(this));
         uint256 linkAmount = postLinkAmount - prevLinkAmount;
         require(linkToken.transfer(msg.sender, linkAmount), "Transfer Asset Failed");
         rewardsUtil.userWithdrawReward(msg.sender, sharesAmount);
+        emit Withdrawn(msg.sender, linkAmount, sharesAmount);
     }
 
     function compoundFees() external nonReentrant(){

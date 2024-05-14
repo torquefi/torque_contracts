@@ -47,7 +47,7 @@ contract UniswapLINK is Ownable, ReentrancyGuard {
         address _positionManager, 
         address _swapRouter,
         address _treasury
-    ) {
+    ) Ownable(msg.sender) {
         linkToken = IERC20(_linkToken);
         wethToken = IERC20(_wethToken);
         positionManager = INonfungiblePositionManager(_positionManager);
@@ -63,15 +63,15 @@ contract UniswapLINK is Ownable, ReentrancyGuard {
         uint256 wethAmount = convertLinktoWETH(linkToConvert);
         linkToken.approve(address(positionManager), linkToKeep);
         wethToken.approve(address(positionManager), wethAmount);
-        uint256 amount0Min = linkToKeep * (1000 - slippage) / 1000;
-        uint256 amount1Min = wethAmount * (1000 - slippage) / 1000;
+        uint256 amount0Min = wethAmount * (1000 - slippage) / 1000;
+        uint256 amount1Min = linkToKeep * (1000 - slippage) / 1000;
 
         if(!poolInitialised){
             INonfungiblePositionManager.MintParams memory params = createMintParams(linkToKeep, wethAmount, amount0Min, amount1Min);
             (tokenId,,,) = positionManager.mint(params);
             poolInitialised = true;
         } else {
-            INonfungiblePositionManager.IncreaseLiquidityParams memory increaseLiquidityParams = createIncreaseLiquidityParams(linkToKeep, wethAmount, amount0Min, amount1Min);
+            INonfungiblePositionManager.IncreaseLiquidityParams memory increaseLiquidityParams = createIncreaseLiquidityParams(wethAmount, linkToKeep, amount0Min, amount1Min);
             positionManager.increaseLiquidity(increaseLiquidityParams);
         }
         emit Deposited(amount);
@@ -99,9 +99,9 @@ contract UniswapLINK is Ownable, ReentrancyGuard {
             amount1Max: uint128(amount1)
         });
         positionManager.collect(collectParams);
-        uint256 convertedLinkAmount = convertWETHtoLink(amount1);
-        amount0 = amount0.add(convertedLinkAmount);
-        require(linkToken.transfer(msg.sender, amount0), "Transfer Asset Failed");
+        uint256 convertedLinkAmount = convertWETHtoLink(amount0);
+        amount1 = amount1.add(convertedLinkAmount);
+        require(linkToken.transfer(msg.sender, amount1), "Transfer Asset Failed");
         emit Withdrawal(amount);
     }
 
@@ -114,7 +114,7 @@ contract UniswapLINK is Ownable, ReentrancyGuard {
                 amount0Max: type(uint128).max,
                 amount1Max: type(uint128).max
         });
-        (, uint256 wethVal) = positionManager.collect(collectParams);
+        (uint256 wethVal, ) = positionManager.collect(collectParams);
         convertWETHtoLink(wethVal);
         uint256 linkAmount = linkToken.balanceOf(address(this));
         require(linkToken.transfer(msg.sender, linkAmount), "Transfer Asset Failed");
@@ -126,13 +126,13 @@ contract UniswapLINK is Ownable, ReentrancyGuard {
 
     function createMintParams(uint256 linkToKeep, uint256 wethAmount, uint256 amount0Min, uint256 amount1Min) internal view returns (INonfungiblePositionManager.MintParams memory) {
         return INonfungiblePositionManager.MintParams({
-            token0: address(linkToken),
-            token1: address(wethToken),
+            token0: address(wethToken),
+            token1: address(linkToken),
             fee: poolFee,
             tickLower: tickLower,
             tickUpper: tickUpper,
-            amount0Desired: linkToKeep,
-            amount1Desired: wethAmount,
+            amount0Desired: wethAmount,
+            amount1Desired: linkToKeep,
             amount0Min: amount0Min,
             amount1Min: amount1Min,
             recipient: address(this),
@@ -140,11 +140,11 @@ contract UniswapLINK is Ownable, ReentrancyGuard {
         });
     }
 
-    function createIncreaseLiquidityParams(uint256 linkToKeep, uint256 wethAmount, uint256 amount0Min, uint256 amount1Min) internal view returns (INonfungiblePositionManager.IncreaseLiquidityParams memory) {
+    function createIncreaseLiquidityParams(uint256 wethAmount, uint256 linkToKeep, uint256 amount0Min, uint256 amount1Min) internal view returns (INonfungiblePositionManager.IncreaseLiquidityParams memory) {
         return INonfungiblePositionManager.IncreaseLiquidityParams({
             tokenId: tokenId,
-            amount0Desired: linkToKeep,
-            amount1Desired: wethAmount,
+            amount0Desired: wethAmount,
+            amount1Desired: linkToKeep,
             amount0Min: amount0Min,
             amount1Min: amount1Min,
             deadline: block.timestamp + 2 minutes

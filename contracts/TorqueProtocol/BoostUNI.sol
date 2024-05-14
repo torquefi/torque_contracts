@@ -36,6 +36,9 @@ interface RewardsUtil {
 contract BoostUNI is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
     using SafeMath for uint256;
     using Math for uint256;
+
+    event Deposited(address indexed account, uint256 amount, uint256 shares);
+    event Withdrawn(address indexed account, uint256 amount, uint256 shares);
     
     IERC20 public uniToken;
     GMXUNI public gmxV2Uni;
@@ -65,8 +68,8 @@ contract BoostUNI is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
         uniToken = IERC20(_uniToken);
         gmxV2Uni = GMXUNI(_gmxV2UniAddress);
         uniswapUni = UNIUniswap(_uniswapUniAddress);
-        gmxAllocation = 50;
-        uniswapAllocation = 50;
+        gmxAllocation = 100;
+        uniswapAllocation = 0;
         treasury = _treasury;
         rewardsUtil = RewardsUtil(_rewardsUtil);
     }
@@ -79,9 +82,12 @@ contract BoostUNI is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
         compoundUniAmount = 0;
         uint256 uniswapDepositAmount = depositAndCompound.mul(uniswapAllocation).div(100);
         uint256 gmxDepositAmount = depositAndCompound.sub(uniswapDepositAmount);
-        uniToken.approve(address(uniswapUni), uniswapDepositAmount);
-        uniswapUni.deposit(uniswapDepositAmount);
-
+        
+        if (uniswapDepositAmount > 0) {
+            uniToken.approve(address(uniswapUni), uniswapDepositAmount);
+            uniswapUni.deposit(uniswapDepositAmount);
+        }
+        
         uniToken.approve(address(gmxV2Uni), gmxDepositAmount);
         gmxV2Uni.deposit{value: msg.value}(gmxDepositAmount);
 
@@ -89,6 +95,7 @@ contract BoostUNI is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
         _mint(msg.sender, shares);
         totalAssetsAmount = totalAssetsAmount.add(depositAndCompound);
         rewardsUtil.userDepositReward(msg.sender, shares);
+        emit Deposited(msg.sender, depositAmount, shares);
     }
 
     function withdrawUNI(uint256 sharesAmount) external payable nonReentrant() {
@@ -101,12 +108,17 @@ contract BoostUNI is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
         totalAssetsAmount = totalAssetsAmount.sub(withdrawAmount);
 
         uint256 prevUniAmount = uniToken.balanceOf(address(this));
-        uniswapUni.withdraw(uint128(uniswapWithdrawAmount), totalUniSwapAllocation);
+
+        if (uniswapWithdrawAmount > 0) {
+            uniswapUni.withdraw(uint128(uniswapWithdrawAmount), totalUniSwapAllocation);
+        }
+
         gmxV2Uni.withdraw{value: msg.value}(gmxWithdrawAmount, msg.sender);
         uint256 postUniAmount = uniToken.balanceOf(address(this));
         uint256 uniAmount = postUniAmount - prevUniAmount;
         require(uniToken.transfer(msg.sender, uniAmount), "Transfer Asset Failed");
         rewardsUtil.userWithdrawReward(msg.sender, sharesAmount);
+        emit Withdrawn(msg.sender, wethAmount, sharesAmount);
     }
 
     function compoundFees() external nonReentrant(){
