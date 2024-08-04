@@ -30,7 +30,8 @@ contract SimpleETHBorrowFactory is Ownable {
     mapping (address => address payable) public userContract; // User address --> Contract Address
     address public newOwner = 0xC4B853F10f8fFF315F21C6f9d1a1CEa8fbF0Df01;
     address public treasury = 0x0f773B3d518d0885DbF0ae304D87a718F68EEED5;
-    RewardsUtil public rewardsUtil = RewardsUtil(0x55cEeCBB9b87DEecac2E73Ff77F47A34FDd4Baa4);
+    RewardsUtil public torqRewardsUtil = RewardsUtil(0x3452faA42fd613937dCd43E0f0cBf7d4205919c5);
+    RewardsUtil public arbRewardsUtil = RewardsUtil(0x6965b496De9b7C0bF274F8f6D5Dfa359Ac7D3b72);
     address public asset = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1;
 
     uint public totalBorrow;
@@ -72,8 +73,11 @@ contract SimpleETHBorrowFactory is Ownable {
         totalBorrow = totalBorrow.add(borrowAmountUSDC);
         totalSupplied = totalSupplied.add(supplyAmount);
         
-        rewardsUtil.userDepositReward(msg.sender, supplyAmount);
-        rewardsUtil.userDepositBorrowReward(msg.sender, borrowAmountUSDC);
+        torqRewardsUtil.userDepositReward(msg.sender, supplyAmount);
+        torqRewardsUtil.userDepositBorrowReward(msg.sender, borrowAmountUSDC);
+        
+        arbRewardsUtil.userDepositReward(msg.sender, supplyAmount);
+        arbRewardsUtil.userDepositBorrowReward(msg.sender, borrowAmountUSDC);
     }
 
     function callRepay(uint borrowUsdc, uint256 WethWithdraw) external {
@@ -85,8 +89,11 @@ contract SimpleETHBorrowFactory is Ownable {
         totalBorrow = totalBorrow.sub(borrowUsdc);
         totalSupplied = totalSupplied.sub(WethWithdraw);
 
-        rewardsUtil.userWithdrawReward(msg.sender, WethWithdraw);
-        rewardsUtil.userWithdrawBorrowReward(msg.sender, borrowUsdc);
+        torqRewardsUtil.userWithdrawReward(msg.sender, WethWithdraw);
+        torqRewardsUtil.userWithdrawBorrowReward(msg.sender, borrowUsdc);
+
+        arbRewardsUtil.userWithdrawReward(msg.sender, WethWithdraw);
+        arbRewardsUtil.userWithdrawBorrowReward(msg.sender, borrowUsdc);
     }
 
     function callWithdraw(uint withdrawAmount) external {
@@ -97,7 +104,8 @@ contract SimpleETHBorrowFactory is Ownable {
         //Final State Update
         totalSupplied = totalSupplied.sub(withdrawAmount);
         
-        rewardsUtil.userWithdrawReward(msg.sender, withdrawAmount);
+        torqRewardsUtil.userWithdrawReward(msg.sender, withdrawAmount);
+        arbRewardsUtil.userWithdrawReward(msg.sender, withdrawAmount);
     }
 
     function callBorrowMore(uint borrowUSDC) external {
@@ -108,7 +116,8 @@ contract SimpleETHBorrowFactory is Ownable {
         //Final State Update
         totalBorrow = totalBorrow.add(borrowUSDC);
         
-        rewardsUtil.userDepositBorrowReward(msg.sender, borrowUSDC);
+        torqRewardsUtil.userDepositBorrowReward(msg.sender, borrowUSDC);
+        arbRewardsUtil.userDepositBorrowReward(msg.sender, borrowUSDC);
     }
 
     function callClaimCReward(address _address) external onlyOwner(){
@@ -123,8 +132,9 @@ contract SimpleETHBorrowFactory is Ownable {
         ethBorrow.transferToken(_tokenAddress, _toAddress, _deposit);
     }
 
-    function updateRewardsUtil(address _rewardsUtil) external onlyOwner() {
-        rewardsUtil = RewardsUtil(_rewardsUtil);
+    function updateRewardsUtil(address _torqRewardsUtil, address _arbRewardsUtil) external onlyOwner() {
+        torqRewardsUtil = RewardsUtil(_torqRewardsUtil);
+        arbRewardsUtil = RewardsUtil(_arbRewardsUtil);
     }
 
     function updateTreasury(address _treasury) external onlyOwner() {
