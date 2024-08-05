@@ -4,8 +4,8 @@
 | -------------  | ------------- |
 | BTCBorrowTUSDFactory      | [0x838BAB799B1360baAd90e572405650B9a1BFF57A](https://arbiscan.io/address/0x838BAB799B1360baAd90e572405650B9a1BFF57A) |
 | ETHBorrowTUSDFactory      | [0xD6B1E016139972922AB6E4a94c065d5eCD8B18B1](https://arbiscan.io/address/0xD6B1E016139972922AB6E4a94c065d5eCD8B18B1) |
-| BTCBorrowUSDCFactory      | [0x0eD2CF32cBf676Ad8D1202937aEE40FB3397d7bd](https://arbiscan.io/address/0x0eD2CF32cBf676Ad8D1202937aEE40FB3397d7bd) |
-| ETHBorrowUSDCFactory      | [0x8e9b8E64a448a09cB1476f835771E6A064e780b3](https://arbiscan.io/address/0x8e9b8E64a448a09cB1476f835771E6A064e780b3) |
+| BTCBorrowUSDCFactory      | [0x4aa1e8f878a4AB7A27F55A40b2af66925e6f3E5F](https://arbiscan.io/address/0x4aa1e8f878a4AB7A27F55A40b2af66925e6f3E5F) |
+| ETHBorrowUSDCFactory      | [0xDd0E807e17843C12387e99964E5Cf0C39B42f79a](https://arbiscan.io/address/0xDd0E807e17843C12387e99964E5Cf0C39B42f79a) |
 | TUSDEngine (V1)     | [0xfdf7b4486f5de843838EcFd254711E06aF1f0641](https://arbiscan.io/address/0xfdf7b4486f5de843838EcFd254711E06aF1f0641) |
 | TUSDEngine (V0)     | [0x867bF0476655Cf05934869B449a0be0ED534eA60](https://arbiscan.io/address/0x867bF0476655Cf05934869B449a0be0ED534eA60) |
 | BoostBTC      | [0x1b4D6a73704242f9ECc310D883dBa11b764AADdB](https://arbiscan.io/address/0x1b4D6a73704242f9ECc310D883dBa11b764AADdB) |
