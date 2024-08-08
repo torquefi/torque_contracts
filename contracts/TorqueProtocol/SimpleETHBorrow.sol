@@ -43,14 +43,14 @@ contract SimpleETHBorrow is SimpleBorrowAbstract {
     function borrow(address _address, uint supplyAmount, uint borrowAmountUSDC) public nonReentrant() {
         require(msg.sender == controller, "Cannot be called directly");
         require(supplyAmount > 0, "Supply amount must be greater than 0");
-        if(firstTimeFlag){
+        if(firstTimeFlag) {
             require(
                 IERC20(asset).transferFrom(msg.sender, address(this), supplyAmount),
                 "Transfer asset failed"
             );
             firstTimeFlag = false;
         }
-        else{
+        else {
             require(
                 IERC20(asset).transferFrom(_address, address(this), supplyAmount),
                 "Transfer asset failed"
@@ -94,10 +94,6 @@ contract SimpleETHBorrow is SimpleBorrowAbstract {
         // Effects
         uint accruedInterest = calculateInterest(borrowed, borrowTime);
         borrowed = borrowed.add(accruedInterest);
-
-        uint withdrawAssetAmount = supplied.mul(usdcRepay).div(borrowed); 
-
-        require(WETHWithdraw <= withdrawAssetAmount, "Cannot withdraw this much WETH");
         
         supplied = supplied.sub(WETHWithdraw);
         borrowed = borrowed.sub(usdcRepay);
