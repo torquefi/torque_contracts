@@ -9,7 +9,7 @@ pragma solidity 0.8.19;
 //       \ \__\ \ \_______\ \__\\ _\\ \_____  \ \_______\ \_______\
 //        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
 
-contract DolomiteRefinanceWeth {
+contract LodestarRefinanceEth {
 
     constructor() {}
     
