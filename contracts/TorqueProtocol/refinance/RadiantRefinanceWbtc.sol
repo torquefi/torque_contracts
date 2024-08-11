@@ -29,6 +29,12 @@ interface RadiantLendingPool {
 
 contract RadiantWbtcRefinanceUSDC is Ownable {
 
+    event USDCDeposited(address indexed user, uint256 amount);
+    event USDCeDeposited(address indexed user, uint256 amount);
+    event WbtcWithdrawn(address indexed user, uint256 amount);
+    event RLendingPoolUpdated(address indexed newAddress);
+    event RateModeUpdated(uint256 newRateMode);
+
     RadiantLendingPool radiantLendingPool = RadiantLendingPool(0xF4B1486DD74D07706052A33d31d7c0AAFD0659E1);
     address assetUsdc = address(0xaf88d065e77c8cC2239327C5EDb3A432268e5831);
     address assetUsdce = address(0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8);
@@ -49,23 +55,32 @@ contract RadiantWbtcRefinanceUSDC is Ownable {
     }
 
     function depositUSDC(uint256 usdcAmount) public {
+        require(usdcAmount > 0, "USDC amount must be greater than 0");
         IERC20(assetUsdc).transferFrom(msg.sender, address(this), usdcAmount);
         IERC20(assetUsdc).approve(address(radiantLendingPool), usdcAmount);
         radiantLendingPool.repay(assetUsdc, usdcAmount, rateMode, msg.sender);
+
+        emit USDCDeposited(msg.sender, usdcAmount);
     }
 
-    function depositUSDCe(uint256 usdcAmount) public {
-        IERC20(assetUsdce).transferFrom(msg.sender, address(this), usdcAmount);
-        IERC20(assetUsdce).approve(address(radiantLendingPool), usdcAmount);
-        radiantLendingPool.repay(assetUsdce, usdcAmount, rateMode, msg.sender);
+    function depositUSDCe(uint256 usdceAmount) public {
+        require(usdceAmount > 0, "USDCe amount must be greater than 0");
+        IERC20(assetUsdce).transferFrom(msg.sender, address(this), usdceAmount);
+        IERC20(assetUsdce).approve(address(radiantLendingPool), usdceAmount);
+        radiantLendingPool.repay(assetUsdce, usdceAmount, rateMode, msg.sender);
+
+        emit USDCeDeposited(msg.sender, usdceAmount);
     }
 
     function withdrawWBTC(uint256 rWbtcAmount) public {
+        require(rWbtcAmount > 0, "rWETH amount must be greater than 0");
         IERC20(assetRWbtc).transferFrom(msg.sender, address(this), rWbtcAmount);
         IERC20(assetRWbtc).approve(address(radiantLendingPool), rWbtcAmount);
         radiantLendingPool.withdraw(assetWbtc, rWbtcAmount, address(this));
 
         require(IERC20(assetWbtc).transfer(msg.sender, rWbtcAmount), "Transfer Asset Failed");
+
+        emit WbtcWithdrawn(msg.sender, rWbtcAmount);
     }
 
     function withdraw(uint256 _amount, address _asset) external onlyOwner {
@@ -74,10 +89,14 @@ contract RadiantWbtcRefinanceUSDC is Ownable {
 
     function updateRLendingPool(address _address) external onlyOwner {
         radiantLendingPool = RadiantLendingPool(_address);
+
+        emit RLendingPoolUpdated(_address);
     }
 
     function updateRateMode(uint256 _rateMode) external onlyOwner {
         rateMode = _rateMode;
+
+        emit RateModeUpdated(_rateMode);
     }
 
 }

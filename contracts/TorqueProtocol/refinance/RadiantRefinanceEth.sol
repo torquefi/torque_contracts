@@ -21,18 +21,20 @@ interface RadiantLendingPool {
 	) external returns (uint256);
 }
 
-interface RadiantWETHGateway {
-    function withdrawETH(address lendingPool, uint256 amount, address to) external;
-}
-
 interface IWETH {
     function deposit() external payable;
 }
 
 contract RadiantWethRefinanceUSDC is Ownable {
 
+    event USDCDeposited(address indexed user, uint256 amount);
+    event USDCeDeposited(address indexed user, uint256 amount);
+    event ETHWithdrawn(address indexed user, uint256 amount);
+    event RLendingPoolUpdated(address indexed newAddress);
+    event RateModeUpdated(uint256 newRateMode);
+
     RadiantLendingPool radiantLendingPool = RadiantLendingPool(0xF4B1486DD74D07706052A33d31d7c0AAFD0659E1);
-    RadiantWETHGateway radiantWETHGateway = RadiantWETHGateway(0x534D4851616B364d3643978433C6715Ec9aA15c0);
+    address radiantWETHGateway = address(0x534D4851616B364d3643978433C6715Ec9aA15c0);
     address assetUsdc = address(0xaf88d065e77c8cC2239327C5EDb3A432268e5831);
     address assetUsdce = address(0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8);
     address assetRWeth = address(0x0dF5dfd95966753f01cb80E76dc20EA958238C46);
@@ -52,27 +54,36 @@ contract RadiantWethRefinanceUSDC is Ownable {
     }
 
     function depositUSDC(uint256 usdcAmount) public {
+        require(usdcAmount > 0, "USDC amount must be greater than 0");
         IERC20(assetUsdc).transferFrom(msg.sender, address(this), usdcAmount);
         IERC20(assetUsdc).approve(address(radiantLendingPool), usdcAmount);
         radiantLendingPool.repay(assetUsdc, usdcAmount, rateMode, msg.sender);
+
+        emit USDCDeposited(msg.sender, usdcAmount);
     }
 
-    function depositUSDCe(uint256 usdcAmount) public {
-        IERC20(assetUsdce).transferFrom(msg.sender, address(this), usdcAmount);
-        IERC20(assetUsdce).approve(address(radiantLendingPool), usdcAmount);
-        radiantLendingPool.repay(assetUsdce, usdcAmount, rateMode, msg.sender);
+    function depositUSDCe(uint256 usdceAmount) public {
+        require(usdceAmount > 0, "USDCe amount must be greater than 0");
+        IERC20(assetUsdce).transferFrom(msg.sender, address(this), usdceAmount);
+        IERC20(assetUsdce).approve(address(radiantLendingPool), usdceAmount);
+        radiantLendingPool.repay(assetUsdce, usdceAmount, rateMode, msg.sender);
+
+        emit USDCeDeposited(msg.sender, usdceAmount);
     }
 
     function withdrawETH(uint256 rWethAmount) public {
+        require(rWethAmount > 0, "rWETH amount must be greater than 0");
         IERC20(assetRWeth).transferFrom(msg.sender, address(this), rWethAmount);
-        IERC20(assetRWeth).approve(address(radiantWETHGateway), rWethAmount);
+        IERC20(assetRWeth).approve(radiantWETHGateway, rWethAmount);
 
         bytes memory withdrawData = abi.encodeWithSignature("withdrawETH(address,uint256,address)", address(radiantLendingPool), rWethAmount, address(this));
-        (bool success, ) = address(radiantWETHGateway).call(withdrawData);
+        (bool success, ) = radiantWETHGateway.call(withdrawData);
         require(success, "Delegate call failed");
 
         wrapEther(rWethAmount);
         require(IERC20(assetWETH).transfer(msg.sender, rWethAmount), "Transfer Asset Failed");
+
+        emit ETHWithdrawn(msg.sender, rWethAmount);
     }
 
     function withdraw(uint256 _amount, address _asset) external onlyOwner {
@@ -86,10 +97,14 @@ contract RadiantWethRefinanceUSDC is Ownable {
 
     function updateRLendingPool(address _address) external onlyOwner {
         radiantLendingPool = RadiantLendingPool(_address);
+
+        emit RLendingPoolUpdated(_address);
     }
 
     function updateRateMode(uint256 _rateMode) external onlyOwner {
         rateMode = _rateMode;
+
+        emit RateModeUpdated(_rateMode);
     }
 
     function wrapEther(uint256 _ethAmount) public payable {
