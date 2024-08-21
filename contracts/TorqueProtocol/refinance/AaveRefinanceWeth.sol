@@ -27,31 +27,31 @@ interface AaveLendingPool {
     ) external returns (uint256);
 }
 
-contract AaveWbtcRefinance is Ownable {
+contract AaveWethRefinance is Ownable {
 
     event USDCDeposited(address indexed user, uint256 amount);
     event USDCeDeposited(address indexed user, uint256 amount);
-    event WbtcWithdrawn(address indexed user, uint256 amount);
+    event WETHWithdrawn(address indexed user, uint256 amount);
     event AavePoolUpdated(address indexed newAddress);
     event RateModeUpdated(uint256 newRateMode);
 
     AaveLendingPool aaveLendingPool = AaveLendingPool(0x794a61358D6845594F94dc1DB02A252b5b4814aD);
     address assetUsdc = address(0xaf88d065e77c8cC2239327C5EDb3A432268e5831);
     address assetUsdce = address(0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8);
-    address assetAaveWbtc = address(0x078f358208685046a11C85e8ad32895DED33A249);
-    address assetWbtc = address(0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f);
+    address assetAaveWeth = address(0xe50fA9b3c56FfB159cB0FCA61F5c9D750e8128c8);
+    address assetWETH = address(0x82aF49447D8a07e3bd95BD0d56f35241523fBab1);
     uint256 rateMode = 2;
 
     constructor() Ownable(msg.sender) {}
     
-    function torqRefinanceUSDC(uint256 usdcAmount, uint256 rWbtcAmount) external {
+    function torqRefinanceUSDC(uint256 usdcAmount, uint256 rWethAmount) external {
         depositUSDC(usdcAmount);
-        withdrawWBTC(rWbtcAmount);
+        withdrawWETH(rWethAmount);
     }
 
-    function torqRefinanceUSDCe(uint256 usdcAmount, uint256 rWbtcAmount) external {
+    function torqRefinanceUSDCe(uint256 usdcAmount, uint256 rWethAmount) external {
         depositUSDCe(usdcAmount);
-        withdrawWBTC(rWbtcAmount);
+        withdrawWETH(rWethAmount);
     }
 
     function depositUSDC(uint256 usdcAmount) public {
@@ -72,19 +72,24 @@ contract AaveWbtcRefinance is Ownable {
         emit USDCeDeposited(msg.sender, usdceAmount);
     }
 
-    function withdrawWBTC(uint256 rWbtcAmount) public {
-        require(rWbtcAmount > 0, "rWETH amount must be greater than 0");
-        IERC20(assetAaveWbtc).transferFrom(msg.sender, address(this), rWbtcAmount);
-        IERC20(assetAaveWbtc).approve(address(aaveLendingPool), rWbtcAmount);
-        aaveLendingPool.withdraw(assetWbtc, rWbtcAmount, address(this));
+    function withdrawWETH(uint256 aaveWethAmount) public {
+        require(aaveWethAmount > 0, "AaveWETH amount must be greater than 0");
+        IERC20(assetAaveWeth).transferFrom(msg.sender, address(this), aaveWethAmount);
+        IERC20(assetAaveWeth).approve(address(aaveLendingPool), aaveWethAmount);
+        aaveLendingPool.withdraw(assetWETH, aaveWethAmount, address(this));
 
-        require(IERC20(assetWbtc).transfer(msg.sender, rWbtcAmount), "Transfer Asset Failed");
+        require(IERC20(assetWETH).transfer(msg.sender, aaveWethAmount), "Transfer Asset Failed");
 
-        emit WbtcWithdrawn(msg.sender, rWbtcAmount);
+        emit WETHWithdrawn(msg.sender, aaveWethAmount);
     }
 
     function withdraw(uint256 _amount, address _asset) external onlyOwner {
         require(IERC20(_asset).transfer(msg.sender, _amount), "Transfer Asset Failed");
+    }
+
+    function withdraw() external onlyOwner {
+        uint256 contractBalance = address(this).balance;
+        payable(owner()).transfer(contractBalance);
     }
 
     function updateAaveLendingPool(address _address) external onlyOwner {
@@ -98,5 +103,7 @@ contract AaveWbtcRefinance is Ownable {
 
         emit RateModeUpdated(_rateMode);
     }
+
+    receive() external payable {}
 
 }
