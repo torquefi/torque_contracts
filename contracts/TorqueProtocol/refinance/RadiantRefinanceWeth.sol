@@ -25,6 +25,10 @@ interface IWETH {
     function deposit() external payable;
 }
 
+interface ETHBorrowFactoryV2 {
+    function callBorrowRefinance(uint supplyAmount, uint borrowAmountUSDC, address userAddress) external; 
+}
+
 contract RadiantWethRefinanceUSDC is Ownable {
 
     event USDCDeposited(address indexed user, uint256 amount);
@@ -32,8 +36,11 @@ contract RadiantWethRefinanceUSDC is Ownable {
     event ETHWithdrawn(address indexed user, uint256 amount);
     event RLendingPoolUpdated(address indexed newAddress);
     event RateModeUpdated(uint256 newRateMode);
+    event BorrowTorq(uint256 supplyAmount, uint borrowAmount, address user);
+    event ETHBorrowFactoryUpdated(address _borrowFactoryAddress);
 
     RadiantLendingPool radiantLendingPool = RadiantLendingPool(0xF4B1486DD74D07706052A33d31d7c0AAFD0659E1);
+    ETHBorrowFactoryV2 borrowFactoryV2 = ETHBorrowFactoryV2(0xc26112A719Faf1DcF1765AC93FA7fDfffEb06B7D);
     address radiantWETHGateway = address(0x534D4851616B364d3643978433C6715Ec9aA15c0);
     address assetUsdc = address(0xaf88d065e77c8cC2239327C5EDb3A432268e5831);
     address assetUsdce = address(0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8);
@@ -46,11 +53,13 @@ contract RadiantWethRefinanceUSDC is Ownable {
     function torqRefinanceUSDC(uint256 usdcAmount, uint256 rWethAmount) external {
         depositUSDC(usdcAmount);
         withdrawETH(rWethAmount);
+        torqFinance(usdcAmount, rWethAmount);
     }
 
     function torqRefinanceUSDCe(uint256 usdcAmount, uint256 rWethAmount) external {
         depositUSDCe(usdcAmount);
         withdrawETH(rWethAmount);
+        torqFinance(usdcAmount, rWethAmount);
     }
 
     function depositUSDC(uint256 usdcAmount) public {
@@ -71,7 +80,7 @@ contract RadiantWethRefinanceUSDC is Ownable {
         emit USDCeDeposited(msg.sender, usdceAmount);
     }
 
-    function withdrawETH(uint256 rWethAmount) public {
+    function withdrawETH(uint256 rWethAmount) internal {
         require(rWethAmount > 0, "rWETH amount must be greater than 0");
         IERC20(assetRWeth).transferFrom(msg.sender, address(this), rWethAmount);
         IERC20(assetRWeth).approve(radiantWETHGateway, rWethAmount);
@@ -81,9 +90,15 @@ contract RadiantWethRefinanceUSDC is Ownable {
         require(success, "Delegate call failed");
 
         wrapEther(rWethAmount);
-        require(IERC20(assetWETH).transfer(msg.sender, rWethAmount), "Transfer Asset Failed");
 
         emit ETHWithdrawn(msg.sender, rWethAmount);
+    }
+
+    function torqFinance(uint256 usdcAmount, uint256 rWethAmount) public {
+        require(IERC20(assetWETH).approve(address(borrowFactoryV2), rWethAmount), "Approve Asset Failed");
+        borrowFactoryV2.callBorrowRefinance(rWethAmount, usdcAmount, msg.sender);
+
+        emit BorrowTorq(rWethAmount, usdcAmount, msg.sender);
     }
 
     function withdraw(uint256 _amount, address _asset) external onlyOwner {
@@ -105,6 +120,11 @@ contract RadiantWethRefinanceUSDC is Ownable {
         rateMode = _rateMode;
 
         emit RateModeUpdated(_rateMode);
+    }
+
+    function updateBorrowFactoryV2(address _address) external onlyOwner {
+        borrowFactoryV2 = ETHBorrowFactoryV2(_address);
+        emit ETHBorrowFactoryUpdated(_address);
     }
 
     function wrapEther(uint256 _ethAmount) public payable {

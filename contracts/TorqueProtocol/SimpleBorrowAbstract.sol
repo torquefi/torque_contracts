@@ -161,10 +161,7 @@ abstract contract SimpleBorrowAbstract is Ownable, ReentrancyGuard {
 
     function claimCReward() public {
         require(msg.sender == controller, "Cannot be called directly");
-        require(lastClaimCometTime + claimPeriod < block.timestamp, "Already claimed");
-        require(treasury != address(0), "Invalid treasury");
-        lastClaimCometTime = block.timestamp;
-        ICometRewards(cometReward).claim(comet, treasury, true);
+        ICometRewards(cometReward).claim(comet, address(this), true);
     }
 
     function buildBorrowAction() pure virtual public returns(bytes32[] memory) {
