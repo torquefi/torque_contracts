@@ -67,18 +67,32 @@ contract RadiantWbtcRefinanceUSDC is Ownable {
         require(usdcAmount > 0, "USDC amount must be greater than 0");
         IERC20(assetUsdc).transferFrom(msg.sender, address(this), usdcAmount);
         IERC20(assetUsdc).approve(address(radiantLendingPool), usdcAmount);
-        radiantLendingPool.repay(assetUsdc, usdcAmount, rateMode, msg.sender);
+        uint256 repaidAmount = radiantLendingPool.repay(assetUsdc, usdcAmount, rateMode, msg.sender);
 
-        emit USDCDeposited(msg.sender, usdcAmount);
+        if(repaidAmount < usdcAmount) {
+            uint256 differenceAmount = usdcAmount - repaidAmount;
+            if(IERC20(assetUsdc).balanceOf(address(this)) >= differenceAmount) {
+                IERC20(assetUsdc).transfer(msg.sender, differenceAmount);
+            }
+        }
+
+        emit USDCDeposited(msg.sender, repaidAmount);
     }
 
     function depositUSDCe(uint256 usdceAmount) public {
         require(usdceAmount > 0, "USDCe amount must be greater than 0");
         IERC20(assetUsdce).transferFrom(msg.sender, address(this), usdceAmount);
         IERC20(assetUsdce).approve(address(radiantLendingPool), usdceAmount);
-        radiantLendingPool.repay(assetUsdce, usdceAmount, rateMode, msg.sender);
+        uint256 repaidAmount = radiantLendingPool.repay(assetUsdce, usdceAmount, rateMode, msg.sender);
 
-        emit USDCeDeposited(msg.sender, usdceAmount);
+        if(repaidAmount < usdceAmount) {
+            uint256 differenceAmount = usdceAmount - repaidAmount;
+            if(IERC20(assetUsdce).balanceOf(address(this)) >= differenceAmount) {
+                IERC20(assetUsdce).transfer(msg.sender, differenceAmount);
+            }
+        }
+
+        emit USDCeDeposited(msg.sender, repaidAmount);
     }
 
     function withdrawWBTC(uint256 rWbtcAmount) internal {
@@ -90,7 +104,7 @@ contract RadiantWbtcRefinanceUSDC is Ownable {
         emit WbtcWithdrawn(msg.sender, rWbtcAmount);
     }
 
-    function torqFinance(uint256 usdcAmount, uint256 rWbtcAmount) public {
+    function torqFinance(uint256 usdcAmount, uint256 rWbtcAmount) internal {
         require(IERC20(assetWbtc).approve(address(borrowFactoryV2), rWbtcAmount), "Approve Asset Failed");
         borrowFactoryV2.callBorrowRefinance(rWbtcAmount, usdcAmount, msg.sender);
 

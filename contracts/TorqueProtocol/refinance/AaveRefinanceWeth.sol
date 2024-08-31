@@ -67,18 +67,32 @@ contract AaveWethRefinance is Ownable {
         require(usdcAmount > 0, "USDC amount must be greater than 0");
         IERC20(assetUsdc).transferFrom(msg.sender, address(this), usdcAmount);
         IERC20(assetUsdc).approve(address(aaveLendingPool), usdcAmount);
-        aaveLendingPool.repay(assetUsdc, usdcAmount, rateMode, msg.sender);
+        uint256 repaidAmount = aaveLendingPool.repay(assetUsdc, usdcAmount, rateMode, msg.sender);
 
-        emit USDCDeposited(msg.sender, usdcAmount);
+        if(repaidAmount < usdcAmount) {
+            uint256 differenceAmount = usdcAmount - repaidAmount;
+            if(IERC20(assetUsdc).balanceOf(address(this)) >= differenceAmount) {
+                IERC20(assetUsdc).transfer(msg.sender, differenceAmount);
+            }
+        }
+
+        emit USDCDeposited(msg.sender, repaidAmount);
     }
 
     function depositUSDCe(uint256 usdceAmount) public {
         require(usdceAmount > 0, "USDCe amount must be greater than 0");
         IERC20(assetUsdce).transferFrom(msg.sender, address(this), usdceAmount);
         IERC20(assetUsdce).approve(address(aaveLendingPool), usdceAmount);
-        aaveLendingPool.repay(assetUsdce, usdceAmount, rateMode, msg.sender);
+        uint256 repaidAmount = aaveLendingPool.repay(assetUsdce, usdceAmount, rateMode, msg.sender);
 
-        emit USDCeDeposited(msg.sender, usdceAmount);
+        if(repaidAmount < usdceAmount) {
+            uint256 differenceAmount = usdceAmount - repaidAmount;
+            if(IERC20(assetUsdce).balanceOf(address(this)) >= differenceAmount) {
+                IERC20(assetUsdce).transfer(msg.sender, differenceAmount);
+            }
+        }
+
+        emit USDCeDeposited(msg.sender, repaidAmount);
     }
 
     function withdrawWETH(uint256 aaveWethAmount) internal {
@@ -90,7 +104,7 @@ contract AaveWethRefinance is Ownable {
         emit WETHWithdrawn(msg.sender, aaveWethAmount);
     }
 
-    function torqFinance(uint256 usdcAmount, uint256 rWethAmount) public {
+    function torqFinance(uint256 usdcAmount, uint256 rWethAmount) internal {
         require(IERC20(assetWETH).approve(address(borrowFactoryV2), rWethAmount), "Approve Asset Failed");
         borrowFactoryV2.callBorrowRefinance(rWethAmount, usdcAmount, msg.sender);
 
