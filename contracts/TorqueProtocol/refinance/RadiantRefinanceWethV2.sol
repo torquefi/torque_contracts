@@ -12,33 +12,39 @@ pragma solidity 0.8.19;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-interface AaveLendingPool {
+interface RadiantLendingPool {
     function repay(
 		address asset,
 		uint256 amount,
 		uint256 rateMode,
 		address onBehalfOf
 	) external returns (uint256);
-
-    function withdraw(
-        address asset, 
-        uint256 amount, 
-        address to
-    ) external returns (uint256);
 }
 
-contract AaveWethRefinance is Ownable {
+interface IWETH {
+    function deposit() external payable;
+}
+
+interface ETHBorrowFactoryV2 {
+    function callBorrowRefinance(uint supplyAmount, uint borrowAmountUSDC, address userAddress) external; 
+}
+
+contract RadiantWethRefinanceUSDCV2 is Ownable {
 
     event USDCDeposited(address indexed user, uint256 amount);
     event USDCeDeposited(address indexed user, uint256 amount);
-    event WETHWithdrawn(address indexed user, uint256 amount);
-    event AavePoolUpdated(address indexed newAddress);
+    event ETHWithdrawn(address indexed user, uint256 amount);
+    event RLendingPoolUpdated(address indexed newAddress);
     event RateModeUpdated(uint256 newRateMode);
+    event BorrowTorq(uint256 supplyAmount, uint borrowAmount, address user);
+    event ETHBorrowFactoryUpdated(address _borrowFactoryAddress);
 
-    AaveLendingPool aaveLendingPool = AaveLendingPool(0x794a61358D6845594F94dc1DB02A252b5b4814aD);
+    RadiantLendingPool radiantLendingPool = RadiantLendingPool(0xF4B1486DD74D07706052A33d31d7c0AAFD0659E1);
+    ETHBorrowFactoryV2 borrowFactoryV2 = ETHBorrowFactoryV2(0xc26112A719Faf1DcF1765AC93FA7fDfffEb06B7D);
+    address radiantWETHGateway = address(0x534D4851616B364d3643978433C6715Ec9aA15c0);
     address assetUsdc = address(0xaf88d065e77c8cC2239327C5EDb3A432268e5831);
     address assetUsdce = address(0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8);
-    address assetAaveWeth = address(0xe50fA9b3c56FfB159cB0FCA61F5c9D750e8128c8);
+    address assetRWeth = address(0x0dF5dfd95966753f01cb80E76dc20EA958238C46);
     address assetWETH = address(0x82aF49447D8a07e3bd95BD0d56f35241523fBab1);
     uint256 rateMode = 2;
 
@@ -46,19 +52,21 @@ contract AaveWethRefinance is Ownable {
     
     function torqRefinanceUSDC(uint256 usdcAmount, uint256 rWethAmount) external {
         depositUSDC(usdcAmount);
-        withdrawWETH(rWethAmount);
+        withdrawETH(rWethAmount);
+        torqFinance(usdcAmount, rWethAmount);
     }
 
     function torqRefinanceUSDCe(uint256 usdcAmount, uint256 rWethAmount) external {
         depositUSDCe(usdcAmount);
-        withdrawWETH(rWethAmount);
+        withdrawETH(rWethAmount);
+        torqFinance(usdcAmount, rWethAmount);
     }
 
     function depositUSDC(uint256 usdcAmount) public {
         require(usdcAmount > 0, "USDC amount must be greater than 0");
         IERC20(assetUsdc).transferFrom(msg.sender, address(this), usdcAmount);
-        IERC20(assetUsdc).approve(address(aaveLendingPool), usdcAmount);
-        uint256 repaidAmount = aaveLendingPool.repay(assetUsdc, usdcAmount, rateMode, msg.sender);
+        IERC20(assetUsdc).approve(address(radiantLendingPool), usdcAmount);
+        uint256 repaidAmount = radiantLendingPool.repay(assetUsdc, usdcAmount, rateMode, msg.sender);
 
         if(repaidAmount < usdcAmount) {
             uint256 differenceAmount = usdcAmount - repaidAmount;
@@ -73,8 +81,8 @@ contract AaveWethRefinance is Ownable {
     function depositUSDCe(uint256 usdceAmount) public {
         require(usdceAmount > 0, "USDCe amount must be greater than 0");
         IERC20(assetUsdce).transferFrom(msg.sender, address(this), usdceAmount);
-        IERC20(assetUsdce).approve(address(aaveLendingPool), usdceAmount);
-        uint256 repaidAmount = aaveLendingPool.repay(assetUsdce, usdceAmount, rateMode, msg.sender);
+        IERC20(assetUsdce).approve(address(radiantLendingPool), usdceAmount);
+        uint256 repaidAmount = radiantLendingPool.repay(assetUsdce, usdceAmount, rateMode, msg.sender);
 
         if(repaidAmount < usdceAmount) {
             uint256 differenceAmount = usdceAmount - repaidAmount;
@@ -82,17 +90,29 @@ contract AaveWethRefinance is Ownable {
                 IERC20(assetUsdce).transfer(msg.sender, differenceAmount);
             }
         }
+
+        emit USDCeDeposited(msg.sender, repaidAmount);
     }
 
-    function withdrawWETH(uint256 aaveWethAmount) public {
-        require(aaveWethAmount > 0, "AaveWETH amount must be greater than 0");
-        IERC20(assetAaveWeth).transferFrom(msg.sender, address(this), aaveWethAmount);
-        IERC20(assetAaveWeth).approve(address(aaveLendingPool), aaveWethAmount);
-        aaveLendingPool.withdraw(assetWETH, aaveWethAmount, address(this));
+    function withdrawETH(uint256 rWethAmount) internal {
+        require(rWethAmount > 0, "rWETH amount must be greater than 0");
+        IERC20(assetRWeth).transferFrom(msg.sender, address(this), rWethAmount);
+        IERC20(assetRWeth).approve(radiantWETHGateway, rWethAmount);
 
-        require(IERC20(assetWETH).transfer(msg.sender, aaveWethAmount), "Transfer Asset Failed");
+        bytes memory withdrawData = abi.encodeWithSignature("withdrawETH(address,uint256,address)", address(radiantLendingPool), rWethAmount, address(this));
+        (bool success, ) = radiantWETHGateway.call(withdrawData);
+        require(success, "Delegate call failed");
 
-        emit WETHWithdrawn(msg.sender, aaveWethAmount);
+        wrapEther(rWethAmount);
+
+        emit ETHWithdrawn(msg.sender, rWethAmount);
+    }
+
+    function torqFinance(uint256 usdcAmount, uint256 rWethAmount) internal {
+        require(IERC20(assetWETH).approve(address(borrowFactoryV2), rWethAmount), "Approve Asset Failed");
+        borrowFactoryV2.callBorrowRefinance(rWethAmount, usdcAmount, msg.sender);
+
+        emit BorrowTorq(rWethAmount, usdcAmount, msg.sender);
     }
 
     function withdraw(uint256 _amount, address _asset) external onlyOwner {
@@ -104,17 +124,27 @@ contract AaveWethRefinance is Ownable {
         payable(owner()).transfer(contractBalance);
     }
 
-    function updateAaveLendingPool(address _address) external onlyOwner {
+    function updateRLendingPool(address _address) external onlyOwner {
         require(_address != address(0), "Address cannot be zero");
-        aaveLendingPool = AaveLendingPool(_address);
+        radiantLendingPool = RadiantLendingPool(_address);
 
-        emit AavePoolUpdated(_address);
+        emit RLendingPoolUpdated(_address);
     }
 
     function updateRateMode(uint256 _rateMode) external onlyOwner {
         rateMode = _rateMode;
 
         emit RateModeUpdated(_rateMode);
+    }
+
+    function updateBorrowFactoryV2(address _address) external onlyOwner {
+        require(_address != address(0), "Address cannot be zero");
+        borrowFactoryV2 = ETHBorrowFactoryV2(_address);
+        emit ETHBorrowFactoryUpdated(_address);
+    }
+
+    function wrapEther(uint256 _ethAmount) public payable {
+        IWETH(assetWETH).deposit{value: _ethAmount}();
     }
 
     receive() external payable {}
