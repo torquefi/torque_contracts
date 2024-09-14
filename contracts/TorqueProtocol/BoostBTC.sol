@@ -16,15 +16,15 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-import "./strategies/CurveTBTC.sol";
-import "./strategies/UniswapTBTC.sol";
+import "./strategies/CurveBTC.sol";
+import "./strategies/UniswapBTC.sol";
 
-interface TORQRewardUtil {
+interface RewardsUtil {
     function userDepositReward(address _userAddress, uint256 _depositAmount) external;
     function userWithdrawReward(address _userAddress, uint256 _withdrawAmount) external;
 }
 
-contract BoostTBTC is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
+contract BoostBTC is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
     using SafeMath for uint256;
     using Math for uint256;
 
@@ -35,7 +35,8 @@ contract BoostTBTC is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
     CurveTBTC public curveTBTC; // 0x186cF879186986A20aADFb7eAD50e3C20cb26CeC
     UniswapTBTC public uniswapTBTC;
     address public treasury;
-    TORQRewardUtil public torqRewardUtil;
+    RewardsUtil public torqRewardsUtil = RewardsUtil(0x3452faA42fd613937dCd43E0f0cBf7d4205919c5);
+    RewardsUtil public arbRewardsUtil = RewardsUtil(0x6965b496De9b7C0bF274F8f6D5Dfa359Ac7D3b72);
 
     uint256 public curveAllocation;
     uint256 public uniswapAllocation;
@@ -56,7 +57,6 @@ contract BoostTBTC is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
     address _curveTBTCAddress,
     address _uniswapTBTCAddress,
     address _treasury,
-    address _torqRewardUtil
     ) ERC20(_name, _symbol) Ownable(msg.sender) {
         wbtcToken = IERC20(wBTC);
         curveTBTC = CurveTBTC(_curveTBTCAddress);
@@ -64,7 +64,6 @@ contract BoostTBTC is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
         curveAllocation = 50;
         uniswapAllocation = 50;
         treasury = _treasury;
-        torqRewardUtil = TORQRewardUtil(_torqRewardUtil);
     }
 
     function depositBTC(uint256 depositAmount) external nonReentrant() {
@@ -88,7 +87,10 @@ contract BoostTBTC is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
         uint256 shares = _convertToShares(depositAmount);
         _mint(msg.sender, shares);
         totalAssetsAmount = totalAssetsAmount.add(depositAndCompound);
-        // torqRewardUtil.userDepositReward(msg.sender, shares);
+        
+        torqRewardsUtil.userDepositReward(msg.sender, depositAmount);
+        arbRewardsUtil.userDepositReward(msg.sender, depositAmount);
+
         emit Deposited(msg.sender, depositAmount, shares);
     }
 
@@ -112,7 +114,10 @@ contract BoostTBTC is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
         uint256 postWbtcAmount = wbtcToken.balanceOf(address(this));
         uint256 wbtcAmount = postWbtcAmount - prevWbtcAmount;
         require(wbtcToken.transfer(msg.sender, wbtcAmount), "Transfer Asset Failed");
-        // torqRewardUtil.userWithdrawReward(msg.sender, sharesAmount);
+        
+        torqRewardsUtil.userWithdrawReward(msg.sender, sharesAmount);
+        arbRewardsUtil.userWithdrawReward(msg.sender, sharesAmount);
+
         emit Withdrawn(msg.sender, wbtcAmount, sharesAmount);
     }
 
@@ -140,6 +145,11 @@ contract BoostTBTC is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
         require(_curveAllocation + _uniswapAllocation == 100, "Allocation has to be exactly 100");
         curveAllocation = _curveAllocation;
         uniswapAllocation = _uniswapAllocation;
+    }
+
+    function updateRewardsUtil(address _torqRewardsUtil, address _arbRewardsUtil) external onlyOwner() {
+        torqRewardsUtil = RewardsUtil(_torqRewardsUtil);
+        arbRewardsUtil = RewardsUtil(_arbRewardsUtil);
     }
 
     function setMinWbtc(uint256 _minWbtc) public onlyOwner() {

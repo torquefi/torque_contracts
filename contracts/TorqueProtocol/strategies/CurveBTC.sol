@@ -15,26 +15,19 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 
-// 1. 0x37c5ab57AF7100Bdc9B668d766e193CCbF6614FD --> deposit_and_stake (https://arbiscan.io/tx/0xf30078b6c3d81402ad6955b7864859d4630700267ef263a760ff85cd698dcf61)
-// 2. 0xB7e23A438C9cad2575d3C048248A943a7a03f3fA --> claim_rewards() (https://arbiscan.io/tx/0xbd13c29b11291570de8f963140efabcffe810aebfc425c290684a6a37ea8f8d3)
-// 3. 0xabC000d88f23Bb45525E447528DBF656A9D55bf5 --> mint(0xB7e23A438C9cad2575d3C048248A943a7a03f3fA) (https://arbiscan.io/tx/0xd2a1a78f6c77acf1d5b09ce11ab7c740bc17c4411a4a1c5bcab88f4095e91245)
-// 4. 0xB7e23A438C9cad2575d3C048248A943a7a03f3fA --> withdraw(uint256 amount) (https://arbiscan.io/tx/0x8f2c67bd9ff9dceeb3828defaea7fddf71394420c803f661bc9879747e232c57)
-// 5. 0x186cF879186986A20aADFb7eAD50e3C20cb26CeC --> remove_liquidity_one_coin (https://arbiscan.io/tx/0x3371b6b4baa828032a424777f84f29f9dfb2c45eaceb1bb19d2bd03e39052004)
-
-
 interface CurveDepositAndStakeZap {
 
     function deposit_and_stake(
-        address deposit, //	0x186cF879186986A20aADFb7eAD50e3C20cb26CeC
-        address lp_token, // 	0x186cF879186986A20aADFb7eAD50e3C20cb26CeC
-        address gauge, // 0xB7e23A438C9cad2575d3C048248A943a7a03f3fA
-        uint256 n_coins, // 2
-        address[] memory coins, // 0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f, 0x6c84a8f1c29108F47a79964b5Fe888D4f4D0dE40
+        address deposit,
+        address lp_token, 
+        address gauge, 
+        uint256 n_coins, 
+        address[] memory coins,
         uint256[] memory amounts,
         uint256 min_mint_amount,
-        bool use_underlying, // false
-        bool is_plain_stable_ng, // true 
-        address pool) external; // 	0x0000000000000000000000000000000000000000   
+        bool use_underlying,
+        bool is_plain_stable_ng,
+        address pool) external;   
 }
 
 interface Vyper_contract {
@@ -43,7 +36,7 @@ interface Vyper_contract {
 }
 
 interface Vyper_gauge {
-    function mint(address gauge) external; // 0xB7e23A438C9cad2575d3C048248A943a7a03f3fA
+    function mint(address gauge) external; 
 }	
 
 interface CurveStableSwapNG {
@@ -54,7 +47,7 @@ interface CurveStableSwapNG {
     ) external;
 }
 
-contract CurveTBTC is Ownable, ReentrancyGuard {
+contract CurveBTC is Ownable, ReentrancyGuard {
 
     using SafeMath for uint256;
     
