@@ -16,10 +16,10 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-import "./strategies/CurveBTC.sol";
+import "./strategies/GMXV2BTC.sol";
 import "./strategies/UniswapBTC.sol";
 
-interface RewardsUtil {
+interface TORQRewardUtil {
     function userDepositReward(address _userAddress, uint256 _depositAmount) external;
     function userWithdrawReward(address _userAddress, uint256 _withdrawAmount) external;
 }
@@ -32,20 +32,17 @@ contract BoostBTC is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
     event Withdrawn(address indexed account, uint256 amount, uint256 shares);
     
     IERC20 public wbtcToken;
-    CurveTBTC public curveTBTC; // 0x186cF879186986A20aADFb7eAD50e3C20cb26CeC
-    UniswapTBTC public uniswapTBTC;
+    GMXV2BTC public gmxV2Btc;
+    UniswapBTC public uniswapBtc;
     address public treasury;
-    RewardsUtil public torqRewardsUtil = RewardsUtil(0x3452faA42fd613937dCd43E0f0cBf7d4205919c5);
-    RewardsUtil public arbRewardsUtil = RewardsUtil(0x6965b496De9b7C0bF274F8f6D5Dfa359Ac7D3b72);
+    TORQRewardUtil public torqRewardUtil;
 
-    uint256 public curveAllocation;
+    uint256 public gmxAllocation;
     uint256 public uniswapAllocation;
     uint256 public lastCompoundTimestamp;
     uint256 public performanceFee = 10;
     uint256 public minWbtcAmount = 20000;
     uint256 public treasuryFee = 0;
-    uint256 public totalUniSwapAllocation = 0;
-    uint256 public totalCurveAllocation = 0;
 
     uint256 public totalAssetsAmount = 0;
     uint256 public compoundWbtcAmount = 0;
@@ -54,70 +51,64 @@ contract BoostBTC is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
     string memory _name, 
     string memory _symbol,
     address wBTC,
-    address _curveTBTCAddress,
-    address _uniswapTBTCAddress,
+    address payable _gmxV2BtcAddress,
+    address _uniswapBtcAddress,
     address _treasury,
+    address _torqRewardUtil
     ) ERC20(_name, _symbol) Ownable(msg.sender) {
         wbtcToken = IERC20(wBTC);
-        curveTBTC = CurveTBTC(_curveTBTCAddress);
-        uniswapTBTC = UniswapTBTC(_uniswapTBTCAddress);
-        curveAllocation = 50;
+        gmxV2Btc = GMXV2BTC(_gmxV2BtcAddress);
+        uniswapBtc = UniswapBTC(_uniswapBtcAddress);
+        gmxAllocation = 50;
         uniswapAllocation = 50;
         treasury = _treasury;
+        torqRewardUtil = TORQRewardUtil(_torqRewardUtil);
     }
 
-    function depositBTC(uint256 depositAmount) external nonReentrant() {
+    function depositBTC(uint256 depositAmount) external payable nonReentrant() {
+        require(msg.value > 0, "Please pass GMX execution fees");
         require(wbtcToken.balanceOf(address(this)) >= compoundWbtcAmount, "Insufficient compound balance");
         require(wbtcToken.transferFrom(msg.sender, address(this), depositAmount), "Transfer Asset Failed");
         uint256 depositAndCompound = depositAmount + compoundWbtcAmount;
         compoundWbtcAmount = 0;
         uint256 uniswapDepositAmount = depositAndCompound.mul(uniswapAllocation).div(100);
-        uint256 curveDepositAmount = depositAndCompound.sub(uniswapDepositAmount);
+        uint256 gmxDepositAmount = depositAndCompound.sub(uniswapDepositAmount);
         
         if(uniswapDepositAmount > 0) {
-            wbtcToken.approve(address(uniswapTBTC), uniswapDepositAmount);
-            uniswapTBTC.deposit(uniswapDepositAmount);
-            totalUniSwapAllocation += uniswapDepositAmount;
+            wbtcToken.approve(address(uniswapBtc), uniswapDepositAmount);
+            uniswapBtc.deposit(uniswapDepositAmount);
         }
 
-        wbtcToken.approve(address(curveTBTC), curveDepositAmount);
-        curveTBTC.deposit(curveDepositAmount);
-        totalCurveAllocation += curveDepositAmount;
+        wbtcToken.approve(address(gmxV2Btc), gmxDepositAmount);
+        gmxV2Btc.deposit{value: msg.value}(gmxDepositAmount);
 
         uint256 shares = _convertToShares(depositAmount);
         _mint(msg.sender, shares);
         totalAssetsAmount = totalAssetsAmount.add(depositAndCompound);
-        
-        torqRewardsUtil.userDepositReward(msg.sender, depositAmount);
-        arbRewardsUtil.userDepositReward(msg.sender, depositAmount);
-
+        torqRewardUtil.userDepositReward(msg.sender, shares);
         emit Deposited(msg.sender, depositAmount, shares);
     }
 
-    function withdrawBTC(uint256 sharesAmount) external nonReentrant() {
+    function withdrawBTC(uint256 sharesAmount) external payable nonReentrant() {
+        require(msg.value > 0, "Please pass GMX execution fees");
         uint256 withdrawAmount = _convertToAssets(sharesAmount);
         uint256 uniswapWithdrawAmount = withdrawAmount.mul(uniswapAllocation).div(100);
-        uint256 curveWithdrawAmount = withdrawAmount.sub(uniswapWithdrawAmount);
+        uint256 gmxWithdrawAmount = withdrawAmount.sub(uniswapWithdrawAmount);
         _burn(msg.sender, sharesAmount);
+        uint256 totalUniSwapAllocation = totalAssetsAmount.mul(uniswapAllocation).div(100);
         totalAssetsAmount = totalAssetsAmount.sub(withdrawAmount);
 
         uint256 prevWbtcAmount = wbtcToken.balanceOf(address(this));
         
         if(uniswapWithdrawAmount > 0) {
-            uniswapTBTC.withdraw(uint128(uniswapWithdrawAmount), totalUniSwapAllocation);
-            totalUniSwapAllocation -= uniswapWithdrawAmount;
+            uniswapBtc.withdraw(uint128(uniswapWithdrawAmount), totalUniSwapAllocation);
         }
         
-        curveTBTC.withdraw(curveWithdrawAmount, totalCurveAllocation);
-        totalCurveAllocation -= curveWithdrawAmount;
-        
+        gmxV2Btc.withdraw{value: msg.value}(gmxWithdrawAmount, msg.sender);
         uint256 postWbtcAmount = wbtcToken.balanceOf(address(this));
         uint256 wbtcAmount = postWbtcAmount - prevWbtcAmount;
         require(wbtcToken.transfer(msg.sender, wbtcAmount), "Transfer Asset Failed");
-        
-        torqRewardsUtil.userWithdrawReward(msg.sender, sharesAmount);
-        arbRewardsUtil.userWithdrawReward(msg.sender, sharesAmount);
-
+        torqRewardUtil.userWithdrawReward(msg.sender, sharesAmount);
         emit Withdrawn(msg.sender, wbtcAmount, sharesAmount);
     }
 
@@ -127,8 +118,8 @@ contract BoostBTC is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
 
     function _compoundFees() internal {
         uint256 prevWbtcAmount = wbtcToken.balanceOf(address(this));
-        uniswapTBTC.compound(); 
-        curveTBTC.compound();
+        uniswapBtc.compound(); 
+        gmxV2Btc.compound();
         uint256 postWbtcAmount = wbtcToken.balanceOf(address(this));
         uint256 treasuryAmount = (postWbtcAmount - prevWbtcAmount).mul(performanceFee).div(1000);
         treasuryFee = treasuryFee.add(treasuryAmount);
@@ -141,15 +132,10 @@ contract BoostBTC is AutomationCompatible, ERC20, ReentrancyGuard, Ownable {
         lastCompoundTimestamp = block.timestamp;
     }
 
-    function setAllocation(uint256 _curveAllocation, uint256 _uniswapAllocation) public onlyOwner {
-        require(_curveAllocation + _uniswapAllocation == 100, "Allocation has to be exactly 100");
-        curveAllocation = _curveAllocation;
+    function setAllocation(uint256 _gmxAllocation, uint256 _uniswapAllocation) public onlyOwner {
+        require(_gmxAllocation + _uniswapAllocation == 100, "Allocation has to be exactly 100");
+        gmxAllocation = _gmxAllocation;
         uniswapAllocation = _uniswapAllocation;
-    }
-
-    function updateRewardsUtil(address _torqRewardsUtil, address _arbRewardsUtil) external onlyOwner() {
-        torqRewardsUtil = RewardsUtil(_torqRewardsUtil);
-        arbRewardsUtil = RewardsUtil(_arbRewardsUtil);
     }
 
     function setMinWbtc(uint256 _minWbtc) public onlyOwner() {
