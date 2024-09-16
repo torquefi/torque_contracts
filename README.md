@@ -28,8 +28,6 @@
 | UniswapTORQ      | [0x39D84212a09f22751AcfE78930915A35b1659bE6](https://arbiscan.io/address/0x39D84212a09f22751AcfE78930915A35b1659bE6) |
 | Governor      | [0x43F726347b5C56325e116b92cc846C3cF50F16c7](https://arbiscan.io/address/0x43F726347b5C56325e116b92cc846C3cF50F16c7) |
 | Timelock     | [0x78112179F84357B55Db265Bcabb8c9c6f1CcB850](https://arbiscan.io/address/0x78112179F84357B55Db265Bcabb8c9c6f1CcB850) |
-| TORQReward         | [0x3452faA42fd613937dCd43E0f0cBf7d4205919c5](https://arbiscan.io/address/0x3452faA42fd613937dCd43E0f0cBf7d4205919c5) |
-| ARBReward         | [0x6965b496De9b7C0bF274F8f6D5Dfa359Ac7D3b72](https://arbiscan.io/address/0x6965b496De9b7C0bF274F8f6D5Dfa359Ac7D3b72) |
 | Treasury         | [0x177f6519A523EEbb542aed20320EFF9401bC47d0](https://arbiscan.io/address/0x177f6519A523EEbb542aed20320EFF9401bC47d0) |
 | Swap     | [0xcE0C0E633086E4Bd3B2b4298D16b504490534411](https://arbiscan.io/address/0xcE0C0E633086E4Bd3B2b4298D16b504490534411) |
 | TORQ         | [0xb56C29413AF8778977093B9B4947efEeA7136C36](https://arbiscan.io/token/0xb56c29413af8778977093b9b4947efeea7136c36) |
