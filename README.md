@@ -7,7 +7,7 @@
 
 ## Overview
 
-Torque Protocol is a Solidity-based, EVM-compatible smart contract system to streamline interaction with the finest onchain economic opportunities. This repository contains the core contracts that power the protocol, including vehicles, factories, governance, and other key modules.
+Torque Protocol is a Solidity-based, EVM-compatible smart contract system designed to streamline interactions with the most promising onchain economic opportunities. This repository contains the core contracts that power the protocol, including those related to vehicles, factories, governance, and other key modules.
 
 - **Website**: [torque.fi](https://torque.fi)
 - **Documentation**: [docs.torque.fi](https://docs.torque.fi)
