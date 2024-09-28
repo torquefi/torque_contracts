@@ -1,4 +1,20 @@
-# Torque Protocol
+<p align="center">
+  <img src="https://cdn.prod.website-files.com/6556f6be06fc2abb8a8da998/665ce0e7788b3d8fe85d1fed_torque-square%20copy%202.png" alt="Torque Logo" width="13.4%">
+</p>
+<p align="center">
+  <i align="center">Smart contracts for Torque Protocol</i>
+</p>
+
+## Overview
+
+Torque Protocol is a Solidity-based, EVM-compatible smart contract system designed to streamline interaction with the most promising onchain economic opportunities. This repository contains the core contracts that power the protocol, including vehicles for yield generation, factories for credit lines, governance, and more.
+
+- **Website**: [torque.fi](https://torque.fi)
+- **Documentation**: [docs.torque.fi](https://docs.torque.fi)
+- **X (Twitter)**: [x.com/torquefi](https://x.com/torquefi)
+- **Telegram**: [t.me/torquefi](https://t.me/torquefi)
+
+## Addresses
 
 | Contract       | Address       |
 | -------------  | ------------- |
@@ -37,4 +53,24 @@
 | TORQ         | [0xb56C29413AF8778977093B9B4947efEeA7136C36](https://arbiscan.io/token/0xb56c29413af8778977093b9b4947efeea7136c36) |
 | TUSD     | [0xf7F6718Cf69967203740cCb431F6bDBff1E0FB68](https://arbiscan.io/token/0xf7f6718cf69967203740ccb431f6bdbff1e0fb68) |
 
-[Website](https://torque.fi) | [Twitter](https://twitter.com/torquefi) | [Telegram](https://t.me/torquefi) | [Docs](https://docs.torque.fi)
+## Getting Started
+
+Ensure you have the following installed:
+
+- [Node.js](https://nodejs.org/)
+- [Hardhat](https://hardhat.org/)
+- [Yarn](https://yarnpkg.com/)
+
+### Installation
+
+If you're a developer interested in contributing to the smart contracts, follow the instructions below to get started:
+
+```bash
+# Clone the repository
+git clone https://github.com/torquefi/torque_contracts.git
+
+# Navigate into the directory
+cd torque_contracts
+
+# Install dependencies
+yarn install
