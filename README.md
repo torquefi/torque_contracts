@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="public/assets/torque-square.png" alt="Torque Logo" width="13.4%">
+  <img src="https://cdn.prod.website-files.com/6556f6be06fc2abb8a8da998/665ce0e7788b3d8fe85d1fed_torque-square%20copy%202.png" alt="Torque Logo" width="13.4%">
 </p>
 <p align="center">
   <i align="center">Smart contracts for Torque Protocol</i>
@@ -7,7 +7,7 @@
 
 ## Overview
 
-Torque Protocol is a Solidity-based smart contract system aggregating the finest onchain lending and borrowing opportunities in a trustless manner. This repository contains the core contracts that power the protocol, including factories, governance mechanisms, and more.
+Torque Protocol is a Solidity-based smart contract system streamlining interaction with the finest onchain lending and borrowing opportunities. This repository contains the core contracts that power the protocol, including factories, governance, and other key modules.
 
 - **Website**: [torque.fi](https://torque.fi)
 - **Documentation**: [docs.torque.fi](https://docs.torque.fi)
