@@ -50,8 +50,8 @@ Torque Protocol is a Solidity-based, EVM-compatible smart contract system design
 | Timelock     | [0x78112179F84357B55Db265Bcabb8c9c6f1CcB850](https://arbiscan.io/address/0x78112179F84357B55Db265Bcabb8c9c6f1CcB850) |
 | Treasury         | [0x177f6519A523EEbb542aed20320EFF9401bC47d0](https://arbiscan.io/address/0x177f6519A523EEbb542aed20320EFF9401bC47d0) |
 | Swap     | [0xcE0C0E633086E4Bd3B2b4298D16b504490534411](https://arbiscan.io/address/0xcE0C0E633086E4Bd3B2b4298D16b504490534411) |
-| TORQ         | [0xb56C29413AF8778977093B9B4947efEeA7136C36](https://arbiscan.io/token/0xb56c29413af8778977093b9b4947efeea7136c36) |
-| TUSD     | [0xf7F6718Cf69967203740cCb431F6bDBff1E0FB68](https://arbiscan.io/token/0xf7f6718cf69967203740ccb431f6bdbff1e0fb68) |
+| TORQ (V1)         | [0xb56C29413AF8778977093B9B4947efEeA7136C36](https://arbiscan.io/token/0xb56c29413af8778977093b9b4947efeea7136c36) |
+| TUSD (V1)     | [0xf7F6718Cf69967203740cCb431F6bDBff1E0FB68](https://arbiscan.io/token/0xf7f6718cf69967203740ccb431f6bdbff1e0fb68) |
 
 ## Getting Started
 
