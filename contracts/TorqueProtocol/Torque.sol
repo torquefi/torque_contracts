@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.15;
+pragma solidity ^0.8.22;
 
 //  _________  ________  ________  ________  ___  ___  _______
 // |\___   ___\\   __  \|\   __  \|\   __  \|\  \|\  \|\  ___ \
@@ -9,18 +9,29 @@ pragma solidity ^0.8.15;
 //       \ \__\ \ \_______\ \__\\ _\\ \_____  \ \_______\ \_______\
 //        \|__|  \|_______|\|__|\|__|\|___| \__\|_______|\|_______|
 
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { ERC20Burnable } from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
+import { ERC20Permit } from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
+import { ERC20Votes } from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
+import { OFT } from "@layerzerolabs/oft-evm/contracts/OFT.sol";
 
-contract Torque is ERC20, ERC20Burnable, ERC20Permit, ERC20Votes, Ownable {
-    constructor() ERC20("Torque", "TORQ") ERC20Permit("Torque") {
-        _mint(msg.sender, 100_000_000_000 * 10 ** decimals());
+contract Torque is ERC20Burnable, ERC20Permit, ERC20Votes, OFT, Ownable {
+    
+    event Minted(address indexed to, uint256 amount);
+    event Burned(address indexed from, uint256 amount);
+
+    constructor(
+        string memory _name,
+        string memory _symbol,
+        address _lzEndpoint,
+        address _delegate
+    ) OFT(_name, _symbol, _lzEndpoint) ERC20Permit(_name) Ownable(_delegate) {
+        uint256 initialSupply = 1_000_000_000_000 * 10 ** decimals();
+        _mint(_delegate, initialSupply);
+        emit Minted(_delegate, initialSupply);
     }
 
-    // The functions below are overrides required by Solidity.
+    // Override functions required by Solidity for ERC20Votes, OFT, and ERC20 compatibility.
 
     function _afterTokenTransfer(
         address from,
@@ -30,11 +41,13 @@ contract Torque is ERC20, ERC20Burnable, ERC20Permit, ERC20Votes, Ownable {
         super._afterTokenTransfer(from, to, amount);
     }
 
-    function _mint(address to, uint256 amount) internal override(ERC20, ERC20Votes) {
+    function _mint(address to, uint256 amount) internal override(ERC20, ERC20Votes, OFT) {
         super._mint(to, amount);
+        emit Minted(to, amount);
     }
 
-    function _burn(address account, uint256 amount) internal override(ERC20, ERC20Votes) {
+    function _burn(address account, uint256 amount) internal override(ERC20, ERC20Votes, OFT) {
         super._burn(account, amount);
+        emit Burned(account, amount);
     }
 }
