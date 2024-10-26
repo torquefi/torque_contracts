@@ -16,31 +16,38 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
 import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 
+/// @title UniswapLINK Contract
+/// @notice Manages LINK deposits, withdrawals, and liquidity interactions with Uniswap v3
 contract UniswapLINK is Ownable, ReentrancyGuard {
-
     using SafeMath for uint256;
-    
-    IERC20 public linkToken;
-    IERC20 public wethToken;
-    ISwapRouter public swapRouter;
 
-    address treasury;
-    uint256 performanceFee;
-    uint24 poolFee = 100;
+    IERC20 public linkToken;                     // LINK token interface
+    IERC20 public wethToken;                      // WETH token interface
+    ISwapRouter public swapRouter;                // Uniswap swap router
 
-    INonfungiblePositionManager positionManager;
-    uint256 slippage = 20;
-    uint128 liquiditySlippage = 10;
-    int24 tickLower = -887220;
-    int24 tickUpper = 887220;
-    uint256 tokenId;
-    address controller;
+    address treasury;                             // Treasury address for fees
+    uint256 performanceFee;                       // Performance fee percentage
+    uint24 poolFee = 100;                        // Pool fee for swaps
 
-    bool poolInitialised = false;
+    INonfungiblePositionManager positionManager; // Uniswap position manager
+    uint256 slippage = 20;                       // Slippage for withdrawals
+    uint128 liquiditySlippage = 10;              // Liquidity slippage for increases
+    int24 tickLower = -887220;                   // Lower tick range for positions
+    int24 tickUpper = 887220;                    // Upper tick range for positions
+    uint256 tokenId;                             // Token ID for NFT position
+    address controller;                           // Controller address managing the contract
 
-    event Deposited(uint256 amount);
-    event Withdrawal(uint256 amount);
+    bool poolInitialised = false;                 // Status of the pool initialization
 
+    event Deposited(uint256 amount);              // Event for deposits
+    event Withdrawal(uint256 amount);              // Event for withdrawals
+
+    /// @notice Initializes the UniswapLINK contract
+    /// @param _linkToken Address of the LINK token
+    /// @param _wethToken Address of the WETH token
+    /// @param _positionManager Address of the Uniswap position manager
+    /// @param _swapRouter Address of the Uniswap swap router
+    /// @param _treasury Address of the treasury
     constructor(
         address _linkToken,
         address _wethToken,
@@ -55,35 +62,47 @@ contract UniswapLINK is Ownable, ReentrancyGuard {
         treasury = _treasury;
     }
 
+    /// @notice Deposits LINK tokens and provides liquidity
+    /// @param amount Amount of LINK to deposit
     function deposit(uint256 amount) external nonReentrant {
         require(msg.sender == controller, "Only controller can call this!");
         require(linkToken.transferFrom(msg.sender, address(this), amount), "Transfer Asset Failed");
+        
         uint256 linkToConvert = amount / 2; 
-        uint256 linkToKeep = amount - linkToConvert;
-        uint256 wethAmount = convertLinktoWETH(linkToConvert);
+        uint256 linkToKeep = amount.sub(linkToConvert);
+        uint256 wethAmount = convertLinktoWETH(linkToConvert); // Convert half LINK to WETH
+
+        // Approve tokens for position manager
         linkToken.approve(address(positionManager), linkToKeep);
         wethToken.approve(address(positionManager), wethAmount);
-        uint256 amount0Min = wethAmount * (1000 - slippage) / 1000;
-        uint256 amount1Min = linkToKeep * (1000 - slippage) / 1000;
 
-        if(!poolInitialised){
+        uint256 amount0Min = wethAmount.mul(1000 - slippage).div(1000); // Minimum WETH amount
+        uint256 amount1Min = linkToKeep.mul(1000 - slippage).div(1000); // Minimum LINK amount
+
+        if (!poolInitialised) {
             INonfungiblePositionManager.MintParams memory params = createMintParams(linkToKeep, wethAmount, amount0Min, amount1Min);
-            (tokenId,,,) = positionManager.mint(params);
+            (tokenId,,,) = positionManager.mint(params); // Mint new position
             poolInitialised = true;
         } else {
             INonfungiblePositionManager.IncreaseLiquidityParams memory increaseLiquidityParams = createIncreaseLiquidityParams(wethAmount, linkToKeep, amount0Min, amount1Min);
-            positionManager.increaseLiquidity(increaseLiquidityParams);
+            positionManager.increaseLiquidity(increaseLiquidityParams); // Increase liquidity if already initialized
         }
         emit Deposited(amount);
     }
 
+    /// @notice Withdraws liquidity based on the amount and total assets
+    /// @param amount Amount of liquidity to withdraw
+    /// @param totalAsset Total assets in the pool
     function withdraw(uint128 amount, uint256 totalAsset) external nonReentrant {
         require(msg.sender == controller, "Only controller can call this!");
         require(amount > 0, "Invalid amount");
-        (,,,,,,,uint128 liquidity,,,,) = positionManager.positions(tokenId);
-        uint256 deadline = block.timestamp + 2 minutes;
-        uint128 liquidtyAmount = uint128(liquidity)*(amount)/(uint128(totalAsset));
-        liquidtyAmount = liquidtyAmount*(1000 - liquiditySlippage)/(1000);
+
+        (,,,,,,, uint128 liquidity,,,,) = positionManager.positions(tokenId); // Get liquidity info
+        uint256 deadline = block.timestamp + 2 minutes; // Set deadline for transaction
+
+        uint128 liquidtyAmount = uint128(liquidity).mul(amount).div(uint128(totalAsset)); // Calculate liquidity to withdraw
+        liquidtyAmount = liquidtyAmount.mul(1000 - liquiditySlippage).div(1000); // Adjust for slippage
+
         INonfungiblePositionManager.DecreaseLiquidityParams memory decreaseLiquidityParams = INonfungiblePositionManager.DecreaseLiquidityParams({
             tokenId: tokenId,
             liquidity: liquidtyAmount,
@@ -91,39 +110,51 @@ contract UniswapLINK is Ownable, ReentrancyGuard {
             amount1Min: 0,
             deadline: deadline
         });
-        (uint256 amount0, uint256 amount1) = positionManager.decreaseLiquidity(decreaseLiquidityParams);
+
+        (uint256 amount0, uint256 amount1) = positionManager.decreaseLiquidity(decreaseLiquidityParams); // Decrease liquidity
         INonfungiblePositionManager.CollectParams memory collectParams = INonfungiblePositionManager.CollectParams({
             tokenId: tokenId,
             recipient: address(this),
             amount0Max: uint128(amount0),
             amount1Max: uint128(amount1)
         });
-        positionManager.collect(collectParams);
-        uint256 convertedLinkAmount = convertWETHtoLink(amount0);
-        amount1 = amount1.add(convertedLinkAmount);
-        require(linkToken.transfer(msg.sender, amount1), "Transfer Asset Failed");
+
+        positionManager.collect(collectParams); // Collect fees
+
+        uint256 convertedLinkAmount = convertWETHtoLink(amount0); // Convert WETH to LINK
+        amount1 = amount1.add(convertedLinkAmount); // Total amount to send
+        require(linkToken.transfer(msg.sender, amount1), "Transfer Asset Failed"); // Transfer LINK to user
         emit Withdrawal(amount);
     }
 
+    /// @notice Compounds the earnings from the liquidity positions
     function compound() external {
         require(msg.sender == controller, "Only controller can call this!");
-        INonfungiblePositionManager.CollectParams memory collectParams =
-            INonfungiblePositionManager.CollectParams({
-                tokenId: tokenId,
-                recipient: address(this),
-                amount0Max: type(uint128).max,
-                amount1Max: type(uint128).max
+        INonfungiblePositionManager.CollectParams memory collectParams = INonfungiblePositionManager.CollectParams({
+            tokenId: tokenId,
+            recipient: address(this),
+            amount0Max: type(uint128).max,
+            amount1Max: type(uint128).max
         });
-        (uint256 wethVal, ) = positionManager.collect(collectParams);
-        convertWETHtoLink(wethVal);
-        uint256 linkAmount = linkToken.balanceOf(address(this));
-        require(linkToken.transfer(msg.sender, linkAmount), "Transfer Asset Failed");
+
+        (uint256 wethVal, ) = positionManager.collect(collectParams); // Collect WETH from position
+        convertWETHtoLink(wethVal); // Convert WETH to LINK
+        uint256 linkAmount = linkToken.balanceOf(address(this)); // Get total LINK balance
+        require(linkToken.transfer(msg.sender, linkAmount), "Transfer Asset Failed"); // Transfer LINK to controller
     }
 
-    function setController(address _controller) external onlyOwner() {
+    /// @notice Sets the controller address
+    /// @param _controller New controller address
+    function setController(address _controller) external onlyOwner {
         controller = _controller;
     }
 
+    /// @notice Creates mint parameters for the position manager
+    /// @param linkToKeep Amount of LINK to keep
+    /// @param wethAmount Amount of WETH to provide
+    /// @param amount0Min Minimum amount of WETH
+    /// @param amount1Min Minimum amount of LINK
+    /// @return Mint parameters for position manager
     function createMintParams(uint256 linkToKeep, uint256 wethAmount, uint256 amount0Min, uint256 amount1Min) internal view returns (INonfungiblePositionManager.MintParams memory) {
         return INonfungiblePositionManager.MintParams({
             token0: address(wethToken),
@@ -140,6 +171,12 @@ contract UniswapLINK is Ownable, ReentrancyGuard {
         });
     }
 
+    /// @notice Creates increase liquidity parameters for the position manager
+    /// @param wethAmount Amount of WETH to provide
+    /// @param linkToKeep Amount of LINK to keep
+    /// @param amount0Min Minimum amount of WETH
+    /// @param amount1Min Minimum amount of LINK
+    /// @return Increase liquidity parameters for position manager
     function createIncreaseLiquidityParams(uint256 wethAmount, uint256 linkToKeep, uint256 amount0Min, uint256 amount1Min) internal view returns (INonfungiblePositionManager.IncreaseLiquidityParams memory) {
         return INonfungiblePositionManager.IncreaseLiquidityParams({
             tokenId: tokenId,
@@ -151,32 +188,48 @@ contract UniswapLINK is Ownable, ReentrancyGuard {
         });
     }
 
+    /// @notice Sets the tick range for the liquidity position
+    /// @param _tickLower New lower tick range
+    /// @param _tickUpper New upper tick range
     function setTickRange(int24 _tickLower, int24 _tickUpper) external onlyOwner {
         require(_tickLower < _tickUpper, "Invalid tick range");
         tickLower = _tickLower;
         tickUpper = _tickUpper;
     }
 
+    /// @notice Sets the slippage for deposits and withdrawals
+    /// @param _slippage New slippage percentage
     function setSlippage(uint256 _slippage) external onlyOwner {
         slippage = _slippage;
     }
 
+    /// @notice Sets the liquidity slippage for increases
+    /// @param _slippage New liquidity slippage percentage
     function setLiquiditySlippage(uint128 _slippage) external onlyOwner {
         liquiditySlippage = _slippage;
     }
 
+    /// @notice Sets the treasury address for fee withdrawals
+    /// @param _treasury New treasury address
     function setTreasury(address _treasury) external onlyOwner {
         treasury = _treasury;
     }
 
+    /// @notice Sets the performance fee for the treasury
+    /// @param _performanceFee New performance fee percentage
     function setPerformanceFee(uint256 _performanceFee) external onlyOwner {
         performanceFee = _performanceFee;
     }
 
+    /// @notice Sets the pool fee for Uniswap
+    /// @param _poolFee New pool fee
     function setPoolFee(uint24 _poolFee) external onlyOwner {
         poolFee = _poolFee;
     }
 
+    /// @notice Converts LINK tokens to WETH
+    /// @param linkAmount Amount of LINK to convert
+    /// @return Amount of WETH received
     function convertLinktoWETH(uint256 linkAmount) internal returns (uint256) {
         linkToken.approve(address(swapRouter), linkAmount);
         ISwapRouter.ExactInputSingleParams memory params =  
@@ -190,9 +243,12 @@ contract UniswapLINK is Ownable, ReentrancyGuard {
                 amountOutMinimum: 0,
                 sqrtPriceLimitX96: 0
             });
-        return swapRouter.exactInputSingle(params);
+        return swapRouter.exactInputSingle(params); // Execute swap
     }
 
+    /// @notice Converts WETH to LINK tokens
+    /// @param wethAmount Amount of WETH to convert
+    /// @return Amount of LINK received
     function convertWETHtoLink(uint256 wethAmount) internal returns (uint256) {
         wethToken.approve(address(swapRouter), wethAmount);
         ISwapRouter.ExactInputSingleParams memory params =  
@@ -206,6 +262,9 @@ contract UniswapLINK is Ownable, ReentrancyGuard {
                 amountOutMinimum: 0,
                 sqrtPriceLimitX96: 0
             });
-        return swapRouter.exactInputSingle(params);
+        return swapRouter.exactInputSingle(params); // Execute swap
     }
+
+    /// @notice Fallback function to receive ETH
+    receive() external payable {}
 }

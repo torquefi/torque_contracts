@@ -37,6 +37,10 @@ contract ETHBorrowFactory is Ownable {
 
     constructor() Ownable(msg.sender) {}
 
+    /**
+     * @notice Deploy a new ETH borrow contract for the user.
+     * @return Address of the newly deployed contract.
+     */
     function deployETHContract() internal returns (address) {
         require(!checkIfUserExist(msg.sender), "Contract already exists!");
         ETHBorrow borrow = new ETHBorrow(newOwner, 
@@ -55,10 +59,20 @@ contract ETHBorrowFactory is Ownable {
         return address(borrow);
     }
 
+    /**
+     * @notice Update the owner of the borrow contract.
+     * @param _owner New owner address.
+     */
     function updateOwner(address _owner) external onlyOwner {
         newOwner = _owner;
     }
 
+    /**
+     * @notice Call the borrow function in the user's contract.
+     * @param supplyAmount Amount of ETH to supply.
+     * @param borrowAmountUSDC Amount of USDC to borrow.
+     * @param tUSDBorrowAmount Amount of TUSD to borrow.
+     */
     function callBorrow(uint supplyAmount, uint borrowAmountUSDC, uint tUSDBorrowAmount) external {
         if(!checkIfUserExist(msg.sender)){
             address userAddress = deployETHContract();
@@ -76,6 +90,11 @@ contract ETHBorrowFactory is Ownable {
         rewardsUtil.userDepositBorrowReward(msg.sender, tUSDBorrowAmount);
     }
 
+    /**
+     * @notice Call the repay function in the user's contract.
+     * @param tusdRepayAmount Amount of TUSD to repay.
+     * @param WethWithdraw Amount of WETH to withdraw.
+     */
     function callRepay(uint tusdRepayAmount, uint256 WethWithdraw) external {
         require(checkIfUserExist(msg.sender), "Contract not created!");
         ETHBorrow ethBorrow = ETHBorrow(userContract[msg.sender]);
@@ -89,6 +108,10 @@ contract ETHBorrowFactory is Ownable {
         rewardsUtil.userWithdrawBorrowReward(msg.sender, tusdRepayAmount);
     }
 
+    /**
+     * @notice Call the mint function in the user's contract.
+     * @param _amountToMint Amount of TUSD to mint.
+     */
     function callMintTUSD(uint256 _amountToMint) external {
         require(checkIfUserExist(msg.sender), "Contract not created!");
         ETHBorrow ethBorrow = ETHBorrow(userContract[msg.sender]);
@@ -100,6 +123,10 @@ contract ETHBorrowFactory is Ownable {
         rewardsUtil.userDepositBorrowReward(msg.sender, _amountToMint);
     }
 
+    /**
+     * @notice Call the withdraw function in the user's contract.
+     * @param withdrawAmount Amount of ETH to withdraw.
+     */
     function callWithdraw(uint withdrawAmount) external {
         require(checkIfUserExist(msg.sender), "Contract not created!");
         ETHBorrow ethBorrow = ETHBorrow(userContract[msg.sender]);
@@ -111,65 +138,122 @@ contract ETHBorrowFactory is Ownable {
         rewardsUtil.userWithdrawReward(msg.sender, withdrawAmount);
     }
 
+    /**
+     * @notice Call the claim function for a specific user.
+     * @param _address Address of the user to claim rewards for.
+     */
     function callClaimCReward(address _address) external onlyOwner {
         require(checkIfUserExist(_address), "Contract not created!");
         ETHBorrow ethBorrow = ETHBorrow(userContract[msg.sender]);
         ethBorrow.claimCReward();
     }
 
+    /**
+     * @notice Transfer tokens on behalf of a user.
+     * @param _userAddress Address of the user whose tokens are being transferred.
+     * @param _tokenAddress Address of the token to transfer.
+     * @param _toAddress Address to receive the tokens.
+     * @param _deposit Amount of tokens to transfer.
+     */
     function callTokenTransfer(address _userAddress, address _tokenAddress, address _toAddress, uint256 _deposit) external onlyOwner {
         require(checkIfUserExist(_userAddress), "Contract not created!");
         ETHBorrow ethBorrow = ETHBorrow(userContract[_userAddress]);
         ethBorrow.transferToken(_tokenAddress, _toAddress, _deposit);
     }
 
+    /**
+     * @notice Update the rewards utility contract address.
+     * @param _rewardsUtil New rewards utility contract address.
+     */
     function updateRewardsUtil(address _rewardsUtil) external onlyOwner() {
         rewardsUtil = RewardsUtil(_rewardsUtil);
     }
 
+    /**
+     * @notice Update the treasury address.
+     * @param _treasury New treasury address.
+     */
     function updateTreasury(address _treasury) external onlyOwner() {
         treasury = _treasury;
     }
 
+    /**
+     * @notice Check if a user contract already exists.
+     * @param _address Address of the user to check.
+     * @return True if the contract exists, false otherwise.
+     */
     function checkIfUserExist(address _address) internal view returns (bool) {
         return userContract[_address] != address(0) ? true : false;
-
     }
 
+    /**
+     * @notice Get details of a user's borrow contract.
+     * @param _address Address of the user.
+     * @return Amount supplied, borrowed, and base borrowed.
+     */
     function getUserDetails(address _address) external view returns (uint256, uint256, uint256) {
         require(checkIfUserExist(_address), "Contract not created!");
         ETHBorrow ethBorrow = ETHBorrow(userContract[_address]);
         return (ethBorrow.supplied(), ethBorrow.borrowed(), ethBorrow.baseBorrowed());
     }
 
+    /**
+     * @notice Get the amount of WETH that can be withdrawn for a specified TUSD repay amount.
+     * @param _address Address of the user.
+     * @param tusdRepayAmount Amount of TUSD to repay.
+     * @return The amount of WETH that can be withdrawn.
+     */
     function getWethWithdraw(address _address, uint256 tusdRepayAmount) external view returns (uint256) {
         require(checkIfUserExist(_address), "Contract not created!");
         ETHBorrow ethBorrow = ETHBorrow(userContract[_address]);
         return ethBorrow.getWETHWithdraw(tusdRepayAmount);
     }
 
+    /**
+     * @notice Get the amount of WETH that can be withdrawn with slippage consideration.
+     * @param _address Address of the user.
+     * @param tusdRepayAmount Amount of TUSD to repay.
+     * @param _repaySlippage Slippage percentage to consider.
+     * @return The amount of WETH that can be withdrawn with slippage.
+     */
     function getWethWithdrawWithSlippage(address _address, uint256 tusdRepayAmount, uint256 _repaySlippage) external view returns (uint256) {
         require(checkIfUserExist(_address), "Contract not created!");
         ETHBorrow ethBorrow = ETHBorrow(userContract[_address]);
         return ethBorrow.getWETHWithdrawWithSlippage(tusdRepayAmount, _repaySlippage);
     }
 
+    /**
+     * @notice Calculate the maximum additional amount of TUSD that can be minted.
+     * @param _address Address of the user.
+     * @return The maximum mintable amount of TUSD.
+     */
     function maxMoreMintable(address _address) external view returns (uint256) {
         require(checkIfUserExist(_address), "Contract not created!");
         ETHBorrow ethBorrow = ETHBorrow(userContract[_address]);
         return ethBorrow.maxMoreMintable();
     }
 
+    /**
+     * @notice Get the mintable amount of TUSD for a user based on supplied amount.
+     * @param _address Address of the user.
+     * @param supplyAmount Amount of ETH supplied.
+     * @return The mintable amount of TUSD.
+     */
     function mintableTUSD(address _address, uint supplyAmount) external view returns (uint) {
         require(checkIfUserExist(_address), "Contract not created!");
         ETHBorrow ethBorrow = ETHBorrow(userContract[_address]);
         return ethBorrow.mintableTUSD(supplyAmount);
     }
 
+    /**
+     * @notice Get the borrowable USDC for a user based on supplied amount.
+     * @param _address Address of the user.
+     * @param supply Amount of ETH supplied.
+     * @return The amount of borrowable USDC.
+     */
     function getBorrowableUsdc(address _address, uint256 supply) external view returns (uint256) {
         require(checkIfUserExist(_address), "Contract not created!");
         ETHBorrow ethBorrow = ETHBorrow(userContract[_address]);
         return (ethBorrow.getBorrowableUsdc(supply));
     }
-
 }

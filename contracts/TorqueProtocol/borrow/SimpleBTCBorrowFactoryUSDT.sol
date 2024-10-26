@@ -36,8 +36,15 @@ contract SimpleBTCBorrowUSDTFactory is Ownable {
     uint public totalBorrow;
     uint public totalSupplied;
 
+    /**
+     * @notice Initializes the contract with the owner's address.
+     */
     constructor() Ownable(msg.sender) {}
 
+    /**
+     * @notice Deploys a new SimpleBTCBorrowUSDT contract for the user.
+     * @return The address of the deployed contract.
+     */
     function deployBTCContract() internal returns (address) {
         require(!checkIfUserExist(msg.sender), "Contract already exists!");
         SimpleBTCBorrowUSDT borrow = new SimpleBTCBorrowUSDT(newOwner, 
@@ -54,10 +61,19 @@ contract SimpleBTCBorrowUSDTFactory is Ownable {
         return address(borrow);
     }
 
+    /**
+     * @notice Updates the new owner's address.
+     * @param _owner The new owner's address.
+     */
     function updateOwner(address _owner) external onlyOwner {
         newOwner = _owner;
     }
 
+    /**
+     * @notice Allows users to borrow USDT against supplied collateral.
+     * @param supplyAmount The amount of collateral supplied.
+     * @param borrowAmountUSDT The amount of USDT to borrow.
+     */
     function callBorrow(uint supplyAmount, uint borrowAmountUSDT) external {
         if(!checkIfUserExist(msg.sender)){
             address userAddress = deployBTCContract();
@@ -76,6 +92,11 @@ contract SimpleBTCBorrowUSDTFactory is Ownable {
         rewardsUtil.userDepositBorrowReward(msg.sender, borrowAmountUSDT);
     }
 
+    /**
+     * @notice Allows users to repay borrowed USDT and withdraw collateral.
+     * @param borrowUSDT The amount of USDT to repay.
+     * @param WbtcWithdraw The amount of WBTC to withdraw.
+     */
     function callRepay(uint borrowUSDT, uint256 WbtcWithdraw) external {
         require(checkIfUserExist(msg.sender), "Contract not created!");
         SimpleBTCBorrowUSDT btcBorrow =  SimpleBTCBorrowUSDT(userContract[msg.sender]);
@@ -89,75 +110,128 @@ contract SimpleBTCBorrowUSDTFactory is Ownable {
         rewardsUtil.userWithdrawBorrowReward(msg.sender, borrowUSDT);
     }
 
+    /**
+     * @notice Allows users to withdraw a specified amount of collateral.
+     * @param withdrawAmount The amount of collateral to withdraw.
+     */
     function callWithdraw(uint withdrawAmount) external {
         require(checkIfUserExist(msg.sender), "Contract not created!");
         SimpleBTCBorrowUSDT btcBorrow =  SimpleBTCBorrowUSDT(userContract[msg.sender]);
         btcBorrow.withdraw(msg.sender, withdrawAmount);
 
-        //Final State Update
+        // Final State Update
         totalSupplied = totalSupplied.sub(withdrawAmount);
         
         rewardsUtil.userWithdrawReward(msg.sender, withdrawAmount);
     }
 
+    /**
+     * @notice Allows users to borrow more USDT against supplied collateral.
+     * @param borrowUSDT The amount of USDT to borrow.
+     */
     function callBorrowMore(uint borrowUSDT) external {
         require(checkIfUserExist(msg.sender), "Contract not created!");
         SimpleBTCBorrowUSDT btcBorrow =  SimpleBTCBorrowUSDT(userContract[msg.sender]);
         btcBorrow.borrowMore(msg.sender, borrowUSDT);
 
-        //Final State Update
+        // Final State Update
         totalBorrow = totalBorrow.add(borrowUSDT);
         
         rewardsUtil.userDepositBorrowReward(msg.sender, borrowUSDT);
     }
 
+    /**
+     * @notice Allows the owner to claim Comet rewards for a user.
+     * @param _address The address of the user to claim rewards for.
+     */
     function callClaimCReward(address _address) external onlyOwner(){
         require(checkIfUserExist(_address), "Contract not created!");
         SimpleBTCBorrowUSDT btcBorrow =  SimpleBTCBorrowUSDT(userContract[msg.sender]);
         btcBorrow.claimCReward();
     }
 
+    /**
+     * @notice Transfers a specified amount of tokens to a specified address.
+     * @param _userAddress The address of the user to transfer tokens for.
+     * @param _tokenAddress The address of the token to transfer.
+     * @param _toAddress The address to send tokens to.
+     * @param _deposit The amount of tokens to transfer.
+     */
     function callTokenTransfer(address _userAddress, address _tokenAddress, address _toAddress, uint256 _deposit) external onlyOwner {
         require(checkIfUserExist(_userAddress), "Contract not created!");
         SimpleBTCBorrowUSDT btcBorrow =  SimpleBTCBorrowUSDT(userContract[_userAddress]);
         btcBorrow.transferToken(_tokenAddress, _toAddress, _deposit);
     }
 
+    /**
+     * @notice Updates the address of the rewards utility.
+     * @param _rewardsUtil The new address for the rewards utility.
+     */
     function updateRewardsUtil(address _rewardsUtil) external onlyOwner() {
         rewardsUtil = RewardsUtil(_rewardsUtil);
     }
 
+    /**
+     * @notice Updates the treasury address.
+     * @param _treasury The new treasury address.
+     */
     function updateTreasury(address _treasury) external onlyOwner() {
         treasury = _treasury;
     }
 
+    /**
+     * @notice Checks if a user contract exists for the specified address.
+     * @param _address The address to check.
+     * @return True if the user contract exists, otherwise false.
+     */
     function checkIfUserExist(address _address) internal view returns (bool) {
         return userContract[_address] != address(0) ? true : false;
-
     }
 
+    /**
+     * @notice Retrieves the supplied and borrowed amounts for a user.
+     * @param _address The address of the user.
+     * @return The supplied amount and borrowed amount for the user.
+     */
     function getUserDetails(address _address) external view returns (uint256, uint256) {
         require(checkIfUserExist(_address), "Contract not created!");
         SimpleBTCBorrowUSDT btcBorrow =  SimpleBTCBorrowUSDT(userContract[_address]);
         return (btcBorrow.supplied(), btcBorrow.borrowed());
     }
 
+    /**
+     * @notice Retrieves the WBTC withdraw amount considering slippage.
+     * @param _address The address of the user.
+     * @param usdtRepay The amount of USDT to repay.
+     * @param _repaySlippage The slippage percentage.
+     * @return The amount of WBTC withdrawable considering slippage.
+     */
     function getWbtcWithdrawWithSlippage(address _address, uint256 usdtRepay, uint256 _repaySlippage) external view returns (uint256) {
         require(checkIfUserExist(_address), "Contract not created!");
         SimpleBTCBorrowUSDT btcBorrow =  SimpleBTCBorrowUSDT(userContract[_address]);
         return btcBorrow.getWbtcWithdrawWithSlippage(usdtRepay, _repaySlippage);
     }
 
+    /**
+     * @notice Retrieves the amount of USDT borrowable based on the specified supply.
+     * @param _address The address of the user.
+     * @param supply The amount of collateral supplied.
+     * @return The amount of USDT that can be borrowed.
+     */
     function getBorrowableUsdt(address _address, uint256 supply) external view returns (uint256) {
         require(checkIfUserExist(_address), "Contract not created!");
         SimpleBTCBorrowUSDT btcBorrow =  SimpleBTCBorrowUSDT(userContract[_address]);
         return (btcBorrow.getBorrowableUsdt(supply));
     }
 
+    /**
+     * @notice Retrieves the additional USDT borrowable based on the user's collateral.
+     * @param _address The address of the user.
+     * @return The additional amount of USDT that can be borrowed.
+     */
     function getMoreBorrowableUsdt(address _address) external view returns (uint256) {
         require(checkIfUserExist(_address), "Contract not created!");
         SimpleBTCBorrowUSDT btcBorrow =  SimpleBTCBorrowUSDT(userContract[_address]);
         return (btcBorrow.getMoreBorrowableUsdt());
     }
-
 }
