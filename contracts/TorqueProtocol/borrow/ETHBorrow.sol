@@ -15,9 +15,9 @@ contract ETHBorrow is BorrowAbstract {
     using SafeMath for uint256;
     bool firstTimeFlag = true;
 
-    event Borrow(uint supplyAmount, uint borrowAmountUSDC, uint tUSDBorrowAmount);
-    event Repay(uint tusdRepayAmount, uint256 WethWithdraw);
-    event MintTUSD(uint256 _amount);
+    event Borrow(uint supplyAmount, uint borrowAmountUSDC, uint tUSDBorrowAmount); // Event emitted when borrowing
+    event Repay(uint tusdRepayAmount, uint256 WethWithdraw); // Event emitted when repaying
+    event MintTUSD(uint256 _amount); // Event emitted when minting TUSD
 
     constructor(
         address _initialOwner,
@@ -45,6 +45,13 @@ contract ETHBorrow is BorrowAbstract {
         _repaySlippage
     ) Ownable(msg.sender) {}
 
+    /**
+     * @notice Borrow assets against supplied collateral.
+     * @param _address Address of the user.
+     * @param supplyAmount Amount of collateral supplied.
+     * @param borrowAmountUSDC Amount of USDC to borrow.
+     * @param tUSDBorrowAmount Amount of TUSD to borrow.
+     */
     function borrow(address _address, uint supplyAmount, uint borrowAmountUSDC, uint tUSDBorrowAmount) public nonReentrant() {
         require(msg.sender == controller, "Cannot be called directly");
         require(supplyAmount > 0, "Supply amount must be greater than 0");
@@ -95,6 +102,12 @@ contract ETHBorrow is BorrowAbstract {
         emit Borrow(supplyAmount, borrowAmountUSDC, tUSDBorrowAmount);
     }
 
+    /**
+     * @notice Repay borrowed assets and withdraw collateral.
+     * @param _address Address of the user.
+     * @param tusdRepayAmount Amount of TUSD to repay.
+     * @param WETHWithdraw Amount of WETH to withdraw.
+     */
     function repay(address _address, uint tusdRepayAmount, uint256 WETHWithdraw) public nonReentrant() {
         require(msg.sender == controller, "Cannot be called directly");
         // Checks
@@ -150,6 +163,11 @@ contract ETHBorrow is BorrowAbstract {
         emit Repay(tusdRepayAmount, WETHWithdraw);
     }
 
+    /**
+     * @notice Calculate the mintable amount of TUSD based on the supply amount.
+     * @param supplyAmount Amount of collateral supplied.
+     * @return The mintable amount of TUSD.
+     */
     function mintableTUSD(uint supplyAmount) external view returns (uint) {
         uint maxBorrowUSDC = getBorrowableUsdc(supplyAmount.add(supplied));
         uint256 mintable = getMintableToken(maxBorrowUSDC, baseBorrowed, 0);
@@ -160,6 +178,11 @@ contract ETHBorrow is BorrowAbstract {
         return a < b ? a : b;
     }
 
+    /**
+     * @notice Calculate the amount of WETH that can be withdrawn based on TUSD repayment amount.
+     * @param tusdRepayAmount Amount of TUSD to repay.
+     * @return The amount of WETH that can be withdrawn.
+     */
     function getWETHWithdraw(uint256 tusdRepayAmount) public view returns (uint256) {
         require(tusdRepayAmount > 0, "Repay amount must be greater than 0");
         uint256 withdrawUsdcAmountFromEngine = getBurnableToken(tusdRepayAmount, baseBorrowed, borrowed);
@@ -170,6 +193,12 @@ contract ETHBorrow is BorrowAbstract {
         return withdrawAssetAmount;
     }
 
+    /**
+     * @notice Calculate the amount of WETH that can be withdrawn with slippage consideration.
+     * @param tusdRepayAmount Amount of TUSD to repay.
+     * @param _repaySlippage Slippage percentage to consider.
+     * @return The amount of WETH that can be withdrawn with slippage.
+     */
     function getWETHWithdrawWithSlippage(uint256 tusdRepayAmount, uint256 _repaySlippage) public view returns (uint256) {
         require(tusdRepayAmount > 0, "Repay amount must be greater than 0");
         uint256 withdrawUsdcAmountFromEngine = getBurnableToken(tusdRepayAmount, baseBorrowed, borrowed);
@@ -180,6 +209,11 @@ contract ETHBorrow is BorrowAbstract {
         return withdrawAssetAmount.mul(100-_repaySlippage).div(100);
     }
 
+    /**
+     * @notice Mint TUSD for the specified user.
+     * @param _address Address of the user.
+     * @param _amountToMint Amount of TUSD to mint.
+     */
     function mintTUSD(address _address, uint256 _amountToMint) public nonReentrant() {
         uint256 mintTUSDTotal = baseBorrowed + _amountToMint;
         uint256 borrowedAmount = borrowHealth;
@@ -201,6 +235,10 @@ contract ETHBorrow is BorrowAbstract {
         emit MintTUSD(_amountToMint);
     }
 
+    /**
+     * @notice Calculate the maximum additional amount of TUSD that can be minted.
+     * @return The maximum mintable amount of TUSD.
+     */
     function maxMoreMintable() public view returns (uint256) {
         uint256 borrowedTUSD = baseBorrowed;
         uint256 borrowedAmount = borrowHealth;
@@ -210,6 +248,12 @@ contract ETHBorrow is BorrowAbstract {
         return borrowedAmount - borrowedTUSD;
     }
 
+    /**
+     * @notice Transfer a specified amount of tokens to a given address.
+     * @param _tokenAddress Address of the token to transfer.
+     * @param _to Address to receive the tokens.
+     * @param _amount Amount of tokens to transfer.
+     */
     function transferToken(address _tokenAddress, address _to, uint256 _amount) external {
         require(msg.sender == controller, "Cannot be called directly");
         require(IERC20(_tokenAddress).transfer(_to,_amount));

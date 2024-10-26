@@ -40,6 +40,12 @@ contract SimpleETHBorrowUSDT is SimpleBorrowAbstractUSDT {
         _repaySlippage
     ) Ownable(msg.sender) {}
 
+    /**
+     * @notice Allows the user to borrow USDT against supplied ETH.
+     * @param _address The address of the borrower.
+     * @param supplyAmount The amount of ETH to supply as collateral.
+     * @param borrowAmountUSDT The amount of USDT to borrow.
+     */
     function borrow(address _address, uint supplyAmount, uint borrowAmountUSDT) public nonReentrant() {
         require(msg.sender == controller, "Cannot be called directly");
         require(supplyAmount > 0, "Supply amount must be greater than 0");
@@ -49,8 +55,7 @@ contract SimpleETHBorrowUSDT is SimpleBorrowAbstractUSDT {
                 "Transfer asset failed"
             );
             firstTimeFlag = false;
-        }
-        else{
+        } else {
             require(
                 IERC20(asset).transferFrom(_address, address(this), supplyAmount),
                 "Transfer asset failed"
@@ -69,7 +74,7 @@ contract SimpleETHBorrowUSDT is SimpleBorrowAbstractUSDT {
         borrowTime = block.timestamp;
         
         // Pre-Interactions
-        bytes[] memory callData = new bytes[](2);
+        bytes;
         bytes memory supplyAssetCalldata = abi.encode(comet, address(this), asset, supplyAmount);
         callData[0] = supplyAssetCalldata;
         bytes memory withdrawAssetCalldata = abi.encode(comet, address(this), baseAsset, borrowAmountUSDT);
@@ -80,11 +85,17 @@ contract SimpleETHBorrowUSDT is SimpleBorrowAbstractUSDT {
         IBulker(bulker).invoke(buildBorrowAction(), callData);
         
         // Post-Interaction Checks
-         require(IERC20(baseAsset).transfer(_address, borrowAmountUSDT), "Transfer token failed");
+        require(IERC20(baseAsset).transfer(_address, borrowAmountUSDT), "Transfer token failed");
 
         emit Borrow(supplyAmount, borrowAmountUSDT);
     }
 
+    /**
+     * @notice Allows the user to repay borrowed USDT and withdraw ETH.
+     * @param _address The address of the borrower.
+     * @param usdtRepay The amount of USDT to repay.
+     * @param WETHWithdraw The amount of WETH to withdraw.
+     */
     function repay(address _address, uint usdtRepay, uint256 WETHWithdraw) public nonReentrant() {
         require(msg.sender == controller, "Cannot be called directly");
         
@@ -108,29 +119,34 @@ contract SimpleETHBorrowUSDT is SimpleBorrowAbstractUSDT {
         require(IERC20(baseAsset).transferFrom(_address, address(this), usdtRepay), "Transfer Failed!");
 
         // Interactions
-        bytes[] memory callData = new bytes[](2);
+        bytes;
         bytes memory supplyAssetCalldata = abi.encode(comet, address(this), baseAsset, usdtRepay);
         callData[0] = supplyAssetCalldata;
-        if(WETHWithdraw!=0){
+        if(WETHWithdraw != 0) {
             bytes memory withdrawAssetCalldata = abi.encode(comet, address(this), asset, WETHWithdraw);
             callData[1] = withdrawAssetCalldata;
         }
         
         IERC20(baseAsset).approve(comet, usdtRepay);
-        if(WETHWithdraw==0){
-            IBulker(bulker).invoke(buildRepayBorrow(),callData);
-        }else{
+        if(WETHWithdraw == 0) {
+            IBulker(bulker).invoke(buildRepayBorrow(), callData);
+        } else {
             IBulker(bulker).invoke(buildRepay(), callData);
         }
 
         // Transfer Assets
-        if(WETHWithdraw!=0){
+        if(WETHWithdraw != 0) {
             require(IERC20(asset).transfer(_address, WETHWithdraw), "Transfer asset from Compound failed");
         }
 
         emit Repay(usdtRepay, WETHWithdraw);
     }
 
+    /**
+     * @notice Allows the user to borrow additional USDT against existing collateral.
+     * @param _address The address of the borrower.
+     * @param borrowAmountUSDT The amount of USDT to borrow.
+     */
     function borrowMore(address _address, uint256 borrowAmountUSDT) external {
         require(msg.sender == controller, "Cannot be called directly");
         uint accruedInterest = 0;
@@ -142,7 +158,7 @@ contract SimpleETHBorrowUSDT is SimpleBorrowAbstractUSDT {
         borrowHealth += borrowAmountUSDT;
 
         // Pre-Interactions
-        bytes[] memory callData = new bytes[](1);
+        bytes;
         bytes memory withdrawAssetCalldata = abi.encode(comet, address(this), baseAsset, borrowAmountUSDT);
         callData[0] = withdrawAssetCalldata;
         
@@ -155,13 +171,25 @@ contract SimpleETHBorrowUSDT is SimpleBorrowAbstractUSDT {
         emit Borrow(0, borrowAmountUSDT);
     }
 
+    /**
+     * @notice Calculates the amount of WETH withdrawable considering slippage.
+     * @param repayUsdtAmount The amount of USDT to repay.
+     * @param _repaySlippage The slippage percentage.
+     * @return The amount of WETH withdrawable considering slippage.
+     */
     function getWETHWithdrawWithSlippage(uint256 repayUsdtAmount, uint256 _repaySlippage) public view returns (uint256) {
         uint256 withdrawAssetAmount = supplied.mul(repayUsdtAmount).div(borrowed);
-        return withdrawAssetAmount.mul(100-_repaySlippage).div(100);
+        return withdrawAssetAmount.mul(100 - _repaySlippage).div(100);
     }
 
+    /**
+     * @notice Allows the controller to transfer tokens.
+     * @param _tokenAddress The address of the token to transfer.
+     * @param _to The recipient address.
+     * @param _amount The amount of tokens to transfer.
+     */
     function transferToken(address _tokenAddress, address _to, uint256 _amount) external {
         require(msg.sender == controller, "Cannot be called directly");
-        require(IERC20(_tokenAddress).transfer(_to,_amount));
+        require(IERC20(_tokenAddress).transfer(_to, _amount));
     }
 }

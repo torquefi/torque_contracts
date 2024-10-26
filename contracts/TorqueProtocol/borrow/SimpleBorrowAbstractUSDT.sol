@@ -45,16 +45,28 @@ abstract contract SimpleBorrowAbstractUSDT is Ownable, ReentrancyGuard {
     bytes32 public constant ACTION_WITHDRAW_ETH = "ACTION_WITHDRAW_NATIVE_TOKEN";
     bytes32 public constant ACTION_CLAIM_REWARD = "ACTION_CLAIM_REWARD";
 
+    /**
+     * @notice Initializes the contract with required parameters.
+     * @param _initialOwner The address of the initial owner.
+     * @param _comet Address for Compound V3.
+     * @param _cometReward Address for claiming Comet rewards.
+     * @param _asset Address for collateral to be staked (WBTC/WETH).
+     * @param _baseAsset Address for the borrowing asset (USDT).
+     * @param _bulker Address for the Bulker contract.
+     * @param _treasury Address for the fees.
+     * @param _controller Address for the controller.
+     * @param _repaySlippage Slippage percentage for repayments.
+     */
     constructor(
         address _initialOwner,
-        address _comet, // Compound V3 Address
-        address _cometReward, // Address for Claiming Comet Rewards
-        address _asset, // Collateral to be staked (WBTC / WETH)
-        address _baseAsset, // Borrowing Asset (USDT)
-        address _bulker, // Bulker Contract 
-        address _treasury, // Fees Address
+        address _comet,
+        address _cometReward,
+        address _asset,
+        address _baseAsset,
+        address _bulker,
+        address _treasury,
         address _controller,
-        uint _repaySlippage // Slippage %
+        uint _repaySlippage
     ) {
         Ownable.transferOwnership(_initialOwner);
         comet = _comet;
@@ -83,12 +95,21 @@ abstract contract SimpleBorrowAbstractUSDT is Ownable, ReentrancyGuard {
     event UserBorrow(address user, address collateralAddress, uint amount);
     event UserRepay(address user, address collateralAddress, uint repayAmount, uint claimAmount);
 
-    function getCollateralFactor() public view returns (uint){
+    /**
+     * @notice Gets the collateral factor for the asset.
+     * @return The collateral factor as a percentage.
+     */
+    function getCollateralFactor() public view returns (uint) {
         IComet icomet = IComet(comet);
         IComet.AssetInfo memory info = icomet.getAssetInfoByAddress(asset);
         return info.borrowCollateralFactor;
     }
 
+    /**
+     * @notice Gets the borrowable USDT amount based on the supplied asset amount.
+     * @param supplyAmount The amount of asset supplied.
+     * @return The amount of borrowable USDT.
+     */
     function getBorrowableUsdt(uint supplyAmount) public view returns (uint) {
         IComet icomet = IComet(comet);
         IComet.AssetInfo memory info = icomet.getAssetInfoByAddress(asset);
@@ -101,6 +122,10 @@ abstract contract SimpleBorrowAbstractUSDT is Ownable, ReentrancyGuard {
             .div(SCALE);
     }
 
+    /**
+     * @notice Gets the additional borrowable USDT amount.
+     * @return The additional borrowable USDT amount.
+     */
     function getMoreBorrowableUsdt() public view returns (uint) {
         IComet icomet = IComet(comet);
         IComet.AssetInfo memory info = icomet.getAssetInfoByAddress(asset);
@@ -115,6 +140,11 @@ abstract contract SimpleBorrowAbstractUSDT is Ownable, ReentrancyGuard {
         return totalUSDT - borrowed;
     }
 
+    /**
+     * @notice Withdraws a specified amount of asset from the contract.
+     * @param _address The address to withdraw to.
+     * @param withdrawAmount The amount of asset to withdraw.
+     */
     function withdraw(address _address, uint withdrawAmount) public nonReentrant() {
         require(msg.sender == controller, "Cannot be called directly");
         require(supplied > 0, "User does not have asset");
@@ -138,6 +168,10 @@ abstract contract SimpleBorrowAbstractUSDT is Ownable, ReentrancyGuard {
         require(IERC20(asset).transfer(_address, withdrawAmount), "Transfer Asset Failed");
     } 
     
+    /**
+     * @notice Gets the current borrow balance including accrued interest.
+     * @return The total borrow balance.
+     */
     function borrowBalanceOf() public view returns (uint) {
         if(borrowed == 0) {
             return 0;
@@ -147,18 +181,31 @@ abstract contract SimpleBorrowAbstractUSDT is Ownable, ReentrancyGuard {
         return borrowAmount + interest;
     }
 
+    /**
+     * @notice Calculates the interest on the borrowed amount.
+     * @param borrowAmount The amount borrowed.
+     * @param _borrowTime The timestamp when the amount was borrowed.
+     * @return The calculated interest.
+     */
     function calculateInterest(uint borrowAmount, uint _borrowTime) public view returns (uint) {
         IComet icomet = IComet(comet);
         uint totalSecond = block.timestamp - _borrowTime;
         return borrowAmount.mul(icomet.getBorrowRate(icomet.getUtilization())).mul(totalSecond).div(1e18);
     }
 
+    /**
+     * @notice Gets the annual percentage rate (APR) for the borrow rate.
+     * @return The APR as a percentage.
+     */
     function getApr() public view returns (uint) {
         IComet icomet = IComet(comet);
-        uint borowRate = icomet.getBorrowRate(icomet.getUtilization());
-        return borowRate.mul(31536000);
+        uint borrowRate = icomet.getBorrowRate(icomet.getUtilization());
+        return borrowRate.mul(31536000);
     }
 
+    /**
+     * @notice Claims rewards for the caller.
+     */
     function claimCReward() public {
         require(msg.sender == controller, "Cannot be called directly");
         require(lastClaimCometTime + claimPeriod < block.timestamp, "Already claimed");
@@ -167,24 +214,41 @@ abstract contract SimpleBorrowAbstractUSDT is Ownable, ReentrancyGuard {
         ICometRewards(cometReward).claim(comet, treasury, true);
     }
 
+    /**
+     * @notice Builds the borrow action to be executed.
+     * @return The array of actions to be performed for borrowing.
+     */
     function buildBorrowAction() pure virtual public returns(bytes32[] memory) {
         bytes32[] memory actions = new bytes32[](2);
         actions[0] = ACTION_SUPPLY_ASSET;
         actions[1] = ACTION_WITHDRAW_ASSET;
         return actions;
     }
+    
+    /**
+     * @notice Builds the withdraw action to be executed.
+     * @return The array of actions to withdraw assets.
+     */
     function buildWithdraw() pure public returns(bytes32[] memory) {
         bytes32[] memory actions = new bytes32[](1);
         actions[0] = ACTION_WITHDRAW_ASSET;
         return actions;
     }
 
+    /**
+     * @notice Builds the repay action for borrowed amounts.
+     * @return The array of actions to repay borrowed amounts.
+     */
     function buildRepayBorrow() pure public returns(bytes32[] memory) {
         bytes32[] memory actions = new bytes32[](2);
         actions[0] = ACTION_SUPPLY_ASSET;
         return actions;
     }
 
+    /**
+     * @notice Builds the repay action to be executed.
+     * @return The array of actions to repay assets.
+     */
     function buildRepay() pure virtual public returns(bytes32[] memory) {
         bytes32[] memory actions = new bytes32[](2);
         actions[0] = ACTION_SUPPLY_ASSET;
