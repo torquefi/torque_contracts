@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `TorqueSplitter` is a smart contract that strategically allocates user deposits among various yield-generating strategies. It also handles interactions with a reward management system to distribute multiple types of tokens (COMP, TORQ, POL) based on user activities such as deposits and withdrawals.
+The `TorqueSplitter` is a smart contract that allocates supplied assets among various yield-generating strategies. It also handles interactions with a reward management system to distribute multiple types of tokens (COMP, TORQ, POL) based on user activities such as deposits and withdrawals.
 
 ## Key Features
 
