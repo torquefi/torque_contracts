@@ -58,4 +58,4 @@ Deploy the contract using Remix, Truffle, or Hardhat with the constructor parame
 
 ## Additional Notes
 
-Adjusting strategies or allocations post-deployment involves not only updating the strategies via `updateStrategies` but also potentially manually migrating funds to align with new ratios to ensure that the new strategy allocations reflect the updated investment goals.
+Adjusting strategies or allocations post-deployment involves not only updating the strategies via `updateStrategies` but also manually migrating funds to align with new ratios to ensure that the new strategy allocations reflect the updated investment goals.
