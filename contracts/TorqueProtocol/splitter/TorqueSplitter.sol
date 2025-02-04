@@ -33,7 +33,7 @@ interface IRewardManager {
 }
 
 /**
- * @title Torque Splitter Contract
+ * @title Torque Splitter Contract -- WIP
  * @notice Manages the distribution of funds among various yield strategies and handles interactions with the reward system.
  * @dev Integrates with multiple reward managers to update rewards based on user deposits and withdrawals.
  */
