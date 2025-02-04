@@ -2,12 +2,12 @@
 
 ## Overview
 
-The `TorqueSplitter` is a smart contract implemented on the Ethereum blockchain that strategically allocates user deposits among various yield-generating strategies. It also handles interactions with a reward management system to distribute multiple types of tokens (COMP, TORQ, POL) based on user activities such as deposits and withdrawals.
+The `TorqueSplitter` is a smart contract that strategically allocates user deposits among various yield-generating strategies. It also handles interactions with a reward management system to distribute multiple types of tokens (COMP, TORQ, POL) based on user activities such as deposits and withdrawals.
 
 ## Key Features
 
-- **Multiple Yield Strategies**: Funds are distributed across different strategies based on predefined allocation ratios.
-- **Dynamic Reward Management**: Integrates with multiple reward managers to handle rewards for deposits and withdrawals.
+- **Multiple Yield Strategies**: Funds are distributed across strategies based on predefined allocations.
+- **Dynamic Reward Management**: Integrates with multiple reward contracts to handle rewards for deposits and withdrawals.
 - **Token Rewards**: Users can accrue rewards in three types of tokens: COMP, TORQ, and POL, which are managed through separate reward manager contracts.
 - **Flexible Strategy Management**: Allows the owner to update strategy allocations dynamically to optimize returns.
 
@@ -59,5 +59,3 @@ Deploy the contract using Remix, Truffle, or Hardhat with the constructor parame
 ## Additional Notes
 
 Adjusting strategies or allocations post-deployment involves not only updating the strategies via `updateStrategies` but also potentially manually migrating funds to align with new ratios to ensure that the new strategy allocations reflect the updated investment goals.
-
-This README provides a comprehensive guide to deploying, interacting with, and understanding the TorqueSplitter contract. Ensure all interactions are tested thoroughly to prevent issues in a production environment.
