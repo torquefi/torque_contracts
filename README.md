@@ -16,6 +16,57 @@ Torque Protocol is a Solidity-based, EVM-compatible smart contract system design
 
 ## Addresses
 
+### Version 2
+
+> :information_source: V2 is under development. [Stay tuned!](https://x.com/torquefi)
+
+| Network       | Contract       | Address       |
+| ------------- | -------------  | ------------- |
+<!-- | Ethereum | TradeFactory | [#](https://etherscan.io/address/#) | -->
+| Arbitrum | TradeFactory | [#](https://arbiscan.io/address/#) |
+<!-- | Optimism | TradeFactory | [#](https://optimistic.etherscan.io/address/#) | -->
+| Polygon | TradeFactory | [#](https://polygonscan.io/address/#) |
+<!-- | Blast | TradeFactory | [#](https://blastscan.io/address/#) | -->
+| Base | TradeFactory | [#](https://basescan.io/address/#) |
+<!-- | Ethereum | BorrowFactory | [#](https://etherscan.io/address/#) | -->
+| Arbitrum | BorrowFactory | [#](https://arbiscan.io/address/#) |
+<!-- | Optimism | BorrowFactory | [#](https://optimistic.etherscan.io/address/#) | -->
+| Polygon | BorrowFactory | [#](https://polygonscan.io/address/#) |
+<!-- | Blast | BorrowFactory | [#](https://blastscan.io/address/#) | -->
+| Base | BorrowFactory | [#](https://basescan.io/address/#) |
+<!-- | Ethereum | BoostFactory | [#](https://etherscan.io/address/#) | -->
+| Arbitrum | BoostFactory | [#](https://arbiscan.io/address/#) |
+<!-- | Optimism | BoostFactory | [#](https://optimistic.etherscan.io/address/#) | -->
+| Polygon | BoostFactory | [#](https://polygonscan.io/address/#) |
+<!-- | Blast | BoostFactory | [#](https://blastscan.io/address/#) | -->
+| Base | BoostFactory | [#](https://basescan.io/address/#) |
+<!-- | Ethereum | AaveRefinance | [#](https://etherscan.io/address/#) | -->
+| Arbitrum | AaveRefinance | [#](https://arbiscan.io/address/#) |
+<!-- | Optimism | AaveRefinance | [#](https://optimistic.etherscan.io/address/#) | -->
+| Polygon | AaveRefinance | [#](https://polygonscan.io/address/#) |
+<!-- | Blast | AaveRefinance | [#](https://blastscan.io/address/#) | -->
+| Base | AaveRefinance | [#](https://basescan.io/address/#) |
+<!-- | Ethereum | RadiantRefinance | [#](https://etherscan.io/address/#) | -->
+| Arbitrum | RadiantRefinance | [#](https://arbiscan.io/address/#) |
+<!-- | Optimism | RadiantRefinance | [#](https://optimistic.etherscan.io/address/#) | -->
+| Polygon | RadiantRefinance | [#](https://polygonscan.io/address/#) |
+<!-- | Blast | RadiantRefinance | [#](https://blastscan.io/address/#) | -->
+| Base | RadiantRefinance | [#](https://basescan.io/address/#) |
+<!-- | Ethereum | Treasury | [#](https://etherscan.io/address/#) | -->
+| Arbitrum | Treasury | [#](https://arbiscan.io/address/#) |
+<!-- | Optimism | Treasury | [#](https://optimistic.etherscan.io/address/#) | -->
+| Polygon | Treasury | [#](https://polygonscan.io/address/#) |
+<!-- | Blast | Treasury | [#](https://blastscan.io/address/#) | -->
+| Base | Treasury | [#](https://basescan.io/address/#) |
+<!-- | Ethereum | Torque (TORQ) | [#](https://etherscan.io/address/#) | -->
+| Arbitrum | Torque (TORQ) | [#](https://arbiscan.io/address/#) |
+<!-- | Optimism | Torque (TORQ) | [#](https://optimistic.etherscan.io/address/#) | -->
+| Polygon | Torque (TORQ) | [#](https://polygonscan.io/address/#) |
+<!-- | Blast | Torque (TORQ) | [#](https://blastscan.io/address/#) | -->
+| Base | Torque (TORQ) | [#](https://basescan.io/address/#) |
+
+### Version 1
+
 | Contract       | Address       |
 | -------------  | ------------- |
 | BTCBorrowUSDCFactory      | [0x0A37c0D9d2D0be52cEe2D0aF74B2E9CB209e9b9c](https://arbiscan.io/address/0x0A37c0D9d2D0be52cEe2D0aF74B2E9CB209e9b9c) |
