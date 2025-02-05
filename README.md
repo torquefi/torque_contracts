@@ -31,18 +31,15 @@ Torque Protocol is a Solidity-based, EVM-compatible smart contract system design
 | Arbitrum      | BoostFactory        | [#](https://arbiscan.io/address/#)             |
 | Polygon       | BoostFactory        | [#](https://polygonscan.io/address/#)          |
 | Base          | BoostFactory        | [#](https://basescan.io/address/#)             |
-| Arbitrum      | AaveRefinance       | [#](https://arbiscan.io/address/#)             |
-| Polygon       | AaveRefinance       | [#](https://polygonscan.io/address/#)          |
-| Base          | AaveRefinance       | [#](https://basescan.io/address/#)             |
-| Arbitrum      | RadiantRefinance    | [#](https://arbiscan.io/address/#)             |
-| Polygon       | RadiantRefinance    | [#](https://polygonscan.io/address/#)          |
-| Base          | RadiantRefinance    | [#](https://basescan.io/address/#)             |
+| Arbitrum      | Refinance           | [#](https://arbiscan.io/address/#)             |
+| Polygon       | Refinance           | [#](https://polygonscan.io/address/#)          |
+| Base          | Refinance           | [#](https://basescan.io/address/#)             |
 | Arbitrum      | Treasury            | [#](https://arbiscan.io/address/#)             |
 | Polygon       | Treasury            | [#](https://polygonscan.io/address/#)          |
 | Base          | Treasury            | [#](https://basescan.io/address/#)             |
-| Arbitrum      | Torque (TORQ)       | [#](https://arbiscan.io/address/#)             |
-| Polygon       | Torque (TORQ)       | [#](https://polygonscan.io/address/#)          |
-| Base          | Torque (TORQ)       | [#](https://basescan.io/address/#)             |
+| Arbitrum      | TORQ                | [#](https://arbiscan.io/address/#)             |
+| Polygon       | TORQ                | [#](https://polygonscan.io/address/#)          |
+| Base          | TORQ                | [#](https://basescan.io/address/#)             |
 
 ### Version 1
 
