@@ -24,21 +24,27 @@ Torque Protocol is a Solidity-based, EVM-compatible smart contract system design
 | ------------- | ------------------- | ---------------------------------------------- |
 | Arbitrum      | TorqueTrade         | [#](https://arbiscan.io/address/#)             |
 | Polygon       | TorqueTrade         | [#](https://polygonscan.io/address/#)          |
+| Sonic         | TorqueTrade         | [#](https://sonicscan.io/address/#)            |
 | Base          | TorqueTrade         | [#](https://basescan.io/address/#)             |
 | Arbitrum      | TorqueBorrow        | [#](https://arbiscan.io/address/#)             |
 | Polygon       | TorqueBorrow        | [#](https://polygonscan.io/address/#)          |
+| Sonic         | TorqueBorrow        | [#](https://sonicscan.io/address/#)            |
 | Base          | TorqueBorrow        | [#](https://basescan.io/address/#)             |
 | Arbitrum      | TorqueBoost         | [#](https://arbiscan.io/address/#)             |
 | Polygon       | TorqueBoost         | [#](https://polygonscan.io/address/#)          |
+| Sonic         | TorqueBoost         | [#](https://sonicscan.io/address/#)            |
 | Base          | TorqueBoost         | [#](https://basescan.io/address/#)             |
 | Arbitrum      | TorqueImport        | [#](https://arbiscan.io/address/#)             |
 | Polygon       | TorqueImport        | [#](https://polygonscan.io/address/#)          |
+| Sonic         | TorqueImport        | [#](https://sonicscan.io/address/#)            |
 | Base          | TorqueImport        | [#](https://basescan.io/address/#)             |
 | Arbitrum      | TorqueTreasury      | [#](https://arbiscan.io/address/#)             |
 | Polygon       | TorqueTreasury      | [#](https://polygonscan.io/address/#)          |
+| Sonic         | TorqueTreasury      | [#](https://sonicscan.io/address/#)            |
 | Base          | TorqueTreasury      | [#](https://basescan.io/address/#)             |
 | Arbitrum      | Torque (TORQ)       | [#](https://arbiscan.io/address/#)             |
 | Polygon       | Torque (TORQ)       | [#](https://polygonscan.io/address/#)          |
+| Sonic         | Torque (TORQ)       | [#](https://sonicscan.io/address/#)            |
 | Base          | Torque (TORQ)       | [#](https://basescan.io/address/#)             |
 
 ### Version 1
