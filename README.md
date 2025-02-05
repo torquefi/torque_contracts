@@ -22,24 +22,24 @@ Torque Protocol is a Solidity-based, EVM-compatible smart contract system design
 
 | Network       | Contract            | Address                                        |
 | ------------- | ------------------- | ---------------------------------------------- |
-| Arbitrum      | TradeFactory        | [#](https://arbiscan.io/address/#)             |
-| Polygon       | TradeFactory        | [#](https://polygonscan.io/address/#)          |
-| Base          | TradeFactory        | [#](https://basescan.io/address/#)             |
-| Arbitrum      | BorrowFactory       | [#](https://arbiscan.io/address/#)             |
-| Polygon       | BorrowFactory       | [#](https://polygonscan.io/address/#)          |
-| Base          | BorrowFactory       | [#](https://basescan.io/address/#)             |
-| Arbitrum      | BoostFactory        | [#](https://arbiscan.io/address/#)             |
-| Polygon       | BoostFactory        | [#](https://polygonscan.io/address/#)          |
-| Base          | BoostFactory        | [#](https://basescan.io/address/#)             |
-| Arbitrum      | Refinance           | [#](https://arbiscan.io/address/#)             |
-| Polygon       | Refinance           | [#](https://polygonscan.io/address/#)          |
-| Base          | Refinance           | [#](https://basescan.io/address/#)             |
-| Arbitrum      | Treasury            | [#](https://arbiscan.io/address/#)             |
-| Polygon       | Treasury            | [#](https://polygonscan.io/address/#)          |
-| Base          | Treasury            | [#](https://basescan.io/address/#)             |
-| Arbitrum      | TORQ                | [#](https://arbiscan.io/address/#)             |
-| Polygon       | TORQ                | [#](https://polygonscan.io/address/#)          |
-| Base          | TORQ                | [#](https://basescan.io/address/#)             |
+| Arbitrum      | TorqueTrade         | [#](https://arbiscan.io/address/#)             |
+| Polygon       | TorqueTrade         | [#](https://polygonscan.io/address/#)          |
+| Base          | TorqueTrade         | [#](https://basescan.io/address/#)             |
+| Arbitrum      | TorqueBorrow        | [#](https://arbiscan.io/address/#)             |
+| Polygon       | TorqueBorrow        | [#](https://polygonscan.io/address/#)          |
+| Base          | TorqueBorrow        | [#](https://basescan.io/address/#)             |
+| Arbitrum      | TorqueBoost         | [#](https://arbiscan.io/address/#)             |
+| Polygon       | TorqueBoost         | [#](https://polygonscan.io/address/#)          |
+| Base          | TorqueBoost         | [#](https://basescan.io/address/#)             |
+| Arbitrum      | TorqueImport        | [#](https://arbiscan.io/address/#)             |
+| Polygon       | TorqueImport        | [#](https://polygonscan.io/address/#)          |
+| Base          | TorqueImport        | [#](https://basescan.io/address/#)             |
+| Arbitrum      | TorqueTreasury      | [#](https://arbiscan.io/address/#)             |
+| Polygon       | TorqueTreasury      | [#](https://polygonscan.io/address/#)          |
+| Base          | TorqueTreasury      | [#](https://basescan.io/address/#)             |
+| Arbitrum      | Torque (TORQ)       | [#](https://arbiscan.io/address/#)             |
+| Polygon       | Torque (TORQ)       | [#](https://polygonscan.io/address/#)          |
+| Base          | Torque (TORQ)       | [#](https://basescan.io/address/#)             |
 
 ### Version 1
 
