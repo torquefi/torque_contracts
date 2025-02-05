@@ -22,27 +22,39 @@ Torque Protocol is a Solidity-based, EVM-compatible smart contract system design
 
 | Network       | Contract            | Address                                        |
 | ------------- | ------------------- | ---------------------------------------------- |
+| Ethereum      | TorqueTrade         | [#](https://etherscan.io/address/#)            |
 | Arbitrum      | TorqueTrade         | [#](https://arbiscan.io/address/#)             |
+| Optimism      | TorqueTrade         | [#](https://optimistic.etherscan.io/address/#) |
 | Polygon       | TorqueTrade         | [#](https://polygonscan.io/address/#)          |
 | Sonic         | TorqueTrade         | [#](https://sonicscan.io/address/#)            |
 | Base          | TorqueTrade         | [#](https://basescan.io/address/#)             |
+| Ethereum      | TorqueBorrow        | [#](https://etherscan.io/address/#)            |
 | Arbitrum      | TorqueBorrow        | [#](https://arbiscan.io/address/#)             |
+| Optimism      | TorqueBorrow        | [#](https://optimistic.etherscan.io/address/#) |
 | Polygon       | TorqueBorrow        | [#](https://polygonscan.io/address/#)          |
 | Sonic         | TorqueBorrow        | [#](https://sonicscan.io/address/#)            |
 | Base          | TorqueBorrow        | [#](https://basescan.io/address/#)             |
+| Ethereum      | TorqueBoost         | [#](https://etherscan.io/address/#)            |
 | Arbitrum      | TorqueBoost         | [#](https://arbiscan.io/address/#)             |
+| Optimism      | TorqueBoost         | [#](https://optimistic.etherscan.io/address/#) |
 | Polygon       | TorqueBoost         | [#](https://polygonscan.io/address/#)          |
 | Sonic         | TorqueBoost         | [#](https://sonicscan.io/address/#)            |
 | Base          | TorqueBoost         | [#](https://basescan.io/address/#)             |
+| Ethereum      | TorqueImport        | [#](https://etherscan.io/address/#)            |
 | Arbitrum      | TorqueImport        | [#](https://arbiscan.io/address/#)             |
+| Optimism      | TorqueImport        | [#](https://optimistic.etherscan.io/address/#) |
 | Polygon       | TorqueImport        | [#](https://polygonscan.io/address/#)          |
 | Sonic         | TorqueImport        | [#](https://sonicscan.io/address/#)            |
 | Base          | TorqueImport        | [#](https://basescan.io/address/#)             |
+| Ethereum      | TorqueTreasury      | [#](https://etherscan.io/address/#)            |
 | Arbitrum      | TorqueTreasury      | [#](https://arbiscan.io/address/#)             |
+| Optimism      | TorqueTreasury      | [#](https://optimistic.etherscan.io/address/#) |
 | Polygon       | TorqueTreasury      | [#](https://polygonscan.io/address/#)          |
 | Sonic         | TorqueTreasury      | [#](https://sonicscan.io/address/#)            |
 | Base          | TorqueTreasury      | [#](https://basescan.io/address/#)             |
+| Ethereum      | Torque (TORQ)       | [#](https://etherscan.io/address/#)            |
 | Arbitrum      | Torque (TORQ)       | [#](https://arbiscan.io/address/#)             |
+| Optimism      | Torque (TORQ)       | [#](https://optimistic.etherscan.io/address/#) |
 | Polygon       | Torque (TORQ)       | [#](https://polygonscan.io/address/#)          |
 | Sonic         | Torque (TORQ)       | [#](https://sonicscan.io/address/#)            |
 | Base          | Torque (TORQ)       | [#](https://basescan.io/address/#)             |
