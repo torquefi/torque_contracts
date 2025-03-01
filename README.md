@@ -27,21 +27,25 @@ Torque Protocol is a Solidity-based, EVM-compatible smart contract system design
 | Optimism      | TorqueAccounts      | [#](https://optimistic.etherscan.io/address/#) |
 | Polygon       | TorqueAccounts      | [#](https://polygonscan.com/address/#)         |
 | Sonic         | TorqueAccounts      | [#](https://sonicscan.io/address/#)            |
+| Base          | TorqueAccounts      | [#](https://basescan.org/address/#)            |
 | Ethereum      | TorqueTreasury      | [#](https://etherscan.io/address/#)            |
 | Arbitrum      | TorqueTreasury      | [#](https://arbiscan.io/address/#)             |
 | Optimism      | TorqueTreasury      | [#](https://optimistic.etherscan.io/address/#) |
 | Polygon       | TorqueTreasury      | [#](https://polygonscan.com/address/#)         |
 | Sonic         | TorqueTreasury      | [#](https://sonicscan.io/address/#)            |
+| Base          | TorqueTreasury      | [#](https://basescan.org/address/#)            |
 | Ethereum      | TorqueRewards       | [#](https://etherscan.io/address/#)            |
 | Arbitrum      | TorqueRewards       | [#](https://arbiscan.io/address/#)             |
 | Optimism      | TorqueRewards       | [#](https://optimistic.etherscan.io/address/#) |
 | Polygon       | TorqueRewards       | [#](https://polygonscan.com/address/#)         |
 | Sonic         | TorqueRewards       | [#](https://sonicscan.io/address/#)            |
+| Base          | TorqueRewards       | [#](https://basescan.org/address/#)            |
 | Ethereum      | Torque (TORQ)       | [#](https://etherscan.io/address/#)            |
 | Arbitrum      | Torque (TORQ)       | [#](https://arbiscan.io/address/#)             |
 | Optimism      | Torque (TORQ)       | [#](https://optimistic.etherscan.io/address/#) |
 | Polygon       | Torque (TORQ)       | [#](https://polygonscan.com/address/#)         |
 | Sonic         | Torque (TORQ)       | [#](https://sonicscan.io/address/#)            |
+| Base          | Torque (TORQ)       | [#](https://basescan.org/address/#)            |
 
 ### Version 1
 
